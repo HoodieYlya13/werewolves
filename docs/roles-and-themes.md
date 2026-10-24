@@ -31,7 +31,7 @@ When: `N1` first night only · `N` every night · `N½` every other night · `D`
 | Cupid / Cupidon | V | N1 | Links two Lovers. If one dies, the other dies of grief. A wolf/villager couple forms its own team and wins only if they are the last two alive. |
 | Little Girl / Petite Fille | V | N | May peek during the wolves' turn. If the wolves catch her, she dies instead of their victim. |
 | Thief / Voleur | X | N1 | Sees the 2 leftover cards and may swap for one. If both are wolves, he must take one. |
-| Sheriff / Capitaine | T | D | Elected. His vote counts double and breaks ties. When he dies, he names a successor. |
+| Sheriff / Maire (Capitaine in the box) | T | D | Elected. His vote counts double and breaks ties. When he dies, he names a successor. |
 
 ### 1.2 Nouvelle Lune (New Moon)
 

@@ -107,7 +107,7 @@ export const spaceship: Theme = {
       "la Petite Fille": "le Drone espion",
       "Petite Fille": "Drone espion",
       Voleur: "Contrebandier",
-      Capitaine: "Chef de bord",
+      Maire: "Chef de bord",
       "L'Ancien": "L'Androïde",
       "l'Ancien": "l'Androïde",
       Ancien: "Androïde",

@@ -88,7 +88,6 @@ export const mafia: Theme = {
       Cupidon: "Entremetteur",
       "Petite Fille": "Journaliste",
       Voleur: "Pickpocket",
-      Capitaine: "Maire",
       "L'Ancien": "Le Flic retraité",
       "l'Ancien": "le Flic retraité",
       Ancien: "Flic retraité",
