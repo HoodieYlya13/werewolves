@@ -9,6 +9,7 @@ import {
   EngineError,
   remainingTeams,
   replay,
+  suggestedDeck,
   type Action,
   type GameSetup,
   type RoleId,
@@ -77,6 +78,13 @@ describe("night order", () => {
     state = applyAction(state, go);
     expect(state.step.kind).toBe("game-over");
     expect(state.winner?.team).toBe("village");
+  });
+
+  it("dates night deaths to the night, then opens the day", () => {
+    const state = play(setup(["werewolf", "villager", "villager", "villager"]), [{ type: "wolves", targetId: "p1" }]);
+    expect(state.phase).toEqual({ kind: "day", number: 1 });
+    expect(state.players[1].death?.phase).toEqual({ kind: "night", number: 1 });
+    expect(state.events.at(-1)).toMatchObject({ type: "death", phase: { kind: "night", number: 1 } });
   });
 
   it("shows the seer the exact role", () => {
@@ -350,5 +358,11 @@ describe("setup", () => {
     expect(a).toEqual(b);
     expect(a.extraCards).toHaveLength(2);
     expect([...Object.values(a.roles), ...a.extraCards].sort()).toEqual([...deck].sort());
+  });
+});
+
+describe("suggested deck", () => {
+  it("is playable for every group size", () => {
+    for (let n = 3; n <= 24; n++) expect(deckProblems(n, suggestedDeck(n))).toEqual([]);
   });
 });

@@ -21,6 +21,25 @@ export function deckProblems(playerCount: number, deck: RoleId[]) {
   return problems;
 }
 
+/**
+ * A balanced starting deck: about one wolf per four players, then specials in
+ * the order new groups usually add them, then villagers.
+ */
+export function suggestedDeck(playerCount: number): RoleId[] {
+  const wolves = playerCount <= 5 ? 1 : playerCount <= 11 ? 2 : playerCount <= 17 ? 3 : 4;
+  const specials: [RoleId, number][] = [
+    ["seer", 3],
+    ["witch", 4],
+    ["hunter", 5],
+    ["cupid", 6],
+    ["little-girl", 8],
+  ];
+  const deck: RoleId[] = Array(wolves).fill("werewolf");
+  for (const [role, minPlayers] of specials) if (playerCount >= minPlayers) deck.push(role);
+  while (deck.length < playerCount) deck.push("villager");
+  return deck.slice(0, Math.max(playerCount, wolves + 1));
+}
+
 /** Shuffles the deck and deals one card per player; the rest go face down. */
 export function dealRoles(
   players: SetupPlayer[],

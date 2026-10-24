@@ -216,9 +216,10 @@ function endNight(state: GameState) {
   if (poisonedId && !victims.some((v) => v.playerId === poisonedId)) {
     victims.push({ playerId: poisonedId, cause: "poison" });
   }
+  // Deaths belong to the night they happened in; the announcement opens the day.
+  kill(state, victims, "dawn");
   state.phase = { kind: "day", number: state.phase.number };
   state.cursor = 0;
-  kill(state, victims, "dawn");
 }
 
 function endDay(state: GameState) {

@@ -2,11 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, Lock, LockOpen, Smartphone, UserPlus, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Layers, Lock, LockOpen, Smartphone, UserPlus, X } from "lucide-react";
+import { GameScreen } from "@/components/host/game-screen";
+import { SetupScreen } from "@/components/host/setup-screen";
 import { useI18n } from "@/components/i18n-provider";
 import { QrCode } from "@/components/qr-code";
 import { ConnectionBanner, FatalError } from "@/components/room-status";
 import { useRoom } from "@/hooks/use-room";
+import { MIN_PLAYERS } from "@/lib/engine";
 import { format } from "@/lib/i18n/config";
 import { MAX_NAME_LENGTH, type HostView } from "@/lib/protocol";
 import { generateRoomCode, identity } from "@/lib/room";
@@ -22,6 +25,7 @@ function HostLobby({ code }: { code: string }) {
   const router = useRouter();
   const { view, error, status, send } = useRoom<HostView>(code, "host");
   const [name, setName] = useState("");
+  const [screen, setScreen] = useState<"lobby" | "setup">("lobby");
 
   // Code collision on create: pick a new code and move there.
   useEffect(() => {
@@ -34,6 +38,29 @@ function HostLobby({ code }: { code: string }) {
   }, [error, code, locale, router]);
 
   if (error === "room-not-found" || error === "not-host") return <FatalError code={error} />;
+
+  if (view?.game) {
+    return (
+      <>
+        <ConnectionBanner status={status} />
+        <GameScreen view={view} game={view.game} error={error} send={send} />
+      </>
+    );
+  }
+
+  if (view && screen === "setup") {
+    return (
+      <>
+        <ConnectionBanner status={status} />
+        <SetupScreen players={view.players} send={send} onBack={() => setScreen("lobby")} />
+        {error && (
+          <p role="alert" className="mx-auto mb-6 text-sm text-accent">
+            {dict.errors[error]}
+          </p>
+        )}
+      </>
+    );
+  }
 
   const joinUrl = `${window.location.origin}/play/${code}`;
   const players = view?.players ?? [];
@@ -147,6 +174,19 @@ function HostLobby({ code }: { code: string }) {
             </p>
           )}
         </form>
+
+        <button
+          type="button"
+          className="btn h-12 text-base"
+          disabled={!view || players.length < MIN_PLAYERS}
+          onClick={() => setScreen("setup")}
+        >
+          <Layers aria-hidden className="size-5" />
+          {dict.setup.start}
+        </button>
+        {players.length < MIN_PLAYERS && (
+          <p className="-mt-2 text-center text-sm text-muted">{format(dict.setup.needPlayers, { min: MIN_PLAYERS })}</p>
+        )}
       </section>
     </main>
   );
