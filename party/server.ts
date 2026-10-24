@@ -1,12 +1,23 @@
 import type * as Party from "partykit/server";
 import {
+  applyAction,
+  assignRoles,
+  dealRoles,
+  EngineError,
+  playerInfo,
+  replay,
+  type Action,
+  type GameSetup,
+  type GameState,
+} from "../lib/engine";
+import {
   MAX_NAME_LENGTH,
   type ClientMessage,
   type ErrorCode,
   type PublicPlayer,
-  type RoomPhase,
   type RoomView,
   type ServerMessage,
+  type StartGame,
 } from "../lib/protocol";
 
 /** Rooms with nobody connected are wiped after this, freeing the code. */
@@ -15,13 +26,16 @@ const STORAGE_KEY = "room";
 
 type StoredPlayer = PublicPlayer & { token: string | null };
 
-/** Everything the room persists. Secrets (tokens) never leave the server. */
+/**
+ * Everything the room persists. Secrets (tokens) never leave the server.
+ * The game is stored as setup + action log; its state is rebuilt by replaying.
+ */
 type RoomState = {
   code: string;
   hostToken: string;
-  phase: RoomPhase;
   locked: boolean;
   players: StoredPlayer[];
+  game: { setup: GameSetup; log: Action[] } | null;
 };
 
 /** Who a socket belongs to. Kept on the connection so it survives restarts. */
@@ -31,11 +45,14 @@ type Conn = Party.Connection<ConnState>;
 
 export default class RoomServer implements Party.Server {
   private state: RoomState | null = null;
+  /** Cached result of replaying the game log. */
+  private game: GameState | null = null;
 
   constructor(readonly room: Party.Room) {}
 
   async onStart() {
     this.state = (await this.room.storage.get<RoomState>(STORAGE_KEY)) ?? null;
+    if (this.state?.game) this.game = replay(this.state.game.setup, this.state.game.log);
   }
 
   async onConnect(conn: Conn, ctx: Party.ConnectionContext) {
@@ -50,9 +67,9 @@ export default class RoomServer implements Party.Server {
         this.state = {
           code: this.room.id,
           hostToken: token,
-          phase: "lobby",
           locked: false,
           players: [],
+          game: null,
         };
         await this.persist();
       } else if (this.state.hostToken !== token) {
@@ -102,6 +119,10 @@ export default class RoomServer implements Party.Server {
     }
 
     const isHost = sender.state?.kind === "host";
+    const lobbyOnly = ["add-player", "remove-player", "move-player", "start-game"];
+    if (lobbyOnly.includes(msg.type) && this.state.game) {
+      return this.send(sender, { type: "error", code: "game-in-progress" });
+    }
 
     switch (msg.type) {
       case "join": {
@@ -150,6 +171,42 @@ export default class RoomServer implements Party.Server {
         this.state.locked = msg.locked;
         break;
       }
+      case "start-game": {
+        if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
+        try {
+          const setup = this.buildSetup(msg);
+          this.game = replay(setup, []);
+          this.state.game = { setup, log: [] };
+          this.state.locked = true;
+        } catch (e) {
+          return this.sendEngineError(sender, e, "invalid-setup");
+        }
+        break;
+      }
+      case "game-action": {
+        if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
+        if (!this.state.game || !this.game) return;
+        try {
+          this.game = applyAction(this.game, msg.action);
+          this.state.game.log.push(msg.action);
+        } catch (e) {
+          return this.sendEngineError(sender, e, "invalid-action");
+        }
+        break;
+      }
+      case "undo": {
+        if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
+        if (!this.state.game || this.state.game.log.length === 0) return;
+        this.state.game.log.pop();
+        this.game = replay(this.state.game.setup, this.state.game.log);
+        break;
+      }
+      case "end-game": {
+        if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
+        this.state.game = null;
+        this.game = null;
+        break;
+      }
       default:
         return;
     }
@@ -169,6 +226,18 @@ export default class RoomServer implements Party.Server {
   }
 
   // --- helpers ---
+
+  private buildSetup(start: StartGame): GameSetup {
+    const players = this.state!.players.map(({ id, name, seat }) => ({ id, name, seat }));
+    return start.mode === "random"
+      ? dealRoles(players, start.deck, start.settings, secureRandom)
+      : assignRoles(players, start.assignment, start.extraCards, start.settings);
+  }
+
+  private sendEngineError(conn: Conn, error: unknown, code: ErrorCode) {
+    if (!(error instanceof EngineError)) throw error;
+    this.send(conn, { type: "error", code, detail: error.message });
+  }
 
   private addPlayer(name: string, manual: boolean) {
     const player: StoredPlayer = {
@@ -206,11 +275,15 @@ export default class RoomServer implements Party.Server {
     const players = s.players
       .map(({ id, name, seat, connected, manual }): PublicPlayer => ({ id, name, seat, connected, manual }))
       .sort((a, b) => a.seat - b.seat);
-    const base = { code: s.code, phase: s.phase, locked: s.locked, players };
-    if (conn.state?.kind === "host") return { ...base, kind: "host" };
+    const phase = !this.game ? "lobby" : this.game.winner ? "ended" : "playing";
+    const base = { code: s.code, phase, locked: s.locked, players } as const;
+    if (conn.state?.kind === "host") {
+      return { ...base, kind: "host", game: this.game, actionCount: s.game?.log.length ?? 0 };
+    }
     const state = conn.state;
     const me = state?.kind === "player" ? players.find((p) => p.id === state.playerId) : undefined;
-    return { ...base, kind: "player", me: me ?? null };
+    const info = me && this.game ? playerInfo(this.game, me.id) : null;
+    return { ...base, kind: "player", me: me ?? null, info };
   }
 
   /** Every socket gets its own filtered view, so secrets never reach the wrong phone. */
@@ -233,4 +306,9 @@ export default class RoomServer implements Party.Server {
     await this.room.storage.put(STORAGE_KEY, this.state);
     await this.room.storage.setAlarm(Date.now() + ROOM_TTL_MS);
   }
+}
+
+/** Card dealing uses the platform's secure random source. */
+function secureRandom() {
+  return crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32;
 }

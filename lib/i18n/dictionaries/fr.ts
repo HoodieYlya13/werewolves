@@ -54,6 +54,9 @@ const fr: Dictionary = {
     "invalid-name": "Entrez un nom de 1 à 24 caractères.",
     "not-host": "Seul le meneur peut faire ça.",
     removed: "Le meneur vous a retiré de cette partie.",
+    "game-in-progress": "Une partie est en cours. Terminez-la d'abord.",
+    "invalid-setup": "Ces cartes ne permettent pas de jouer.",
+    "invalid-action": "Cette action n'est pas possible maintenant.",
     backHome: "Retour à l'accueil",
   },
   settings: {

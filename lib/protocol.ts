@@ -1,9 +1,11 @@
+import type { Action, GameState, PlayerInfo, RoleId, Settings } from "./engine";
+
 /**
  * Messages between the Next.js app and the PartyKit room server.
  * Shared by `party/server.ts` and the client so both sides stay in sync.
  */
 
-export type RoomPhase = "lobby" | "setup" | "playing" | "ended";
+export type RoomPhase = "lobby" | "playing" | "ended";
 
 /** What everyone in the room may see about a player. */
 export type PublicPlayer = {
@@ -23,11 +25,19 @@ type BaseView = {
   players: PublicPlayer[];
 };
 
-/** The game master sees everything. Game state (roles, log…) gets added here. */
-export type HostView = BaseView & { kind: "host" };
+/** The game master sees everything, including every role and the full game state. */
+export type HostView = BaseView & {
+  kind: "host";
+  game: GameState | null;
+  /** Number of actions in the log; undo is possible when > 0. */
+  actionCount: number;
+};
 
-/** A phone only sees public info plus its own private data (its role, later). `me` is null until it joins. */
-export type PlayerView = BaseView & { kind: "player"; me: PublicPlayer | null };
+/**
+ * A phone only sees public info plus its own private data. `me` is null until
+ * it joins; `info` (its role, lover…) is null until a game starts.
+ */
+export type PlayerView = BaseView & { kind: "player"; me: PublicPlayer | null; info: PlayerInfo | null };
 
 export type RoomView = HostView | PlayerView;
 
@@ -38,12 +48,20 @@ export type ErrorCode =
   | "name-taken"
   | "invalid-name"
   | "not-host"
-  | "removed";
+  | "removed"
+  | "game-in-progress"
+  | "invalid-setup"
+  | "invalid-action";
 
 export type ServerMessage =
   | { type: "view"; view: RoomView }
   | { type: "joined"; playerId: string; token: string }
-  | { type: "error"; code: ErrorCode };
+  /** `detail` carries the engine's explanation for invalid setups and actions. */
+  | { type: "error"; code: ErrorCode; detail?: string };
+
+export type StartGame =
+  | { mode: "random"; deck: RoleId[]; settings: Settings }
+  | { mode: "manual"; assignment: Record<string, RoleId>; extraCards: RoleId[]; settings: Settings };
 
 export type ClientMessage =
   // Phone
@@ -52,7 +70,12 @@ export type ClientMessage =
   | { type: "add-player"; name: string }
   | { type: "remove-player"; playerId: string }
   | { type: "move-player"; playerId: string; seat: number }
-  | { type: "set-locked"; locked: boolean };
+  | { type: "set-locked"; locked: boolean }
+  | ({ type: "start-game" } & StartGame)
+  | { type: "game-action"; action: Action }
+  | { type: "undo" }
+  /** Back to the lobby with the same players. */
+  | { type: "end-game" };
 
 /** Query params sent when opening the socket. */
 export type ConnectQuery =

@@ -52,6 +52,9 @@ const en = {
     "invalid-name": "Enter a name between 1 and 24 characters.",
     "not-host": "Only the game master can do that.",
     removed: "The game master removed you from this room.",
+    "game-in-progress": "A game is in progress. End it first.",
+    "invalid-setup": "These cards don't make a playable game.",
+    "invalid-action": "That move isn't allowed right now.",
     backHome: "Back to home",
   },
   settings: {
