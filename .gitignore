@@ -40,6 +40,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# partykit
-.partykit
+# cloudflare (room server)
+.wrangler
+party/worker-configuration.d.ts
 !.env.example

@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // The room server: one Durable Object per room code, served at /parties/main/:room.
+  "name": "werewolves",
+  "main": "party/server.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    // Binding "Main" maps to the default "main" party that partysocket connects to.
+    "bindings": [{ "name": "Main", "class_name": "RoomServer" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RoomServer"] }],
+  "env": {
+    // npx wrangler deploy --env staging  →  werewolves-staging.<subdomain>.workers.dev
+    "staging": {
+      "name": "werewolves-staging",
+      "durable_objects": {
+        "bindings": [{ "name": "Main", "class_name": "RoomServer" }]
+      }
+    }
+  }
+}

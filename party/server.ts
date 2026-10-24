@@ -1,4 +1,4 @@
-import type * as Party from "partykit/server";
+import { routePartykitRequest, Server, type Connection, type ConnectionContext } from "partyserver";
 import {
   applyAction,
   assignRoles,
@@ -44,21 +44,25 @@ type RoomState = {
 /** Who a socket belongs to. Kept on the connection so it survives restarts. */
 type ConnState = { kind: "host" } | { kind: "player"; playerId: string } | { kind: "guest" };
 
-type Conn = Party.Connection<ConnState>;
+type Conn = Connection<ConnState>;
 
-export default class RoomServer implements Party.Server {
+/**
+ * One Durable Object per room code. It hibernates between messages, so all
+ * state lives in storage and `onStart` reloads it on every wake-up.
+ */
+export class RoomServer extends Server<Env> {
+  static options = { hibernate: true };
+
   private state: RoomState | null = null;
   /** Cached result of replaying the game log. */
   private game: GameState | null = null;
 
-  constructor(readonly room: Party.Room) {}
-
   async onStart() {
-    this.state = (await this.room.storage.get<RoomState>(STORAGE_KEY)) ?? null;
+    this.state = (await this.ctx.storage.get<RoomState>(STORAGE_KEY)) ?? null;
     if (this.state?.game) this.game = replay(this.state.game.setup, this.state.game.log);
   }
 
-  async onConnect(conn: Conn, ctx: Party.ConnectionContext) {
+  async onConnect(conn: Conn, ctx: ConnectionContext) {
     const params = new URL(ctx.request.url).searchParams;
     const as = params.get("as");
     const token = params.get("token");
@@ -68,7 +72,7 @@ export default class RoomServer implements Party.Server {
       if (!this.state) {
         if (params.get("create") !== "1") return this.reject(conn, "room-not-found");
         this.state = {
-          code: this.room.id,
+          code: this.name,
           hostToken: token,
           locked: false,
           players: [],
@@ -90,7 +94,7 @@ export default class RoomServer implements Party.Server {
       conn.setState({ kind: "player", playerId: player.id });
       player.connected = true;
       await this.persist();
-      return this.broadcast();
+      return this.broadcastViews();
     }
 
     conn.setState({ kind: "guest" });
@@ -101,18 +105,18 @@ export default class RoomServer implements Party.Server {
     // Players stay in the game when their phone disconnects; they're just shown offline.
     if (!this.state || conn.state?.kind !== "player") return;
     const { playerId } = conn.state;
-    const stillOnline = [...this.room.getConnections<ConnState>()].some(
+    const stillOnline = [...this.getConnections<ConnState>()].some(
       (c) => c.id !== conn.id && c.state?.kind === "player" && c.state.playerId === playerId,
     );
     const player = this.state.players.find((p) => p.id === playerId);
     if (player && !stillOnline) {
       player.connected = false;
       await this.persist();
-      this.broadcast();
+      this.broadcastViews();
     }
   }
 
-  async onMessage(raw: string | ArrayBuffer, sender: Conn) {
+  async onMessage(sender: Conn, raw: string | ArrayBuffer) {
     if (typeof raw !== "string" || !this.state) return;
     let msg: ClientMessage;
     try {
@@ -152,7 +156,7 @@ export default class RoomServer implements Party.Server {
         this.state.endedGame = null;
         this.state.players = this.state.players.filter((p) => p.id !== msg.playerId);
         this.reseat();
-        for (const c of this.room.getConnections<ConnState>()) {
+        for (const c of this.getConnections<ConnState>()) {
           if (c.state?.kind === "player" && c.state.playerId === msg.playerId) {
             this.send(c, { type: "error", code: "removed" });
             c.setState({ kind: "guest" });
@@ -229,16 +233,16 @@ export default class RoomServer implements Party.Server {
     }
 
     await this.persist();
-    this.broadcast();
+    this.broadcastViews();
   }
 
   async onAlarm() {
-    const anyoneHere = [...this.room.getConnections()].length > 0;
+    const anyoneHere = [...this.getConnections()].length > 0;
     if (anyoneHere) {
-      await this.room.storage.setAlarm(Date.now() + ROOM_TTL_MS);
+      await this.ctx.storage.setAlarm(Date.now() + ROOM_TTL_MS);
       return;
     }
-    await this.room.storage.deleteAll();
+    await this.ctx.storage.deleteAll();
     this.state = null;
   }
 
@@ -311,8 +315,8 @@ export default class RoomServer implements Party.Server {
   }
 
   /** Every socket gets its own filtered view, so secrets never reach the wrong phone. */
-  private broadcast() {
-    for (const conn of this.room.getConnections<ConnState>()) {
+  private broadcastViews() {
+    for (const conn of this.getConnections<ConnState>()) {
       this.send(conn, { type: "view", view: this.viewFor(conn) });
     }
   }
@@ -327,10 +331,17 @@ export default class RoomServer implements Party.Server {
   }
 
   private async persist() {
-    await this.room.storage.put(STORAGE_KEY, this.state);
-    await this.room.storage.setAlarm(Date.now() + ROOM_TTL_MS);
+    await this.ctx.storage.put(STORAGE_KEY, this.state);
+    await this.ctx.storage.setAlarm(Date.now() + ROOM_TTL_MS);
   }
 }
+
+/** Routes /parties/main/:room to that room's RoomServer. */
+export default {
+  async fetch(request: Request, env: Env) {
+    return (await routePartykitRequest(request, env)) ?? new Response("Not found", { status: 404 });
+  },
+} satisfies ExportedHandler<Env>;
 
 /** Card dealing uses the platform's secure random source. */
 function secureRandom() {

@@ -1,0 +1,16 @@
+{
+  // The room server runs on Cloudflare Workers, not in the browser or Node.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "lib": ["ES2023"],
+    "types": [],
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "isolatedModules": true
+  },
+  "include": ["*.ts", "../lib/engine/**/*.ts", "../lib/protocol.ts"],
+  "exclude": ["../lib/engine/**/*.test.ts"]
+}
