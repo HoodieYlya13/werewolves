@@ -72,7 +72,7 @@ export const defaultSettings: Settings = {
   witchCanSelfHeal: true,
   wolvesWinAtParity: false,
   piperCharms: 2,
-  angelRule: "opening-vote",
+  angelRule: "first-vote",
   theme: "werewolves",
 };
 

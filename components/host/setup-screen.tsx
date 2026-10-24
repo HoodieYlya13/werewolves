@@ -275,7 +275,7 @@ export function SetupScreen({
           {deck.includes("angel") && (
             <section className="card flex flex-col gap-3 p-5">
               <h2 className="font-semibold">{dict.setup.angelRule}</h2>
-              {(["opening-vote", "first-vote"] as const).map((rule) => (
+              {(["first-vote", "opening-vote"] as const).map((rule) => (
                 <label key={rule} className="flex cursor-pointer items-start gap-3">
                   <input
                     type="radio"
