@@ -35,6 +35,14 @@ npm run party:deploy
 
 Then set `NEXT_PUBLIC_PARTYKIT_HOST` to the printed `*.workers.dev` host (see `.env.example`).
 
+After that, Vercel keeps the server in step with the site: `npm run build` runs `scripts/deploy-server.mjs` first, which deploys the production server on production builds and the staging server (`npm run party:deploy:staging`) on preview builds. A local `npm run build` skips it. For this to work, add to the Vercel project:
+
+- `CLOUDFLARE_API_TOKEN`: an API token made from the "Edit Cloudflare Workers" template
+- `CLOUDFLARE_ACCOUNT_ID`: from `npx wrangler whoami`
+- `NEXT_PUBLIC_PARTYKIT_HOST`: the production host for Production, the staging host for Preview
+
+Every server deploy restarts the rooms: connected players reconnect on their own after a moment and keep their game.
+
 ## How rooms work
 
 - The game master's browser creates a 4-letter room code and a secret token, saved in `localStorage`.
@@ -47,7 +55,7 @@ Then set `NEXT_PUBLIC_PARTYKIT_HOST` to the printed `*.workers.dev` host (see `.
 | Script | What it does |
 |---|---|
 | `npm run dev` | Next.js + room server (`wrangler dev`) |
-| `npm run build` | Production build |
+| `npm run build` | Deploy the server (on Vercel only), then build the site |
 | `npm run lint` / `npm run typecheck` | ESLint / TypeScript |
 | `npm run party:deploy` | Deploy the room server to Cloudflare (`werewolves.<subdomain>.workers.dev`) |
 | `npm run party:deploy:staging` | Deploy a separate staging room server (`werewolves-staging…`) |
