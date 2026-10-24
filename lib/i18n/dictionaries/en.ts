@@ -95,7 +95,7 @@ const en = {
     angel: {
       name: "Angel",
       power:
-        "The game opens with a vote. Wins alone if eliminated in that first vote or the first night. Otherwise becomes a villager.",
+        "Wins alone if eliminated at the very start of the game, but never by dying of love. Otherwise becomes a villager.",
     },
     knight: { name: "Knight with the Rusty Sword", power: "If the wolves eat the Knight, the first wolf to the Knight's left dies of rust the next night." },
     "wolf-hound": { name: "Wolf-Hound", power: "On the first night, chooses to be a villager or a werewolf." },
@@ -143,6 +143,17 @@ const en = {
     wolvesWinAtParityHint: "House rule: wolves win once they're as many as the others.",
     piperCharms: "Players charmed per night",
     piperOfficial: "2 (official)",
+    angelRule: "Angel rule",
+    angelRules: {
+      "opening-vote": {
+        label: "Opening vote (Best Of rulebook)",
+        hint: "The game opens with a vote. The Angel wins if voted out then, or killed by the wolves or poison on night 1.",
+      },
+      "first-vote": {
+        label: "First vote after night 1",
+        hint: "No opening vote. The Angel wins only if voted out at the day 1 vote.",
+      },
+    },
     piperChoice: "Game master decides",
     actorCards: "Actor's powers",
     actorCardsHint: "Pick the 3 powers placed face up.",

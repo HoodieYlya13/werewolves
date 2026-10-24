@@ -80,8 +80,8 @@ export function createGame(setup: GameSetup): GameState {
       return { ...p, role, alive: true, death: null, uses: { ...roles[role].uses }, flags: {}, memo: {} };
     });
 
-  // With the Angel in play, the game opens with a vote before night 1.
-  const angel = players.some((p) => p.role === "angel");
+  // With the Angel in play, the game may open with a vote before night 1.
+  const angel = players.some((p) => p.role === "angel") && setup.settings.angelRule !== "first-vote";
 
   const state: GameState = {
     setup,

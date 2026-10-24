@@ -97,7 +97,7 @@ const fr: Dictionary = {
     angel: {
       name: "Ange",
       power:
-        "La partie commence par un vote. Gagne seul s'il est éliminé lors de ce premier vote ou de la première nuit. Sinon, devient simple villageois.",
+        "Gagne seul s'il est éliminé tout au début de la partie, mais jamais en mourant d'amour. Sinon, devient simple villageois.",
     },
     knight: { name: "Chevalier à l'Épée Rouillée", power: "Si les loups le dévorent, le premier loup à sa gauche meurt du tétanos la nuit suivante." },
     "wolf-hound": { name: "Chien-Loup", power: "La première nuit, choisit d'être villageois ou loup-garou." },
@@ -145,6 +145,17 @@ const fr: Dictionary = {
     wolvesWinAtParityHint: "Variante : les loups gagnent dès qu'ils sont aussi nombreux que les autres.",
     piperCharms: "Joueurs charmés par nuit",
     piperOfficial: "2 (officiel)",
+    angelRule: "Règle de l'Ange",
+    angelRules: {
+      "opening-vote": {
+        label: "Vote d'ouverture (livret Best Of)",
+        hint: "La partie commence par un vote. L'Ange gagne s'il est éliminé à ce vote, ou tué par les loups ou le poison la première nuit.",
+      },
+      "first-vote": {
+        label: "Premier vote après la nuit 1",
+        hint: "Pas de vote d'ouverture. L'Ange gagne seulement s'il est éliminé au vote du jour 1.",
+      },
+    },
     piperChoice: "Au choix du meneur",
     actorCards: "Pouvoirs du Comédien",
     actorCardsHint: "Choisissez les 3 pouvoirs posés face visible.",

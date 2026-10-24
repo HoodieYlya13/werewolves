@@ -55,6 +55,13 @@ export type Settings = {
    * "choice" lets the game master decide 1 or 2 each night (house rule).
    */
   piperCharms: 1 | 2 | "choice";
+  /**
+   * How the Angel wins. "opening-vote" (Best Of rulebook): the game opens with
+   * a vote before night 1, and the Angel wins if eliminated by that vote, the
+   * wolves or the Witch's poison during this first turn. "first-vote": no
+   * opening vote; the Angel wins only if voted out at the day 1 vote.
+   */
+  angelRule: "opening-vote" | "first-vote";
   /** Names and narration only (see lib/themes); the rules never read it. */
   theme: string;
 };
@@ -65,6 +72,7 @@ export const defaultSettings: Settings = {
   witchCanSelfHeal: true,
   wolvesWinAtParity: false,
   piperCharms: 2,
+  angelRule: "opening-vote",
   theme: "werewolves",
 };
 

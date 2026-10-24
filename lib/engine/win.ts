@@ -3,6 +3,20 @@ import type { DeathCause, GameState, Player, Team, Winner } from "./types";
 
 const ANGEL_WIN_CAUSES: DeathCause[] = ["vote", "wolves", "poison"];
 
+/**
+ * Whether the Angel's early death wins them the game. Dying of love or from
+ * the Hunter's shot never counts.
+ */
+function angelWins(state: GameState, angel: Player) {
+  const death = angel.death;
+  if (!death) return false;
+  if (state.setup.settings.angelRule === "first-vote") {
+    return death.cause === "vote" && death.phase.kind === "day" && death.phase.number === 1;
+  }
+  const firstTurn = death.phase.number === 0 || (death.phase.kind === "night" && death.phase.number === 1);
+  return firstTurn && ANGEL_WIN_CAUSES.includes(death.cause);
+}
+
 function isMixedCouple(state: GameState) {
   if (!state.lovers) return false;
   const [a, b] = state.lovers.map((id) => state.players.find((p) => p.id === id)!);
@@ -24,15 +38,7 @@ export function getWinner(state: GameState): Winner | null {
   const living = alive(state);
   if (living.length === 0) return { team: null, playerIds: [] };
 
-  // The Angel wins alone if eliminated during the first turn (the opening vote
-  // or night 1) by the vote, the wolves or the Witch's poison.
-  const angel = state.players.find(
-    (p) =>
-      p.role === "angel" &&
-      p.death &&
-      ANGEL_WIN_CAUSES.includes(p.death.cause) &&
-      (p.death.phase.number === 0 || (p.death.phase.kind === "night" && p.death.phase.number === 1)),
-  );
+  const angel = state.players.find((p) => p.role === "angel" && angelWins(state, p));
   if (angel) return { team: "angel", playerIds: [angel.id] };
 
   const piper = living.find((p) => p.role === "pied-piper");

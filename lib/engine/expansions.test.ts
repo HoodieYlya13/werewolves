@@ -146,6 +146,26 @@ describe("Personnages", () => {
     expect(play(s, [vote("p2"), go, wolves("p0"), go]).winner).toEqual({ team: "angel", playerIds: ["p0"] });
   });
 
+  it("Angel never wins by dying of love", () => {
+    const s = setup(["angel", "cupid", "werewolf", "villager", "villager"]);
+    // Opening vote takes out nobody; Cupid links the Angel to p3, the wolves eat p3.
+    const state = play(s, [vote(null), { type: "cupid", lovers: ["p0", "p3"] }, go, wolves("p3"), go]);
+    expect(state.players[0].death?.cause).toBe("grief");
+    expect(state.winner).toBeNull();
+  });
+
+  it("with the first-vote rule, there's no opening vote and only the day 1 vote counts", () => {
+    const s = setup(["angel", "werewolf", "villager", "villager", "villager"], { settings: { angelRule: "first-vote" } });
+    const start = createGame(s);
+    expect(start.phase).toEqual({ kind: "night", number: 1 });
+    // Eaten on night 1: no win.
+    expect(play(s, [wolves("p0"), go]).winner).toBeNull();
+    // Voted out on day 1: wins.
+    expect(play(s, [wolves("p2"), go, vote("p0"), go]).winner).toEqual({ team: "angel", playerIds: ["p0"] });
+    // Voted out on day 2: too late.
+    expect(play(s, [wolves("p2"), go, vote(null), wolves("p3"), go, vote("p0"), go]).winner).toBeNull();
+  });
+
   it("Angel becomes a plain villager after the first turn", () => {
     const s = setup(["angel", "werewolf", "villager", "villager", "villager"]);
     const state = play(s, [vote(null), wolves("p2"), go, vote(null), wolves("p0"), go]);

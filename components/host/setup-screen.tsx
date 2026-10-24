@@ -272,6 +272,27 @@ export function SetupScreen({
             </section>
           )}
 
+          {deck.includes("angel") && (
+            <section className="card flex flex-col gap-3 p-5">
+              <h2 className="font-semibold">{dict.setup.angelRule}</h2>
+              {(["opening-vote", "first-vote"] as const).map((rule) => (
+                <label key={rule} className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="radio"
+                    name="angel-rule"
+                    className="mt-1 size-4 accent-[var(--accent)]"
+                    checked={settings.angelRule === rule}
+                    onChange={() => setSettings((s) => ({ ...s, angelRule: rule }))}
+                  />
+                  <span>
+                    <span className="block">{dict.setup.angelRules[rule].label}</span>
+                    <span className="block text-sm text-muted">{dict.setup.angelRules[rule].hint}</span>
+                  </span>
+                </label>
+              ))}
+            </section>
+          )}
+
           {needs.actorCards && (
             <section className="card flex flex-col gap-3 p-5">
               <div>
