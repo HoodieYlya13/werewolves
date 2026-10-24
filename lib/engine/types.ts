@@ -240,6 +240,8 @@ export type GameState = {
   pending: Step[];
   /** The step the game master sees now. */
   step: Step;
+  /** 0 for the first step of the current night or day, then 1, 2… */
+  phaseStep: number;
   extraCards: RoleId[];
   actorCards: RoleId[];
   lovers: [string, string] | null;

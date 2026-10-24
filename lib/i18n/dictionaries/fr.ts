@@ -185,6 +185,7 @@ const fr: Dictionary = {
     night: "Nuit {n}",
     day: "Jour {n}",
     nightHint: "Tout le monde dort",
+    nightFalls: "La nuit tombe. Tout le monde ferme les yeux : le village s'endort.",
     nightShort: "N",
     dayShort: "J",
     dayHint: "Tout le monde est réveillé",

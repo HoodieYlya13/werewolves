@@ -20,6 +20,18 @@ type Props<K extends Step["kind"]> = {
  * by action count, so any local selection resets on each new step.
  */
 export function StepPanel({ game, act }: { game: GameState; act: (action: Action) => void }) {
+  const { dict } = useI18n();
+  // Every night opens with the whole village closing their eyes.
+  const nightFalls = game.phase.kind === "night" && game.phaseStep === 0;
+  return (
+    <>
+      {nightFalls && <Say>{dict.game.nightFalls}</Say>}
+      <StepContent game={game} act={act} />
+    </>
+  );
+}
+
+function StepContent({ game, act }: { game: GameState; act: (action: Action) => void }) {
   const step = game.step;
   switch (step.kind) {
     case "actor":

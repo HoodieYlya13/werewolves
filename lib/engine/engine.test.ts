@@ -89,6 +89,15 @@ describe("night order", () => {
     expect(state.events.at(-1)).toMatchObject({ type: "death", phase: { kind: "night", number: 1 } });
   });
 
+  it("numbers the steps of each phase from 0", () => {
+    const s = setup(["seer", "werewolf", "villager", "villager", "villager"]);
+    expect(createGame(s).phaseStep).toBe(0);
+    expect(play(s, [{ type: "seer", targetId: "p1" }]).phaseStep).toBe(1);
+    const night2 = play(s, [{ type: "seer", targetId: "p1" }, go, { type: "wolves", targetId: "p2" }, go, { type: "vote", targetId: null }]);
+    expect(night2.phase).toEqual({ kind: "night", number: 2 });
+    expect(night2.phaseStep).toBe(0);
+  });
+
   it("shows the seer the exact role", () => {
     const state = play(setup(["seer", "werewolf", "villager"]), [{ type: "seer", targetId: "p1" }]);
     expect(state.step).toEqual({ kind: "seer-result", playerId: "p0", targetId: "p1", role: "werewolf" });

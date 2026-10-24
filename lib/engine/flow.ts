@@ -90,6 +90,7 @@ export function createGame(setup: GameSetup): GameState {
     cursor: 0,
     pending: [],
     step: { kind: "sheriff-election" }, // replaced by advance()
+    phaseStep: -1,
     extraCards: [...setup.extraCards],
     actorCards: [...(setup.actorCards ?? [])],
     lovers: null,
@@ -401,6 +402,7 @@ function advance(state: GameState) {
     const next = state.pending.shift();
     if (next) {
       state.step = next;
+      state.phaseStep += 1;
       return;
     }
 
@@ -423,6 +425,7 @@ function advance(state: GameState) {
       const step = entry.build(state);
       if (step) {
         state.step = step;
+        state.phaseStep += 1;
         return;
       }
     }
@@ -470,12 +473,14 @@ function endNight(state: GameState) {
   kill(state, victims, "dawn");
   state.phase = { kind: "day", number: state.phase.number };
   state.cursor = 0;
+  state.phaseStep = -1;
 }
 
 function endDay(state: GameState) {
   if (state.votersOnly && state.votersOnly.day <= state.phase.number) state.votersOnly = null;
   state.phase = { kind: "night", number: state.phase.number + 1 };
   state.cursor = 0;
+  state.phaseStep = -1;
   state.night = emptyNight();
   state.ravenTargetId = null;
   state.votedToday = false;

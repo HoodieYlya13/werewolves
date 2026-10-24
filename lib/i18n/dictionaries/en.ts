@@ -183,6 +183,7 @@ const en = {
     night: "Night {n}",
     day: "Day {n}",
     nightHint: "Everyone sleeps",
+    nightFalls: "Night falls. Everyone closes their eyes: the village goes to sleep.",
     nightShort: "N",
     dayShort: "D",
     dayHint: "Everyone is awake",
