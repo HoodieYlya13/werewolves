@@ -6,6 +6,7 @@ import { Crown, Moon, Skull, Sun } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { RoleName } from "@/components/host/role-chip";
 import { RoleCard } from "@/components/play/role-card";
+import { ThemedI18n } from "@/components/themed-i18n";
 import { ConnectionBanner, FatalError } from "@/components/room-status";
 import { useRoom } from "@/hooks/use-room";
 import { format } from "@/lib/i18n/config";
@@ -73,7 +74,11 @@ function PlayerScreen({ code }: { code: string }) {
         </section>
       )}
 
-      {me && view?.info && view.game && <InGame view={view} />}
+      {me && view?.info && view.game && (
+        <ThemedI18n theme={view.game.theme}>
+          <InGame view={view} />
+        </ThemedI18n>
+      )}
 
       {view && !view.game && view.players.length > 0 && (
         <section>

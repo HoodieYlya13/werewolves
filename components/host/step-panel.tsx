@@ -656,11 +656,12 @@ function PiperStep({ game, step, act }: Props<"piper">) {
   const t = dict.game.steps.piper;
   return (
     <>
-      <Say>{format(t.say, { count: step.count })}</Say>
+      <Say>{format(t.say, { count: step.min === step.count ? step.count : `${step.min}–${step.count}` })}</Say>
       <Do>{format(t.do, { name: nameOf(game, step.playerId) })}</Do>
       <PickPlayers
         game={game}
         count={step.count}
+        min={step.min}
         isDisabled={(p) => p.id === step.playerId || !!p.flags.charmed}
         onConfirm={(ids) => act(pickAction(ids))}
       />

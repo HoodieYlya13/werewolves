@@ -50,8 +50,13 @@ export type Settings = {
   witchCanSelfHeal: boolean;
   /** Wolves win as soon as they match the others in number (common house rule). */
   wolvesWinAtParity: boolean;
-  /** Players the Pied Piper charms each night. */
-  piperCharms: 1 | 2;
+  /**
+   * Players the Pied Piper charms each night. The official rule is 2;
+   * "choice" lets the game master decide 1 or 2 each night (house rule).
+   */
+  piperCharms: 1 | 2 | "choice";
+  /** Names and narration only (see lib/themes); the rules never read it. */
+  theme: string;
 };
 
 export const defaultSettings: Settings = {
@@ -60,6 +65,7 @@ export const defaultSettings: Settings = {
   witchCanSelfHeal: true,
   wolvesWinAtParity: false,
   piperCharms: 2,
+  theme: "werewolves",
 };
 
 export type SetupPlayer = { id: string; name: string; seat: number };
@@ -134,7 +140,8 @@ export type Step =
   | { kind: "big-bad-wolf"; playerId: string; wolvesTargetId: string | null }
   | { kind: "white-werewolf"; playerId: string }
   | { kind: "witch"; playerId: string; victimId: string | null; canHeal: boolean; canPoison: boolean }
-  | { kind: "piper"; playerId: string; count: number }
+  /** Charm between `min` and `count` players. */
+  | { kind: "piper"; playerId: string; count: number; min: number }
   | { kind: "charmed"; playerIds: string[]; newIds: string[] }
   | { kind: "raven"; playerId: string }
   | { kind: "deaths"; context: "dawn" | "vote" | "hunter"; deaths: Death[] }

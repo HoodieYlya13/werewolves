@@ -121,6 +121,7 @@ const en = {
   },
   setup: {
     title: "Choose the cards",
+    theme: "Theme",
     start: "Choose the cards",
     needPlayers: "At least {min} players are needed.",
     cards: "{count} / {needed} cards",
@@ -137,6 +138,8 @@ const en = {
     wolvesWinAtParity: "Wolves win at parity",
     wolvesWinAtParityHint: "House rule: wolves win once they're as many as the others.",
     piperCharms: "Players charmed per night",
+    piperOfficial: "2 (official)",
+    piperChoice: "Game master decides",
     actorCards: "Actor's powers",
     actorCardsHint: "Pick the 3 powers placed face up.",
     actorNeedsCards: "Pick 3 powers for the Actor.",

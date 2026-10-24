@@ -39,6 +39,7 @@ export type PublicGame = {
   winner: Winner | null;
   /** Everyone's card, once the game is over. */
   roles: Record<string, RoleId> | null;
+  theme: string;
 };
 
 export function publicGame(state: GameState): PublicGame {
@@ -49,5 +50,6 @@ export function publicGame(state: GameState): PublicGame {
     dead: state.players.filter((p) => !p.alive).map((p) => ({ playerId: p.id, role: reveal ? p.role : null })),
     winner: state.winner,
     roles: state.winner ? Object.fromEntries(state.players.map((p) => [p.id, p.role])) : null,
+    theme: state.setup.settings.theme ?? "werewolves",
   };
 }

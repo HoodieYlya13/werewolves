@@ -87,7 +87,7 @@ const fr: Dictionary = {
     witch: { name: "Sorcière", power: "Une potion de vie et une potion de mort, chacune utilisable une fois." },
     hunter: { name: "Chasseur", power: "En mourant, il emporte immédiatement quelqu'un avec lui." },
     cupid: { name: "Cupidon", power: "La première nuit, unit deux amoureux qui vivent et meurent ensemble." },
-    "little-girl": { name: "Petite Fille", power: "Peut espionner les loups pendant leur tour, au risque d'être surprise." },
+    "little-girl": { name: "Petite Fille", power: "Peut espionner les loups pendant leur tour, au risque de se faire surprendre." },
     thief: { name: "Voleur", power: "La première nuit, peut échanger sa carte contre l'une des deux restantes." },
     elder: { name: "Ancien", power: "Survit à la première attaque des loups. Si le village le tue, tous les villageois perdent leur pouvoir." },
     "village-idiot": { name: "Idiot du Village", power: "S'il est éliminé par le vote, il est révélé et survit, mais perd son droit de vote." },
@@ -123,6 +123,7 @@ const fr: Dictionary = {
   },
   setup: {
     title: "Choisir les cartes",
+    theme: "Thème",
     start: "Choisir les cartes",
     needPlayers: "Il faut au moins {min} joueurs.",
     cards: "{count} / {needed} cartes",
@@ -139,6 +140,8 @@ const fr: Dictionary = {
     wolvesWinAtParity: "Les loups gagnent à égalité",
     wolvesWinAtParityHint: "Variante : les loups gagnent dès qu'ils sont aussi nombreux que les autres.",
     piperCharms: "Joueurs charmés par nuit",
+    piperOfficial: "2 (officiel)",
+    piperChoice: "Au choix du meneur",
     actorCards: "Pouvoirs du Comédien",
     actorCardsHint: "Choisissez les 3 pouvoirs posés face visible.",
     actorNeedsCards: "Choisissez 3 pouvoirs pour le Comédien.",
@@ -257,7 +260,7 @@ const fr: Dictionary = {
       wolves: {
         say: "Loups-Garous, réveillez-vous et mettez-vous d'accord sur une victime.",
         do: "Touchez la victime désignée par les loups.",
-        littleGirl: "{name} (Petite Fille) peut espionner. Si les loups la surprennent, choisissez-la comme victime.",
+        littleGirl: "{name} (Petite Fille) peut espionner. Si les loups surprennent la Petite Fille, choisissez {name} comme victime.",
       },
       witch: {
         say: "Sorcière, réveille-toi. Voici la victime de cette nuit. Veux-tu utiliser ta potion de vie ? Ta potion de mort ?",
@@ -378,7 +381,7 @@ const fr: Dictionary = {
         say: "{name} est l'Idiot du Village ! L'Idiot reste en vie, mais ne vote plus.",
       },
       servant: {
-        say: "Avant de révéler la carte : la Servante Dévouée veut-elle prendre le rôle de {name} ?",
+        say: "Avant de révéler la carte : est-ce que la Servante Dévouée veut prendre le rôle de {name} ?",
         do: "Si {servant} dévoile la carte Servante Dévouée, touchez Prendre le rôle.",
         take: "Prendre le rôle",
         no: "Non",

@@ -99,7 +99,7 @@ describe("Nouvelle Lune", () => {
   it("Pied Piper charms players and wins once everyone else is charmed", () => {
     const s = setup(["pied-piper", "werewolf", "villager", "villager"]);
     let state = play(s, [wolves("p2")]);
-    expect(state.step).toEqual({ kind: "piper", playerId: "p0", count: 2 });
+    expect(state.step).toEqual({ kind: "piper", playerId: "p0", count: 2, min: 2 });
     expectError(() => applyAction(state, pick("p1")), "invalid-action");
     state = applyAction(state, pick("p1", "p3"));
     expect(state.step).toEqual({ kind: "charmed", playerIds: ["p1", "p3"], newIds: ["p1", "p3"] });
@@ -111,7 +111,15 @@ describe("Nouvelle Lune", () => {
     const state = play(setup(["pied-piper", "werewolf", "villager", "villager"], { settings: { piperCharms: 1 } }), [
       wolves("p2"),
     ]);
-    expect(state.step).toMatchObject({ kind: "piper", count: 1 });
+    expect(state.step).toMatchObject({ kind: "piper", count: 1, min: 1 });
+  });
+
+  it("lets the game master charm 1 or 2 each night with the house rule", () => {
+    const s = setup(["pied-piper", "werewolf", "villager", "villager"], { settings: { piperCharms: "choice" } });
+    const night = play(s, [wolves("p2")]);
+    expect(night.step).toMatchObject({ kind: "piper", count: 2, min: 1 });
+    expect(applyAction(night, pick("p1")).step).toMatchObject({ kind: "charmed", newIds: ["p1"] });
+    expect(applyAction(night, pick("p1", "p3")).step).toMatchObject({ kind: "charmed", newIds: ["p1", "p3"] });
   });
 
   it("Defender protects from the wolves, never the same player twice in a row", () => {

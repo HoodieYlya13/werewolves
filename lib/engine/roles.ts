@@ -142,8 +142,10 @@ export const roles: Record<RoleId, RoleDefinition> = {
       order: 70,
       act: (state, piper) => {
         const charmable = alive(state).filter((p) => p.id !== piper.id && !p.flags.charmed).length;
-        const count = Math.min(state.setup.settings.piperCharms, charmable);
-        return count > 0 ? { kind: "piper", playerId: piper.id, count } : null;
+        const setting = state.setup.settings.piperCharms;
+        const count = Math.min(setting === "choice" ? 2 : setting, charmable);
+        const min = setting === "choice" ? Math.min(1, count) : count;
+        return count > 0 ? { kind: "piper", playerId: piper.id, count, min } : null;
       },
     },
   },

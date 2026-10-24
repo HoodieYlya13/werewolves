@@ -303,7 +303,7 @@ function resolve(state: GameState, step: Step, action: Action) {
     }
 
     case "piper": {
-      const targets = picked(step.count, step.count);
+      const targets = picked(step.min, step.count);
       if (targets.some((t) => t.id === step.playerId || t.flags.charmed)) {
         throw new EngineError("invalid-target", "Pick players who aren't charmed yet");
       }

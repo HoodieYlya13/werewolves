@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, History, Layers, Lock, LockOpen, Smartphone, UserPlus, X } from "lucide-react";
 import { GameScreen } from "@/components/host/game-screen";
+import { ThemedI18n } from "@/components/themed-i18n";
 import { SetupScreen } from "@/components/host/setup-screen";
 import { useI18n } from "@/components/i18n-provider";
 import { QrCode } from "@/components/qr-code";
@@ -43,7 +44,9 @@ function HostLobby({ code }: { code: string }) {
     return (
       <>
         <ConnectionBanner status={status} />
-        <GameScreen view={view} game={view.game} error={error} send={send} />
+        <ThemedI18n theme={view.game.setup.settings.theme}>
+          <GameScreen view={view} game={view.game} error={error} send={send} />
+        </ThemedI18n>
       </>
     );
   }
