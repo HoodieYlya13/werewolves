@@ -163,7 +163,7 @@ export const roles: Record<RoleId, RoleDefinition> = {
 
   // --- Personnages ---
 
-  // Wins alone if voted out at the very first vote (see win.ts). The game then
+  // Wins alone if eliminated in the first turn (see win.ts). The game then
   // opens with a day 0 vote, before night 1.
   angel: { id: "angel", team: "village", max: 1 },
 

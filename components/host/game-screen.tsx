@@ -61,7 +61,9 @@ export function GameScreen({
               <h1 className="font-display text-2xl leading-tight font-bold">
                 {format(isNight ? dict.game.night : dict.game.day, { n: game.phase.number })}
               </h1>
-              <p className="text-sm text-muted">{isNight ? dict.game.nightHint : dict.game.dayHint}</p>
+              <p className="text-sm text-muted">
+                {isNight ? dict.game.nightHint : game.phase.number === 0 ? dict.game.dayZeroHint : dict.game.dayHint}
+              </p>
             </div>
           </div>
           <div className="ml-auto flex flex-wrap gap-2">

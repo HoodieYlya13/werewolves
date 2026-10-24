@@ -1,5 +1,7 @@
 import { alive, baseTeam } from "./helpers";
-import type { GameState, Player, Team, Winner } from "./types";
+import type { DeathCause, GameState, Player, Team, Winner } from "./types";
+
+const ANGEL_WIN_CAUSES: DeathCause[] = ["vote", "wolves", "poison"];
 
 function isMixedCouple(state: GameState) {
   if (!state.lovers) return false;
@@ -22,9 +24,14 @@ export function getWinner(state: GameState): Winner | null {
   const living = alive(state);
   if (living.length === 0) return { team: null, playerIds: [] };
 
-  // The Angel wins alone if the village votes him out at the very first vote.
+  // The Angel wins alone if eliminated during the first turn (the opening vote
+  // or night 1) by the vote, the wolves or the Witch's poison.
   const angel = state.players.find(
-    (p) => p.role === "angel" && p.death?.cause === "vote" && p.death.phase.kind === "day" && p.death.phase.number === 0,
+    (p) =>
+      p.role === "angel" &&
+      p.death &&
+      ANGEL_WIN_CAUSES.includes(p.death.cause) &&
+      (p.death.phase.number === 0 || (p.death.phase.kind === "night" && p.death.phase.number === 1)),
   );
   if (angel) return { team: "angel", playerIds: [angel.id] };
 

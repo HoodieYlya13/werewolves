@@ -94,7 +94,11 @@ const fr: Dictionary = {
     scapegoat: { name: "Bouc Émissaire", power: "Meurt en cas d'égalité au vote, puis choisit qui pourra voter le lendemain." },
     "pied-piper": { name: "Joueur de Flûte", power: "Charme des joueurs chaque nuit. Gagne seul quand tous les autres vivants sont charmés." },
     defender: { name: "Salvateur", power: "Chaque nuit, protège un joueur des loups. Jamais le même deux nuits de suite." },
-    angel: { name: "Ange", power: "Gagne seul s'il est éliminé au premier vote. Sinon, devient simple villageois." },
+    angel: {
+      name: "Ange",
+      power:
+        "La partie commence par un vote. Gagne seul s'il est éliminé lors de ce premier vote ou de la première nuit. Sinon, devient simple villageois.",
+    },
     knight: { name: "Chevalier à l'Épée Rouillée", power: "Si les loups le dévorent, le premier loup à sa gauche meurt du tétanos la nuit suivante." },
     "wolf-hound": { name: "Chien-Loup", power: "La première nuit, choisit d'être villageois ou loup-garou." },
     actor: { name: "Comédien", power: "Chaque nuit, peut emprunter l'un des trois pouvoirs posés face visible. Chacun ne sert qu'une fois." },
@@ -173,6 +177,7 @@ const fr: Dictionary = {
     nightShort: "N",
     dayShort: "J",
     dayHint: "Tout le monde est réveillé",
+    dayZeroHint: "L'Ange est en jeu : la partie commence par un vote",
     undo: "Annuler",
     endGame: "Terminer la partie",
     endGameConfirm: "Terminer cette partie et revenir à la salle d'attente ? Vous pourrez la reprendre tant que les joueurs ne changent pas.",

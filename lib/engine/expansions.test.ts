@@ -139,10 +139,18 @@ describe("Personnages", () => {
     expect(start.phase).toEqual({ kind: "day", number: 0 });
     expect(start.step.kind).toBe("vote");
     expect(play(s, [vote("p0"), go]).winner).toEqual({ team: "angel", playerIds: ["p0"] });
-    // Survives the first vote: he's a plain villager from then on.
+    // Survives the first vote: the first night still counts as the first turn.
     const survived = play(s, [vote("p2"), go]);
     expect(survived.phase).toEqual({ kind: "night", number: 1 });
     expect(survived.step.kind).toBe("wolves");
+    expect(play(s, [vote("p2"), go, wolves("p0"), go]).winner).toEqual({ team: "angel", playerIds: ["p0"] });
+  });
+
+  it("Angel becomes a plain villager after the first turn", () => {
+    const s = setup(["angel", "werewolf", "villager", "villager", "villager"]);
+    const state = play(s, [vote(null), wolves("p2"), go, vote(null), wolves("p0"), go]);
+    expect(state.winner).toBeNull();
+    expect(state.players[0].alive).toBe(false);
   });
 
   it("Knight eaten by the wolves: the first wolf to his left dies of rust next dawn", () => {

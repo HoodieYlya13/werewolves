@@ -92,7 +92,11 @@ const en = {
     scapegoat: { name: "Scapegoat", power: "Dies whenever the vote is tied, then chooses who may vote the next day." },
     "pied-piper": { name: "Pied Piper", power: "Charms players each night. Wins alone once everyone else alive is charmed." },
     defender: { name: "Defender", power: "Each night, protects one player from the wolves. Never the same one twice in a row." },
-    angel: { name: "Angel", power: "Wins alone if voted out at the first vote. Otherwise becomes a villager." },
+    angel: {
+      name: "Angel",
+      power:
+        "The game opens with a vote. Wins alone if eliminated in that first vote or the first night. Otherwise becomes a villager.",
+    },
     knight: { name: "Knight with the Rusty Sword", power: "If the wolves eat the Knight, the first wolf to the Knight's left dies of rust the next night." },
     "wolf-hound": { name: "Wolf-Hound", power: "On the first night, chooses to be a villager or a werewolf." },
     actor: { name: "Actor", power: "Each night, may borrow one of three face-up powers. Each works once." },
@@ -171,6 +175,7 @@ const en = {
     nightShort: "N",
     dayShort: "D",
     dayHint: "Everyone is awake",
+    dayZeroHint: "The Angel is in play: the game opens with a vote",
     undo: "Undo",
     endGame: "End game",
     endGameConfirm: "End this game and go back to the lobby? You can resume it from there as long as the players don't change.",
