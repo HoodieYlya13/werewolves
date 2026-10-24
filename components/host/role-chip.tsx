@@ -10,7 +10,12 @@ export const teamColor: Record<Team, string> = {
   lovers: "text-pink-500",
 };
 
-export function RoleName({ role, className = "" }: { role: RoleId; className?: string }) {
+/** `secret` roles blur when the game master turns on "Hide roles". */
+export function RoleName({ role, className = "", secret = false }: { role: RoleId; className?: string; secret?: boolean }) {
   const { dict } = useI18n();
-  return <span className={`${teamColor[roles[role].team]} ${className}`}>{dict.roles[role].name}</span>;
+  return (
+    <span className={`${teamColor[roles[role].team]} ${secret ? "secret-role" : ""} ${className}`}>
+      {dict.roles[role].name}
+    </span>
+  );
 }

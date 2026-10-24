@@ -32,6 +32,7 @@ const en = {
     noPhone: "no phone",
     online: "online",
     offline: "offline",
+    resume: "Resume the last game",
   },
   play: {
     yourName: "Your name",
@@ -120,10 +121,14 @@ const en = {
     dayHint: "Everyone is awake",
     undo: "Undo",
     endGame: "End game",
-    endGameConfirm: "End this game and go back to the lobby?",
+    endGameConfirm: "End this game and go back to the lobby? You can resume it from there as long as the players don't change.",
     confirm: "Confirm",
     continue: "Continue",
     say: "Say",
+    showTo: "Show to {name}",
+    hide: "Hide",
+    hideRoles: "Hide roles",
+    showRoles: "Show roles",
     players: "Players",
     remaining: "Can still win",
     timeline: "Timeline",
@@ -152,7 +157,7 @@ const en = {
     steps: {
       thief: {
         say: "Thief, wake up. You may swap your card for one of these two.",
-        do: "Show these cards to {name} and tap the one they choose.",
+        do: "Show the cards to {name}, then tap the one they choose.",
         keep: "Keep the Thief card",
         mustTakeWolf: "Both cards are Werewolves: the Thief must take one.",
       },
@@ -170,7 +175,7 @@ const en = {
       },
       "seer-result": {
         say: "Seer, go back to sleep.",
-        do: "Show this screen to {name}.",
+        do: "Show the result to {name}, then hide it.",
         reveal: "{target} is",
       },
       wolves: {
@@ -180,13 +185,15 @@ const en = {
       },
       witch: {
         say: "Witch, wake up. Here is tonight's victim. Will you use your healing potion? Your poison?",
-        do: "Point at the victim for {name}, then enter her choice.",
+        do: "Show the victim to {name}, then enter her choice.",
         victim: "Tonight's victim: {name}",
         noVictim: "No victim tonight.",
         heal: "Heal {name}",
         healUsed: "Healing potion already used",
         poison: "Poison someone",
         poisonUsed: "Poison already used",
+        healAvailable: "Healing potion available",
+        poisonAvailable: "Poison available",
         nothing: "Use nothing",
       },
       deaths: {

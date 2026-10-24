@@ -155,6 +155,20 @@
     background: var(--surface);
     color: var(--fg);
   }
+  /* "Hide roles" on the game master screen: blur anything that gives roles away. */
+  [data-hide-roles] .secret-role {
+    filter: blur(0.45em);
+    /* Team colours would give roles away even when blurred. */
+    color: var(--muted) !important;
+    user-select: none;
+  }
+  /* Lover hearts, team counts and the timeline can't be blurred safely: hide them. */
+  [data-hide-roles] svg.secret-role,
+  [data-hide-roles] ul.secret-role,
+  [data-hide-roles] ol.secret-role {
+    visibility: hidden;
+  }
+
   .card {
     border: 1px solid var(--line);
     border-radius: 1.25rem;

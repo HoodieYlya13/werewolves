@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, Layers, Lock, LockOpen, Smartphone, UserPlus, X } from "lucide-react";
+import { ChevronDown, ChevronUp, History, Layers, Lock, LockOpen, Smartphone, UserPlus, X } from "lucide-react";
 import { GameScreen } from "@/components/host/game-screen";
 import { SetupScreen } from "@/components/host/setup-screen";
 import { useI18n } from "@/components/i18n-provider";
@@ -52,7 +52,12 @@ function HostLobby({ code }: { code: string }) {
     return (
       <>
         <ConnectionBanner status={status} />
-        <SetupScreen players={view.players} send={send} onBack={() => setScreen("lobby")} />
+        <SetupScreen
+          players={view.players}
+          canResume={view.canResume}
+          send={send}
+          onBack={() => setScreen("lobby")}
+        />
         {error && (
           <p role="alert" className="mx-auto mb-6 text-sm text-accent">
             {dict.errors[error]}
@@ -175,6 +180,12 @@ function HostLobby({ code }: { code: string }) {
           )}
         </form>
 
+        {view?.canResume && (
+          <button type="button" className="btn btn-ghost h-12 text-base" onClick={() => send({ type: "resume-game" })}>
+            <History aria-hidden className="size-5" />
+            {dict.host.resume}
+          </button>
+        )}
         <button
           type="button"
           className="btn h-12 text-base"

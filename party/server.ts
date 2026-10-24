@@ -36,6 +36,8 @@ type RoomState = {
   locked: boolean;
   players: StoredPlayer[];
   game: { setup: GameSetup; log: Action[] } | null;
+  /** The game "End game" closed, so a misclick can be taken back. */
+  endedGame?: { setup: GameSetup; log: Action[] } | null;
 };
 
 /** Who a socket belongs to. Kept on the connection so it survives restarts. */
@@ -119,7 +121,7 @@ export default class RoomServer implements Party.Server {
     }
 
     const isHost = sender.state?.kind === "host";
-    const lobbyOnly = ["add-player", "remove-player", "move-player", "start-game"];
+    const lobbyOnly = ["add-player", "remove-player", "move-player", "start-game", "resume-game"];
     if (lobbyOnly.includes(msg.type) && this.state.game) {
       return this.send(sender, { type: "error", code: "game-in-progress" });
     }
@@ -137,6 +139,8 @@ export default class RoomServer implements Party.Server {
       }
       case "add-player": {
         if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
+        // The ended game no longer matches the table.
+        this.state.endedGame = null;
         const name = this.validateName(sender, msg.name);
         if (!name) return;
         this.addPlayer(name, true);
@@ -144,6 +148,7 @@ export default class RoomServer implements Party.Server {
       }
       case "remove-player": {
         if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
+        this.state.endedGame = null;
         this.state.players = this.state.players.filter((p) => p.id !== msg.playerId);
         this.reseat();
         for (const c of this.room.getConnections<ConnState>()) {
@@ -156,6 +161,7 @@ export default class RoomServer implements Party.Server {
       }
       case "move-player": {
         if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
+        this.state.endedGame = null;
         const players = [...this.state.players].sort((a, b) => a.seat - b.seat);
         const from = players.findIndex((p) => p.id === msg.playerId);
         if (from === -1) return;
@@ -177,6 +183,7 @@ export default class RoomServer implements Party.Server {
           const setup = this.buildSetup(msg);
           this.game = replay(setup, []);
           this.state.game = { setup, log: [] };
+          this.state.endedGame = null;
           this.state.locked = true;
         } catch (e) {
           return this.sendEngineError(sender, e, "invalid-setup");
@@ -203,8 +210,17 @@ export default class RoomServer implements Party.Server {
       }
       case "end-game": {
         if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
+        this.state.endedGame = this.state.game;
         this.state.game = null;
         this.game = null;
+        break;
+      }
+      case "resume-game": {
+        if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
+        if (!this.state.endedGame) return;
+        this.state.game = this.state.endedGame;
+        this.state.endedGame = null;
+        this.game = replay(this.state.game.setup, this.state.game.log);
         break;
       }
       default:
@@ -278,7 +294,13 @@ export default class RoomServer implements Party.Server {
     const phase = !this.game ? "lobby" : this.game.winner ? "ended" : "playing";
     const base = { code: s.code, phase, locked: s.locked, players } as const;
     if (conn.state?.kind === "host") {
-      return { ...base, kind: "host", game: this.game, actionCount: s.game?.log.length ?? 0 };
+      return {
+        ...base,
+        kind: "host",
+        game: this.game,
+        actionCount: s.game?.log.length ?? 0,
+        canResume: !!s.endedGame,
+      };
     }
     const state = conn.state;
     const me = state?.kind === "player" ? players.find((p) => p.id === state.playerId) : undefined;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, Minus, Plus, Shuffle, Sparkles, Hand } from "lucide-react";
+import { ArrowLeft, Hand, History, Minus, Plus, Shuffle, Sparkles } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { RoleName } from "@/components/host/role-chip";
 import { format } from "@/lib/i18n/config";
@@ -46,10 +46,12 @@ function loadSaved(playerCount: number): { counts: Counts; settings: Settings } 
 
 export function SetupScreen({
   players,
+  canResume,
   send,
   onBack,
 }: {
   players: PublicPlayer[];
+  canResume: boolean;
   send: (message: ClientMessage) => void;
   onBack: () => void;
 }) {
@@ -251,6 +253,12 @@ export function SetupScreen({
           )}
         </section>
 
+        {canResume && (
+          <button type="button" className="btn btn-ghost h-12 text-base" onClick={() => send({ type: "resume-game" })}>
+            <History aria-hidden className="size-5" />
+            {dict.host.resume}
+          </button>
+        )}
         <button type="button" className="btn h-12 text-base" disabled={!canStart} onClick={start}>
           {dict.setup.begin}
         </button>

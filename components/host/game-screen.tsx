@@ -1,12 +1,15 @@
 "use client";
 
-import { Crown, Heart, Moon, Skull, Sun, Undo2, X } from "lucide-react";
+import { useState } from "react";
+import { Crown, Eye, EyeOff, Heart, Moon, Skull, Sun, Undo2, X } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { RoleName, teamColor } from "@/components/host/role-chip";
 import { StepPanel } from "@/components/host/step-panel";
 import { format } from "@/lib/i18n/config";
 import { remainingTeams, teamOf, type GameEvent, type GameState } from "@/lib/engine";
 import type { ClientMessage, ErrorCode, HostView } from "@/lib/protocol";
+
+const HIDE_ROLES_KEY = "ww:hide-roles";
 
 export function GameScreen({
   view,
@@ -22,13 +25,30 @@ export function GameScreen({
   const { dict } = useI18n();
   const isNight = game.phase.kind === "night";
   const over = game.step.kind === "game-over";
+  const [hideRoles, setHideRoles] = useState(() => {
+    try {
+      return localStorage.getItem(HIDE_ROLES_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  function toggleRoles() {
+    setHideRoles(!hideRoles);
+    try {
+      localStorage.setItem(HIDE_ROLES_KEY, hideRoles ? "0" : "1");
+    } catch {}
+  }
 
   function endGame() {
     if (over || window.confirm(dict.game.endGameConfirm)) send({ type: "end-game" });
   }
 
   return (
-    <main className="mx-auto grid w-full max-w-7xl flex-1 gap-6 px-4 pb-10 sm:px-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+    <main
+      data-hide-roles={hideRoles || undefined}
+      className="mx-auto grid w-full max-w-7xl flex-1 gap-6 px-4 pb-10 sm:px-6 lg:grid-cols-[minmax(0,1fr)_20rem]"
+    >
       <div className="flex min-w-0 flex-col gap-5">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-3">
@@ -44,7 +64,16 @@ export function GameScreen({
               <p className="text-sm text-muted">{isNight ? dict.game.nightHint : dict.game.dayHint}</p>
             </div>
           </div>
-          <div className="ml-auto flex gap-2">
+          <div className="ml-auto flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="btn btn-ghost h-10 px-4"
+              aria-pressed={hideRoles}
+              onClick={toggleRoles}
+            >
+              {hideRoles ? <Eye aria-hidden className="size-4" /> : <EyeOff aria-hidden className="size-4" />}
+              {hideRoles ? dict.game.showRoles : dict.game.hideRoles}
+            </button>
             <button
               type="button"
               className="btn btn-ghost h-10 px-4"
@@ -91,7 +120,7 @@ function Remaining({ game }: { game: GameState }) {
   return (
     <section className="card p-4">
       <h2 className="mb-2 text-sm font-medium tracking-wide text-muted uppercase">{dict.game.remaining}</h2>
-      <ul className="flex flex-wrap gap-2">
+      <ul className="secret-role flex flex-wrap gap-2">
         {remainingTeams(game).map((team) => (
           <li key={team} className={`rounded-full bg-surface-2 px-3 py-1 text-sm font-semibold ${teamColor[team]}`}>
             {dict.teams[team]} · {living.filter((p) => teamOf(game, p) === team).length}
@@ -113,11 +142,11 @@ function PlayersPanel({ game }: { game: GameState }) {
             <span className="w-5 text-right font-mono text-xs text-muted">{i + 1}</span>
             <span className={`min-w-0 flex-1 truncate font-medium ${p.alive ? "" : "line-through"}`}>{p.name}</span>
             {game.lovers?.includes(p.id) && (
-              <Heart aria-label={dict.game.lover} className="size-3.5 fill-pink-500 text-pink-500" />
+              <Heart aria-label={dict.game.lover} className="secret-role size-3.5 fill-pink-500 text-pink-500" />
             )}
             {game.sheriffId === p.id && <Crown aria-label={dict.game.sheriff} className="size-3.5 text-moon" />}
             {!p.alive && <Skull aria-label={dict.game.dead} className="size-3.5" />}
-            <RoleName role={p.role} className="text-xs" />
+            <RoleName role={p.role} className="text-xs" secret />
           </li>
         ))}
       </ol>
@@ -133,7 +162,7 @@ function Timeline({ game }: { game: GameState }) {
       <summary className="cursor-pointer text-sm font-medium tracking-wide text-muted uppercase">
         {dict.game.timeline}
       </summary>
-      <ol className="mt-3 flex flex-col gap-1.5 text-sm">
+      <ol className="secret-role mt-3 flex flex-col gap-1.5 text-sm">
         {[...game.events].reverse().map((e, i) => (
           <li key={i} className="flex gap-2">
             <span className="w-8 shrink-0 font-mono text-xs text-muted">

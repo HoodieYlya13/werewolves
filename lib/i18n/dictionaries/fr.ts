@@ -34,6 +34,7 @@ const fr: Dictionary = {
     noPhone: "sans téléphone",
     online: "en ligne",
     offline: "hors ligne",
+    resume: "Reprendre la dernière partie",
   },
   play: {
     yourName: "Votre nom",
@@ -122,10 +123,14 @@ const fr: Dictionary = {
     dayHint: "Tout le monde est réveillé",
     undo: "Annuler",
     endGame: "Terminer la partie",
-    endGameConfirm: "Terminer cette partie et revenir à la salle d'attente ?",
+    endGameConfirm: "Terminer cette partie et revenir à la salle d'attente ? Vous pourrez la reprendre tant que les joueurs ne changent pas.",
     confirm: "Valider",
     continue: "Continuer",
     say: "À dire",
+    showTo: "Montrer à {name}",
+    hide: "Masquer",
+    hideRoles: "Masquer les rôles",
+    showRoles: "Afficher les rôles",
     players: "Joueurs",
     remaining: "Peuvent encore gagner",
     timeline: "Historique",
@@ -154,7 +159,7 @@ const fr: Dictionary = {
     steps: {
       thief: {
         say: "Voleur, réveille-toi. Tu peux échanger ta carte contre l'une de ces deux-là.",
-        do: "Montrez ces cartes à {name} et touchez celle qu'il choisit.",
+        do: "Montrez les cartes à {name}, puis touchez celle qu'il choisit.",
         keep: "Garder la carte Voleur",
         mustTakeWolf: "Les deux cartes sont des Loups-Garous : le Voleur doit en prendre une.",
       },
@@ -172,7 +177,7 @@ const fr: Dictionary = {
       },
       "seer-result": {
         say: "Voyante, rendors-toi.",
-        do: "Montrez cet écran à {name}.",
+        do: "Montrez le résultat à {name}, puis masquez-le.",
         reveal: "{target} est",
       },
       wolves: {
@@ -189,6 +194,8 @@ const fr: Dictionary = {
         healUsed: "Potion de vie déjà utilisée",
         poison: "Empoisonner quelqu'un",
         poisonUsed: "Potion de mort déjà utilisée",
+        healAvailable: "Potion de vie disponible",
+        poisonAvailable: "Potion de mort disponible",
         nothing: "Ne rien utiliser",
       },
       deaths: {

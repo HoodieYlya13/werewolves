@@ -4,6 +4,7 @@ import { useState } from "react";
 import { FlaskConical, Skull, Trophy } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { PlayerGrid, toggle } from "@/components/host/player-grid";
+import { Reveal } from "@/components/host/reveal";
 import { RoleName } from "@/components/host/role-chip";
 import { format } from "@/lib/i18n/config";
 import type { Action, GameState, Player, Step } from "@/lib/engine";
@@ -127,25 +128,28 @@ function ThiefStep({ game, step, act }: Props<"thief">) {
     <>
       <Say>{t.say}</Say>
       <Do>{format(t.do, { name: nameOf(game, step.playerId) })}</Do>
-      <div className="grid grid-cols-2 gap-3 sm:max-w-md">
-        {step.cards.map((role, i) => (
-          <button
-            key={i}
-            type="button"
-            onClick={() => act({ type: "thief", pick: i })}
-            className="card flex aspect-[3/4] flex-col items-center justify-center gap-2 p-4 text-center text-lg font-semibold hover:border-fg/40"
-          >
-            <RoleName role={role} />
+      {/* The Thief may see these two cards, nothing else: the choice happens in the reveal. */}
+      <Reveal to={nameOf(game, step.playerId)}>
+        <div className="grid w-full grid-cols-2 gap-4">
+          {step.cards.map((role, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => act({ type: "thief", pick: i })}
+              className="card flex aspect-[3/4] flex-col items-center justify-center gap-2 p-4 text-center text-2xl font-semibold hover:border-fg/40"
+            >
+              <RoleName role={role} />
+            </button>
+          ))}
+        </div>
+        {step.mustTakeWolf ? (
+          <p className="text-accent">{t.mustTakeWolf}</p>
+        ) : (
+          <button type="button" className="btn btn-ghost h-12" onClick={() => act({ type: "thief", pick: null })}>
+            {t.keep}
           </button>
-        ))}
-      </div>
-      {step.mustTakeWolf ? (
-        <p className="text-sm text-accent">{t.mustTakeWolf}</p>
-      ) : (
-        <button type="button" className="btn btn-ghost self-start" onClick={() => act({ type: "thief", pick: null })}>
-          {t.keep}
-        </button>
-      )}
+        )}
+      </Reveal>
     </>
   );
 }
@@ -198,10 +202,10 @@ function SeerResultStep({ game, step, act }: Props<"seer-result">) {
   return (
     <>
       <Do>{format(t.do, { name: nameOf(game, step.playerId) })}</Do>
-      <div className="card flex flex-col items-center gap-3 px-6 py-10 text-center">
-        <p className="text-xl">{format(t.reveal, { target: nameOf(game, step.targetId) })}</p>
-        <RoleName role={step.role} className="font-display text-4xl font-bold sm:text-5xl" />
-      </div>
+      <Reveal to={nameOf(game, step.playerId)}>
+        <p className="text-2xl">{format(t.reveal, { target: nameOf(game, step.targetId) })}</p>
+        <RoleName role={step.role} className="font-display text-5xl font-bold sm:text-7xl" />
+      </Reveal>
       <Say>{t.say}</Say>
       <ContinueButton act={act} />
     </>
@@ -241,6 +245,19 @@ function WitchStep({ game, step, act }: Props<"witch">) {
     <>
       <Say>{t.say}</Say>
       <Do>{format(t.do, { name: nameOf(game, step.playerId) })}</Do>
+      <Reveal to={nameOf(game, step.playerId)}>
+        <p className="text-3xl font-semibold sm:text-4xl">{victim ? format(t.victim, { name: victim }) : t.noVictim}</p>
+        <ul className="flex flex-col gap-2 text-lg">
+          <li className={step.canHeal ? "text-ok" : "text-muted line-through"}>
+            <FlaskConical aria-hidden className="mr-2 inline size-5" />
+            {step.canHeal ? t.healAvailable : t.healUsed}
+          </li>
+          <li className={step.canPoison ? "text-accent" : "text-muted line-through"}>
+            <Skull aria-hidden className="mr-2 inline size-5" />
+            {step.canPoison ? t.poisonAvailable : t.poisonUsed}
+          </li>
+        </ul>
+      </Reveal>
       <p className="text-lg font-semibold">{victim ? format(t.victim, { name: victim }) : t.noVictim}</p>
 
       <label

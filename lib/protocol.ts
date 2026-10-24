@@ -31,6 +31,8 @@ export type HostView = BaseView & {
   game: GameState | null;
   /** Number of actions in the log; undo is possible when > 0. */
   actionCount: number;
+  /** A game ended with "End game" that can still be picked up again. */
+  canResume: boolean;
 };
 
 /**
@@ -74,8 +76,9 @@ export type ClientMessage =
   | ({ type: "start-game" } & StartGame)
   | { type: "game-action"; action: Action }
   | { type: "undo" }
-  /** Back to the lobby with the same players. */
-  | { type: "end-game" };
+  /** Back to the lobby with the same players. The game is kept until the lineup changes. */
+  | { type: "end-game" }
+  | { type: "resume-game" };
 
 /** Query params sent when opening the socket. */
 export type ConnectQuery =
