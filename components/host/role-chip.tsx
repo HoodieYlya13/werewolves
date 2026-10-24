@@ -8,6 +8,10 @@ export const teamColor: Record<Team, string> = {
   village: "text-moon",
   wolves: "text-accent",
   lovers: "text-pink-500",
+  piper: "text-emerald-500",
+  "white-werewolf": "text-violet-500",
+  sectarian: "text-orange-500",
+  angel: "text-sky-500",
 };
 
 /** `secret` roles blur when the game master turns on "Hide roles". */

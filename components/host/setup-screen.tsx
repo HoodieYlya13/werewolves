@@ -6,12 +6,14 @@ import { useI18n } from "@/components/i18n-provider";
 import { RoleName } from "@/components/host/role-chip";
 import { format } from "@/lib/i18n/config";
 import {
+  actorRoles,
   defaultSettings,
   deckProblems,
   deckSize,
   MIN_PLAYERS,
   roleIds,
   roles,
+  setupNeeds,
   suggestedDeck,
   type RoleId,
   type Settings,
@@ -36,13 +38,21 @@ function toDeck(counts: Counts): RoleId[] {
 }
 
 /** The last deck and rules are remembered, since groups tend to replay them. */
-function loadSaved(playerCount: number): { counts: Counts; settings: Settings } {
+function loadSaved(playerCount: number): { counts: Counts; settings: Settings; actorCards: RoleId[] } {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null");
-    if (saved) return { counts: saved.counts, settings: { ...defaultSettings, ...saved.settings } };
+    if (saved) {
+      return {
+        counts: saved.counts,
+        settings: { ...defaultSettings, ...saved.settings },
+        actorCards: saved.actorCards ?? [],
+      };
+    }
   } catch {}
-  return { counts: toCounts(suggestedDeck(playerCount)), settings: defaultSettings };
+  return { counts: toCounts(suggestedDeck(playerCount)), settings: defaultSettings, actorCards: [] };
 }
+
+type BooleanSetting = { [K in keyof Settings]: Settings[K] extends boolean ? K : never }[keyof Settings];
 
 export function SetupScreen({
   players,
@@ -61,10 +71,17 @@ export function SetupScreen({
   const [settings, setSettings] = useState<Settings>(initial.settings);
   const [mode, setMode] = useState<"random" | "manual">("random");
   const [assignment, setAssignment] = useState<Record<string, RoleId>>({});
+  const [actorCards, setActorCards] = useState<RoleId[]>(initial.actorCards);
+  const [groups, setGroups] = useState<Record<string, "a" | "b">>({});
 
   const deck = toDeck(counts);
   const needed = deckSize(players.length, deck);
   const problems = deckProblems(players.length, deck);
+  const needs = setupNeeds(deck);
+  const actorReady = !needs.actorCards || (actorCards.length === 3 && actorCards.every((r) => actorRoles.includes(r)));
+  const groupSides = players.map((p) => groups[p.id]);
+  const groupsReady =
+    !needs.groups || (groupSides.every(Boolean) && groupSides.includes("a") && groupSides.includes("b"));
 
   // Manual mode: what's left of the deck after the cards handed out so far.
   // A card only counts if the deck still has one (the deck may have shrunk since).
@@ -79,27 +96,33 @@ export function SetupScreen({
   }
   const leftover = toDeck(pool);
   const everyoneAssigned = players.every((p) => holds.has(p.id));
-  const canStart = problems.length === 0 && (mode === "random" || everyoneAssigned);
+  const canStart = problems.length === 0 && actorReady && groupsReady && (mode === "random" || everyoneAssigned);
 
   function change(role: RoleId, delta: number) {
+    // Sets (Two Sisters, Three Brothers) are added and removed as a whole.
+    const step = roles[role].copies ?? 1;
     setCounts((c) => {
-      const next = Math.max(0, Math.min(roles[role].max ?? 99, (c[role] ?? 0) + delta));
+      const next = Math.max(0, Math.min(roles[role].max ?? 99, (c[role] ?? 0) + delta * step));
       return { ...c, [role]: next };
     });
   }
 
   function start() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ counts, settings }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ counts, settings, actorCards }));
     } catch {}
+    const options = {
+      actorCards: needs.actorCards ? actorCards : undefined,
+      groups: needs.groups ? groups : undefined,
+    };
     send(
       mode === "random"
-        ? { type: "start-game", mode, deck, settings }
-        : { type: "start-game", mode, assignment, extraCards: leftover, settings },
+        ? { type: "start-game", mode, deck, settings, ...options }
+        : { type: "start-game", mode, assignment, extraCards: leftover, settings, ...options },
     );
   }
 
-  const toggles: { key: keyof Settings; hint?: string }[] = [
+  const toggles: { key: BooleanSetting; hint?: string }[] = [
     { key: "sheriff", hint: dict.setup.sheriffHint },
     { key: "revealRoleOnDeath" },
     { key: "witchCanSelfHeal" },
@@ -171,7 +194,7 @@ export function SetupScreen({
         </ul>
       </section>
 
-      <aside className="flex flex-col gap-4 lg:sticky lg:top-6 lg:self-start">
+      <aside className="flex flex-col gap-4 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:self-start lg:overflow-y-auto lg:pb-1">
         <section className="card flex flex-col gap-2 p-5">
           <p
             className={`font-mono text-3xl font-bold tabular-nums ${deck.length === needed ? "text-ok" : "text-accent"}`}
@@ -205,6 +228,86 @@ export function SetupScreen({
             </label>
           ))}
         </section>
+
+        {deck.includes("pied-piper") && (
+          <section className="card flex flex-col gap-3 p-5">
+            <h2 className="font-semibold">{dict.setup.piperCharms}</h2>
+            <div className="segmented self-start">
+              {([1, 2] as const).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  aria-current={settings.piperCharms === n}
+                  onClick={() => setSettings((s) => ({ ...s, piperCharms: n }))}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {needs.actorCards && (
+          <section className="card flex flex-col gap-3 p-5">
+            <div>
+              <h2 className="font-semibold">{dict.setup.actorCards}</h2>
+              <p className="text-sm text-muted">{dict.setup.actorCardsHint}</p>
+            </div>
+            {[0, 1, 2].map((i) => (
+              <select
+                key={i}
+                className="input h-10 py-0"
+                value={actorCards[i] ?? ""}
+                onChange={(e) =>
+                  setActorCards((cards) => {
+                    const next = [...cards];
+                    next[i] = e.target.value as RoleId;
+                    return next;
+                  })
+                }
+              >
+                <option value="" disabled>
+                  {dict.setup.pickRole}
+                </option>
+                {actorRoles.map((r) => (
+                  <option key={r} value={r}>
+                    {dict.roles[r].name}
+                  </option>
+                ))}
+              </select>
+            ))}
+            {!actorReady && <p className="text-sm text-accent">{dict.setup.actorNeedsCards}</p>}
+          </section>
+        )}
+
+        {needs.groups && (
+          <section className="card flex flex-col gap-3 p-5">
+            <div>
+              <h2 className="font-semibold">{dict.setup.groups}</h2>
+              <p className="text-sm text-muted">{dict.setup.groupsHint}</p>
+            </div>
+            <ol className="flex flex-col gap-2">
+              {players.map((p) => (
+                <li key={p.id} className="flex items-center gap-3">
+                  <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                  <div className="segmented">
+                    {(["a", "b"] as const).map((g) => (
+                      <button
+                        key={g}
+                        type="button"
+                        aria-current={groups[p.id] === g}
+                        onClick={() => setGroups((all) => ({ ...all, [p.id]: g }))}
+                      >
+                        {g === "a" ? dict.setup.groupA : dict.setup.groupB}
+                      </button>
+                    ))}
+                  </div>
+                </li>
+              ))}
+            </ol>
+            {!groupsReady && <p className="text-sm text-accent">{dict.setup.groupsNeeded}</p>}
+          </section>
+        )}
 
         <section className="card flex flex-col gap-3 p-5">
           <h2 className="font-semibold">{dict.setup.dealing}</h2>

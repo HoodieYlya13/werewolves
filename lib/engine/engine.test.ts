@@ -188,7 +188,7 @@ describe("day", () => {
     let state = play(s, [{ type: "wolves", targetId: "p2" }, go]);
     expect(state.step.kind).toBe("sheriff-election");
     state = applyAction(state, { type: "sheriff", targetId: "p1" });
-    expect(state.step).toEqual({ kind: "vote", sheriffId: "p1" });
+    expect(state.step).toMatchObject({ kind: "vote", sheriffId: "p1" });
 
     // The village votes out its Hunter-Sheriff: he shoots, then names a successor.
     state = applyAction(state, { type: "vote", targetId: "p1" });
@@ -212,7 +212,7 @@ describe("day", () => {
       { type: "wolves", targetId: "p3" },
       go,
     ]);
-    expect(state.step).toEqual({ kind: "vote", sheriffId: "p2" });
+    expect(state.step).toMatchObject({ kind: "vote", sheriffId: "p2" });
   });
 });
 
@@ -353,8 +353,8 @@ describe("setup", () => {
       let x = 42;
       return () => ((x = (x * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
     };
-    const a = dealRoles(players, deck, defaultSettings, seeded());
-    const b = dealRoles(players, deck, defaultSettings, seeded());
+    const a = dealRoles(players, deck, defaultSettings, {}, seeded());
+    const b = dealRoles(players, deck, defaultSettings, {}, seeded());
     expect(a).toEqual(b);
     expect(a.extraCards).toHaveLength(2);
     expect([...Object.values(a.roles), ...a.extraCards].sort()).toEqual([...deck].sort());

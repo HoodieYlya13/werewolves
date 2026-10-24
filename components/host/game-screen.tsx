@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Crown, Eye, EyeOff, Heart, Moon, Skull, Sun, Undo2, X } from "lucide-react";
+import { Crown, Eye, EyeOff, Heart, Moon, Music, PawPrint, Skull, Sun, Undo2, X } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { RoleName, teamColor } from "@/components/host/role-chip";
 import { StepPanel } from "@/components/host/step-panel";
 import { format } from "@/lib/i18n/config";
-import { remainingTeams, teamOf, type GameEvent, type GameState } from "@/lib/engine";
+import { isWolf, remainingTeams, roles, teamOf, type GameEvent, type GameState } from "@/lib/engine";
 import type { ClientMessage, ErrorCode, HostView } from "@/lib/protocol";
 
 const HIDE_ROLES_KEY = "ww:hide-roles";
@@ -105,7 +105,7 @@ export function GameScreen({
         </section>
       </div>
 
-      <aside className="flex flex-col gap-4 lg:sticky lg:top-6 lg:self-start">
+      <aside className="flex flex-col gap-4 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:self-start lg:overflow-y-auto lg:pb-1">
         <Remaining game={game} />
         <PlayersPanel game={game} />
         <Timeline game={game} />
@@ -120,6 +120,7 @@ function Remaining({ game }: { game: GameState }) {
   return (
     <section className="card p-4">
       <h2 className="mb-2 text-sm font-medium tracking-wide text-muted uppercase">{dict.game.remaining}</h2>
+      {game.villagePowersLost && <p className="mb-2 text-sm text-accent">{dict.game.powersLost}</p>}
       <ul className="secret-role flex flex-wrap gap-2">
         {remainingTeams(game).map((team) => (
           <li key={team} className={`rounded-full bg-surface-2 px-3 py-1 text-sm font-semibold ${teamColor[team]}`}>
@@ -145,6 +146,12 @@ function PlayersPanel({ game }: { game: GameState }) {
               <Heart aria-label={dict.game.lover} className="secret-role size-3.5 fill-pink-500 text-pink-500" />
             )}
             {game.sheriffId === p.id && <Crown aria-label={dict.game.sheriff} className="size-3.5 text-moon" />}
+            {p.flags.charmed && (
+              <Music aria-label={dict.game.charmed} className="secret-role size-3.5 text-emerald-500" />
+            )}
+            {isWolf(p) && roles[p.role].team !== "wolves" && p.role !== "white-werewolf" && (
+              <PawPrint aria-hidden className="secret-role size-3.5 text-accent" />
+            )}
             {!p.alive && <Skull aria-label={dict.game.dead} className="size-3.5" />}
             <RoleName role={p.role} className="text-xs" secret />
           </li>
@@ -200,5 +207,40 @@ function EventText({ game, event }: { game: GameState; event: GameEvent }) {
       return format(t.sheriff, { name: name(event.playerId) });
     case "vote":
       return event.targetId ? format(t.vote, { target: name(event.targetId) }) : t.voteNobody;
+    case "actor":
+      return format(t.actor, { role: dict.roles[event.role].name });
+    case "wolf-hound":
+      return format(t["wolf-hound"], {
+        name: name(event.playerId),
+        side: dict.game.steps["wolf-hound"][event.side],
+      });
+    case "model":
+      return format(t.model, { name: name(event.playerId), model: name(event.modelId) });
+    case "turned-wolf":
+      return format(t["turned-wolf"], { name: name(event.playerId) });
+    case "protected":
+    case "infected":
+    case "big-bad-wolf":
+    case "white-werewolf":
+    case "raven":
+      return format(t[event.type], { target: name(event.targetId) });
+    case "fox":
+      return format(t.fox, { target: name(event.centerId), result: event.hasWolf ? t.foxYes : t.foxNo });
+    case "charmed":
+      return format(t.charmed, { names: event.targetIds.map(name).join(", ") });
+    case "elder-survived":
+      return format(t["elder-survived"], { name: name(event.playerId) });
+    case "powers-lost":
+      return t["powers-lost"];
+    case "idiot-revealed":
+      return format(t["idiot-revealed"], { name: name(event.playerId) });
+    case "servant":
+      return format(t.servant, { name: name(event.playerId), role: dict.roles[event.role].name });
+    case "scapegoat":
+      return event.voterIds.length > 0
+        ? format(t.scapegoat, { names: event.voterIds.map(name).join(", ") })
+        : t.scapegoatNobody;
+    case "second-vote":
+      return t["second-vote"];
   }
 }

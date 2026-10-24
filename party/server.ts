@@ -245,9 +245,10 @@ export default class RoomServer implements Party.Server {
 
   private buildSetup(start: StartGame): GameSetup {
     const players = this.state!.players.map(({ id, name, seat }) => ({ id, name, seat }));
+    const options = { actorCards: start.actorCards, groups: start.groups };
     return start.mode === "random"
-      ? dealRoles(players, start.deck, start.settings, secureRandom)
-      : assignRoles(players, start.assignment, start.extraCards, start.settings);
+      ? dealRoles(players, start.deck, start.settings, options, secureRandom)
+      : assignRoles(players, start.assignment, start.extraCards, start.settings, options);
   }
 
   private sendEngineError(conn: Conn, error: unknown, code: ErrorCode) {

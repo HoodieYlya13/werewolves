@@ -1,4 +1,4 @@
-import type { Action, GameState, PlayerInfo, RoleId, Settings } from "./engine";
+import type { Action, GameState, PlayerInfo, RoleId, SetupOptions, Settings } from "./engine";
 
 /**
  * Messages between the Next.js app and the PartyKit room server.
@@ -61,9 +61,11 @@ export type ServerMessage =
   /** `detail` carries the engine's explanation for invalid setups and actions. */
   | { type: "error"; code: ErrorCode; detail?: string };
 
-export type StartGame =
-  | { mode: "random"; deck: RoleId[]; settings: Settings }
-  | { mode: "manual"; assignment: Record<string, RoleId>; extraCards: RoleId[]; settings: Settings };
+export type StartGame = SetupOptions &
+  (
+    | { mode: "random"; deck: RoleId[]; settings: Settings }
+    | { mode: "manual"; assignment: Record<string, RoleId>; extraCards: RoleId[]; settings: Settings }
+  );
 
 export type ClientMessage =
   // Phone

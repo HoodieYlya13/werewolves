@@ -1,4 +1,4 @@
-import { roles } from "./roles";
+import { actorRoles, roles } from "./roles";
 import { EngineError, type GameSetup, type RoleId, type SetupPlayer, type Settings } from "./types";
 
 export const MIN_PLAYERS = 3;
@@ -8,18 +8,34 @@ export function deckSize(playerCount: number, deck: RoleId[]) {
   return playerCount + (deck.includes("thief") ? 2 : 0);
 }
 
+export type DeckProblem =
+  | "too-few-players"
+  | "wrong-size"
+  | "no-wolf"
+  | "no-village"
+  | "too-many-copies"
+  | "incomplete-set";
+
 /** Human-checkable problems with a deck, empty when it's playable. */
 export function deckProblems(playerCount: number, deck: RoleId[]) {
-  const problems: ("too-few-players" | "wrong-size" | "no-wolf" | "no-village" | "too-many-copies")[] = [];
+  const problems: DeckProblem[] = [];
   if (playerCount < MIN_PLAYERS) problems.push("too-few-players");
   if (deck.length !== deckSize(playerCount, deck)) problems.push("wrong-size");
-  if (!deck.some((r) => roles[r].team === "wolves")) problems.push("no-wolf");
-  if (!deck.some((r) => roles[r].team !== "wolves")) problems.push("no-village");
+  if (!deck.some((r) => roles[r].team === "wolves" || r === "white-werewolf")) problems.push("no-wolf");
+  if (!deck.some((r) => roles[r].team === "village")) problems.push("no-village");
   const counts = new Map<RoleId, number>();
   deck.forEach((r) => counts.set(r, (counts.get(r) ?? 0) + 1));
   if ([...counts].some(([r, n]) => n > (roles[r].max ?? Infinity))) problems.push("too-many-copies");
+  if ([...counts].some(([r, n]) => roles[r].copies && n !== roles[r].copies)) problems.push("incomplete-set");
   return problems;
 }
+
+/** Extra choices some cards need before the game can start. */
+export function setupNeeds(deck: RoleId[]) {
+  return { actorCards: deck.includes("actor"), groups: deck.includes("abominable-sectarian") };
+}
+
+export type SetupOptions = Pick<GameSetup, "actorCards" | "groups">;
 
 /**
  * A balanced starting deck: about one wolf per four players, then specials in
@@ -45,6 +61,7 @@ export function dealRoles(
   players: SetupPlayer[],
   deck: RoleId[],
   settings: Settings,
+  options: SetupOptions = {},
   random: () => number = Math.random,
 ): GameSetup {
   const cards = [...deck];
@@ -57,6 +74,7 @@ export function dealRoles(
     players: ordered,
     roles: Object.fromEntries(ordered.map((p, i) => [p.id, cards[i]])),
     extraCards: cards.slice(ordered.length),
+    ...options,
     settings,
   };
   validateSetup(setup);
@@ -69,11 +87,13 @@ export function assignRoles(
   assignment: Record<string, RoleId>,
   extraCards: RoleId[],
   settings: Settings,
+  options: SetupOptions = {},
 ): GameSetup {
   const setup: GameSetup = {
     players: [...players].sort((a, b) => a.seat - b.seat),
     roles: { ...assignment },
     extraCards: [...extraCards],
+    ...options,
     settings,
   };
   validateSetup(setup);
@@ -88,4 +108,21 @@ export function validateSetup(setup: GameSetup) {
   const deck = [...setup.players.map((p) => setup.roles[p.id]), ...setup.extraCards];
   const problems = deckProblems(setup.players.length, deck);
   if (problems.length > 0) throw new EngineError("invalid-setup", problems.join(", "));
+
+  // Only cards dealt to players matter: a card left face down never plays.
+  const dealt = setup.players.map((p) => setup.roles[p.id]);
+  const needs = setupNeeds(dealt.includes("thief") ? deck : dealt);
+  if (needs.actorCards) {
+    const cards = setup.actorCards ?? [];
+    if (cards.length !== 3 || cards.some((r) => !actorRoles.includes(r))) {
+      throw new EngineError("invalid-setup", "The Actor needs 3 powers to borrow");
+    }
+  }
+  if (needs.groups) {
+    const groups = setup.groups ?? {};
+    const sides = setup.players.map((p) => groups[p.id]);
+    if (sides.some((g) => g !== "a" && g !== "b") || !sides.includes("a") || !sides.includes("b")) {
+      throw new EngineError("invalid-setup", "The Sectarian needs every player in one of two groups");
+    }
+  }
 }

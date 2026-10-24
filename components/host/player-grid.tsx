@@ -1,6 +1,6 @@
 "use client";
 
-import { Crown, Heart } from "lucide-react";
+import { Crown, Heart, Music } from "lucide-react";
 import { RoleName } from "@/components/host/role-chip";
 import type { GameState, Player } from "@/lib/engine";
 
@@ -41,6 +41,7 @@ export function PlayerGrid({
                 <span className="min-w-0 flex-1 truncate text-base font-semibold">{p.name}</span>
                 {game.lovers?.includes(p.id) && <Heart aria-hidden className="secret-role size-3.5 shrink-0 fill-pink-500 text-pink-500" />}
                 {game.sheriffId === p.id && <Crown aria-hidden className="size-3.5 shrink-0 text-moon" />}
+                {p.flags.charmed && <Music aria-hidden className="secret-role size-3.5 shrink-0 text-emerald-500" />}
               </span>
               <RoleName role={p.role} className="text-xs" secret />
             </button>

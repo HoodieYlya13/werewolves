@@ -7,7 +7,7 @@ import { PlayerGrid, toggle } from "@/components/host/player-grid";
 import { Reveal } from "@/components/host/reveal";
 import { RoleName } from "@/components/host/role-chip";
 import { format } from "@/lib/i18n/config";
-import type { Action, GameState, Player, Step } from "@/lib/engine";
+import { isWolf, type Action, type GameState, type Player, type Step } from "@/lib/engine";
 
 type Props<K extends Step["kind"]> = {
   game: GameState;
@@ -22,6 +22,42 @@ type Props<K extends Step["kind"]> = {
 export function StepPanel({ game, act }: { game: GameState; act: (action: Action) => void }) {
   const step = game.step;
   switch (step.kind) {
+    case "actor":
+      return <ActorStep game={game} step={step} act={act} />;
+    case "wolf-hound":
+      return <WolfHoundStep game={game} step={step} act={act} />;
+    case "wild-child":
+      return <WildChildStep game={game} step={step} act={act} />;
+    case "siblings":
+      return <SiblingsStep game={game} step={step} act={act} />;
+    case "defender":
+      return <DefenderStep game={game} step={step} act={act} />;
+    case "fox":
+      return <FoxStep game={game} step={step} act={act} />;
+    case "fox-result":
+      return <FoxResultStep game={game} step={step} act={act} />;
+    case "infect":
+      return <InfectStep game={game} step={step} act={act} />;
+    case "big-bad-wolf":
+      return <BigBadWolfStep game={game} step={step} act={act} />;
+    case "white-werewolf":
+      return <WhiteWerewolfStep game={game} step={step} act={act} />;
+    case "piper":
+      return <PiperStep game={game} step={step} act={act} />;
+    case "charmed":
+      return <CharmedStep game={game} step={step} act={act} />;
+    case "raven":
+      return <RavenStep game={game} step={step} act={act} />;
+    case "bear":
+      return <BearStep game={game} step={step} act={act} />;
+    case "idiot":
+      return <IdiotStep game={game} step={step} act={act} />;
+    case "servant":
+      return <ServantStep game={game} step={step} act={act} />;
+    case "scapegoat":
+      return <ScapegoatStep game={game} step={step} act={act} />;
+    case "judge":
+      return <JudgeStep game={game} step={step} act={act} />;
     case "thief":
       return <ThiefStep game={game} step={step} act={act} />;
     case "cupid":
@@ -87,18 +123,25 @@ function ConfirmButton({ disabled, onClick }: { disabled: boolean; onClick: () =
 const living = (game: GameState) => game.players.filter((p) => p.alive);
 const nameOf = (game: GameState, id: string) => game.players.find((p) => p.id === id)?.name ?? "?";
 
-/** Pick exactly `count` living players, then confirm. */
+/**
+ * Pick living players, then confirm. Exactly `count` by default; `min` allows
+ * fewer, and `skip` adds a button that confirms with nobody.
+ */
 function PickPlayers({
   game,
   count,
+  min = count,
   isDisabled,
   onConfirm,
+  skip,
   extra,
 }: {
   game: GameState;
   count: number;
+  min?: number;
   isDisabled?: (p: Player) => boolean;
   onConfirm: (ids: string[]) => void;
+  skip?: string;
   extra?: React.ReactNode;
 }) {
   const [selected, setSelected] = useState<string[]>([]);
@@ -112,10 +155,34 @@ function PickPlayers({
         isDisabled={isDisabled}
       />
       <div className="flex flex-wrap gap-2">
-        <ConfirmButton disabled={selected.length !== count} onClick={() => onConfirm(selected)} />
+        <ConfirmButton
+          disabled={selected.length < Math.max(min, 1) || selected.length > count}
+          onClick={() => onConfirm(selected)}
+        />
+        {skip && (
+          <button type="button" className="btn btn-ghost h-12" onClick={() => onConfirm([])}>
+            {skip}
+          </button>
+        )}
         {extra}
       </div>
     </>
+  );
+}
+
+/** For steps added after the base game, picks are sent as a generic "pick" action. */
+const pickAction = (targetIds: string[]): Action => ({ type: "pick", targetIds });
+const names = (game: GameState, ids: string[]) => ids.map((id) => nameOf(game, id)).join(", ");
+
+function ChoiceButtons({ options }: { options: { label: React.ReactNode; onClick: () => void; ghost?: boolean }[] }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((o, i) => (
+        <button key={i} type="button" className={`btn h-12 px-6 text-base ${o.ghost ? "btn-ghost" : ""}`} onClick={o.onClick}>
+          {o.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -227,7 +294,7 @@ function WolvesStep({ game, step, act }: Props<"wolves">) {
       <PickPlayers
         game={game}
         count={1}
-        isDisabled={(p) => p.role === "werewolf"}
+        isDisabled={isWolf}
         onConfirm={([targetId]) => act({ type: "wolves", targetId })}
       />
     </>
@@ -371,20 +438,327 @@ function VoteStep({ game, step, act }: Props<"vote">) {
   const t = dict.game.steps.vote;
   return (
     <>
+      {step.second && <p className="font-semibold text-moon">{t.second}</p>}
       <Say>{t.say}</Say>
       <Do>
         {t.do}
         {step.sheriffId && <> {format(t.sheriff, { name: nameOf(game, step.sheriffId) })}</>}
       </Do>
+      {step.ravenTargetId && (
+        <p className="rounded-xl bg-surface-2 px-4 py-2">{format(t.raven, { name: nameOf(game, step.ravenTargetId) })}</p>
+      )}
+      {step.cannotVote.length > 0 && (
+        <p className="rounded-xl bg-surface-2 px-4 py-2">{format(t.cannotVote, { names: names(game, step.cannotVote) })}</p>
+      )}
       <PickPlayers
         game={game}
         count={1}
         onConfirm={([targetId]) => act({ type: "vote", targetId })}
         extra={
-          <button type="button" className="btn btn-ghost h-12" onClick={() => act({ type: "vote", targetId: null })}>
-            {t.nobody}
-          </button>
+          <>
+            <button
+              type="button"
+              className="btn btn-ghost h-12"
+              onClick={() => act({ type: "vote", targetId: null, tie: true })}
+            >
+              {step.scapegoatId ? t.tieScapegoat : t.tie}
+            </button>
+            <button type="button" className="btn btn-ghost h-12" onClick={() => act({ type: "vote", targetId: null })}>
+              {t.nobody}
+            </button>
+          </>
         }
+      />
+    </>
+  );
+}
+
+// --- expansion steps ---
+
+function ActorStep({ game, step, act }: Props<"actor">) {
+  const { dict } = useI18n();
+  const t = dict.game.steps.actor;
+  return (
+    <>
+      <Say>{t.say}</Say>
+      <Do>{format(t.do, { name: nameOf(game, step.playerId) })}</Do>
+      <div className="grid grid-cols-3 gap-3 sm:max-w-lg">
+        {step.cards.map((role, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => act({ type: "choose", value: i })}
+            className="card flex aspect-[3/4] items-center justify-center p-3 text-center font-semibold hover:border-fg/40"
+          >
+            <RoleName role={role} />
+          </button>
+        ))}
+      </div>
+      <button type="button" className="btn btn-ghost self-start" onClick={() => act({ type: "choose", value: null })}>
+        {t.none}
+      </button>
+    </>
+  );
+}
+
+function WolfHoundStep({ game, step, act }: Props<"wolf-hound">) {
+  const { dict } = useI18n();
+  const t = dict.game.steps["wolf-hound"];
+  return (
+    <>
+      <Say>{t.say}</Say>
+      <Do>{format(t.do, { name: nameOf(game, step.playerId) })}</Do>
+      <ChoiceButtons
+        options={[
+          { label: t.village, onClick: () => act({ type: "choose", value: "village" }), ghost: true },
+          { label: t.wolves, onClick: () => act({ type: "choose", value: "wolves" }) },
+        ]}
+      />
+    </>
+  );
+}
+
+function WildChildStep({ game, step, act }: Props<"wild-child">) {
+  const { dict } = useI18n();
+  const t = dict.game.steps["wild-child"];
+  return (
+    <>
+      <Say>{t.say}</Say>
+      <Do>{format(t.do, { name: nameOf(game, step.playerId) })}</Do>
+      <PickPlayers
+        game={game}
+        count={1}
+        isDisabled={(p) => p.id === step.playerId}
+        onConfirm={(ids) => act(pickAction(ids))}
+      />
+    </>
+  );
+}
+
+function SiblingsStep({ game, step, act }: Props<"siblings">) {
+  const { dict } = useI18n();
+  const t = dict.game.steps.siblings;
+  return (
+    <>
+      <Say>{t[step.role]}</Say>
+      <Do>{format(t.do, { names: names(game, step.playerIds) })}</Do>
+      <ContinueButton act={act} />
+    </>
+  );
+}
+
+function DefenderStep({ game, step, act }: Props<"defender">) {
+  const { dict } = useI18n();
+  const t = dict.game.steps.defender;
+  return (
+    <>
+      <Say>{t.say}</Say>
+      <Do>{format(t.do, { name: nameOf(game, step.playerId) })}</Do>
+      {step.lastProtectedId && <Do>{format(t.last, { name: nameOf(game, step.lastProtectedId) })}</Do>}
+      <PickPlayers
+        game={game}
+        count={1}
+        isDisabled={(p) => p.id === step.lastProtectedId}
+        onConfirm={(ids) => act(pickAction(ids))}
+        skip={t.skip}
+      />
+    </>
+  );
+}
+
+function FoxStep({ game, step, act }: Props<"fox">) {
+  const { dict } = useI18n();
+  const t = dict.game.steps.fox;
+  return (
+    <>
+      <Say>{t.say}</Say>
+      <Do>{format(t.do, { name: nameOf(game, step.playerId) })}</Do>
+      <PickPlayers game={game} count={1} onConfirm={(ids) => act(pickAction(ids))} />
+    </>
+  );
+}
+
+function FoxResultStep({ game, step, act }: Props<"fox-result">) {
+  const { dict } = useI18n();
+  const t = dict.game.steps["fox-result"];
+  const fox = game.players.find((p) => p.id === step.playerId);
+  return (
+    <>
+      <Do>{format(t.do, { name: nameOf(game, step.playerId) })}</Do>
+      <Reveal to={nameOf(game, step.playerId)}>
+        <p className={`font-display text-4xl font-bold ${step.hasWolf ? "text-accent" : "text-ok"}`}>
+          {step.hasWolf ? t.yes : t.no}
+        </p>
+        <p className="text-2xl">{names(game, step.playerIds)}</p>
+      </Reveal>
+      {!step.hasWolf && fox?.role === "fox" && <Do>{t.lost}</Do>}
+      <Say>{t.say}</Say>
+      <ContinueButton act={act} />
+    </>
+  );
+}
+
+function InfectStep({ game, step, act }: Props<"infect">) {
+  const { dict } = useI18n();
+  const t = dict.game.steps.infect;
+  return (
+    <>
+      <Say>{t.say}</Say>
+      <Do>{format(t.do, { name: nameOf(game, step.playerId) })}</Do>
+      <ChoiceButtons
+        options={[
+          { label: format(t.infect, { name: nameOf(game, step.victimId) }), onClick: () => act({ type: "choose", value: true }) },
+          { label: t.no, onClick: () => act({ type: "choose", value: false }), ghost: true },
+        ]}
+      />
+    </>
+  );
+}
+
+function BigBadWolfStep({ game, step, act }: Props<"big-bad-wolf">) {
+  const { dict } = useI18n();
+  const t = dict.game.steps["big-bad-wolf"];
+  return (
+    <>
+      <Say>{t.say}</Say>
+      <Do>{format(t.do, { name: nameOf(game, step.playerId) })}</Do>
+      <PickPlayers
+        game={game}
+        count={1}
+        isDisabled={(p) => isWolf(p) || p.id === step.wolvesTargetId}
+        onConfirm={(ids) => act(pickAction(ids))}
+        skip={t.skip}
+      />
+    </>
+  );
+}
+
+function WhiteWerewolfStep({ game, step, act }: Props<"white-werewolf">) {
+  const { dict } = useI18n();
+  const t = dict.game.steps["white-werewolf"];
+  return (
+    <>
+      <Say>{t.say}</Say>
+      <Do>{format(t.do, { name: nameOf(game, step.playerId) })}</Do>
+      <PickPlayers
+        game={game}
+        count={1}
+        isDisabled={(p) => !isWolf(p) || p.id === step.playerId}
+        onConfirm={(ids) => act(pickAction(ids))}
+        skip={t.skip}
+      />
+    </>
+  );
+}
+
+function PiperStep({ game, step, act }: Props<"piper">) {
+  const { dict } = useI18n();
+  const t = dict.game.steps.piper;
+  return (
+    <>
+      <Say>{format(t.say, { count: step.count })}</Say>
+      <Do>{format(t.do, { name: nameOf(game, step.playerId) })}</Do>
+      <PickPlayers
+        game={game}
+        count={step.count}
+        isDisabled={(p) => p.id === step.playerId || !!p.flags.charmed}
+        onConfirm={(ids) => act(pickAction(ids))}
+      />
+    </>
+  );
+}
+
+function CharmedStep({ game, step, act }: Props<"charmed">) {
+  const { dict } = useI18n();
+  const t = dict.game.steps.charmed;
+  return (
+    <>
+      <Say>{t.say}</Say>
+      <Do>{format(t.do, { names: names(game, step.playerIds), newNames: names(game, step.newIds) })}</Do>
+      <ContinueButton act={act} />
+    </>
+  );
+}
+
+function RavenStep({ game, step, act }: Props<"raven">) {
+  const { dict } = useI18n();
+  const t = dict.game.steps.raven;
+  return (
+    <>
+      <Say>{t.say}</Say>
+      <Do>{format(t.do, { name: nameOf(game, step.playerId) })}</Do>
+      <PickPlayers game={game} count={1} onConfirm={(ids) => act(pickAction(ids))} skip={t.skip} />
+    </>
+  );
+}
+
+function BearStep({ game, step, act }: Props<"bear">) {
+  const { dict } = useI18n();
+  const t = dict.game.steps.bear;
+  return (
+    <>
+      <Say>{step.growls ? format(t.growls, { name: nameOf(game, step.playerId) }) : t.quiet}</Say>
+      <ContinueButton act={act} />
+    </>
+  );
+}
+
+function IdiotStep({ game, step, act }: Props<"idiot">) {
+  const { dict } = useI18n();
+  return (
+    <>
+      <Say>{format(dict.game.steps.idiot.say, { name: nameOf(game, step.playerId) })}</Say>
+      <ContinueButton act={act} />
+    </>
+  );
+}
+
+function ServantStep({ game, step, act }: Props<"servant">) {
+  const { dict } = useI18n();
+  const t = dict.game.steps.servant;
+  return (
+    <>
+      <Say>{format(t.say, { name: nameOf(game, step.victimId) })}</Say>
+      <Do>{format(t.do, { servant: nameOf(game, step.playerId) })}</Do>
+      <ChoiceButtons
+        options={[
+          { label: t.take, onClick: () => act({ type: "choose", value: true }) },
+          { label: t.no, onClick: () => act({ type: "choose", value: false }), ghost: true },
+        ]}
+      />
+    </>
+  );
+}
+
+function ScapegoatStep({ game, step, act }: Props<"scapegoat">) {
+  const { dict } = useI18n();
+  const t = dict.game.steps.scapegoat;
+  return (
+    <>
+      <Say>{format(t.say, { name: nameOf(game, step.playerId) })}</Say>
+      <Do>{t.do}</Do>
+      <PickPlayers
+        game={game}
+        count={living(game).length}
+        min={1}
+        onConfirm={(ids) => act(pickAction(ids))}
+        skip={dict.game.events.scapegoatNobody}
+      />
+    </>
+  );
+}
+
+function JudgeStep({ game, step, act }: Props<"judge">) {
+  const { dict } = useI18n();
+  const t = dict.game.steps.judge;
+  return (
+    <>
+      <Do>{format(t.do, { name: nameOf(game, step.playerId) })}</Do>
+      <ChoiceButtons
+        options={[
+          { label: t.yes, onClick: () => act({ type: "choose", value: true }) },
+          { label: t.no, onClick: () => act({ type: "choose", value: false }), ghost: true },
+        ]}
       />
     </>
   );
