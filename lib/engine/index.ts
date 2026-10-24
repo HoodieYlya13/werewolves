@@ -15,4 +15,4 @@ export {
   type DeckProblem,
   type SetupOptions,
 } from "./setup";
-export { playerInfo, type PlayerInfo } from "./view";
+export { playerInfo, publicGame, type PlayerInfo, type PublicGame } from "./view";

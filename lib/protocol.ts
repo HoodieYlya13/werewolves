@@ -1,4 +1,4 @@
-import type { Action, GameState, PlayerInfo, RoleId, SetupOptions, Settings } from "./engine";
+import type { Action, GameState, PlayerInfo, PublicGame, RoleId, SetupOptions, Settings } from "./engine";
 
 /**
  * Messages between the Next.js app and the PartyKit room server.
@@ -37,9 +37,14 @@ export type HostView = BaseView & {
 
 /**
  * A phone only sees public info plus its own private data. `me` is null until
- * it joins; `info` (its role, lover…) is null until a game starts.
+ * it joins; `info` (its role, lover…) and `game` are null until a game starts.
  */
-export type PlayerView = BaseView & { kind: "player"; me: PublicPlayer | null; info: PlayerInfo | null };
+export type PlayerView = BaseView & {
+  kind: "player";
+  me: PublicPlayer | null;
+  info: PlayerInfo | null;
+  game: PublicGame | null;
+};
 
 export type RoomView = HostView | PlayerView;
 

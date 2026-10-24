@@ -5,6 +5,7 @@ import {
   dealRoles,
   EngineError,
   playerInfo,
+  publicGame,
   replay,
   type Action,
   type GameSetup,
@@ -306,7 +307,7 @@ export default class RoomServer implements Party.Server {
     const state = conn.state;
     const me = state?.kind === "player" ? players.find((p) => p.id === state.playerId) : undefined;
     const info = me && this.game ? playerInfo(this.game, me.id) : null;
-    return { ...base, kind: "player", me: me ?? null, info };
+    return { ...base, kind: "player", me: me ?? null, info, game: this.game ? publicGame(this.game) : null };
   }
 
   /** Every socket gets its own filtered view, so secrets never reach the wrong phone. */

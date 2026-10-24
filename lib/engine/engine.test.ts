@@ -8,6 +8,8 @@ import {
   defaultSettings,
   EngineError,
   remainingTeams,
+  playerInfo,
+  publicGame,
   replay,
   suggestedDeck,
   type Action,
@@ -364,5 +366,24 @@ describe("setup", () => {
 describe("suggested deck", () => {
   it("is playable for every group size", () => {
     for (let n = 3; n <= 24; n++) expect(deckProblems(n, suggestedDeck(n))).toEqual([]);
+  });
+});
+
+describe("phone views", () => {
+  it("never shows other players' roles, unless revealed on death or at the end", () => {
+    const hidden = play(setup(["werewolf", "villager", "villager", "villager"], { settings: { revealRoleOnDeath: false } }), [
+      { type: "wolves", targetId: "p1" },
+    ]);
+    expect(publicGame(hidden).dead).toEqual([{ playerId: "p1", role: null }]);
+    expect(publicGame(hidden).roles).toBeNull();
+    expect(playerInfo(hidden, "p2")).toMatchObject({ role: "villager", team: "village", loverId: null });
+
+    const over = play(setup(["werewolf", "villager", "villager"], { settings: { revealRoleOnDeath: false } }), [
+      { type: "wolves", targetId: "p1" },
+      go,
+      { type: "vote", targetId: "p2" },
+      go,
+    ]);
+    expect(publicGame(over).roles).toEqual({ p0: "werewolf", p1: "villager", p2: "villager" });
   });
 });

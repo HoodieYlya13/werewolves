@@ -1,6 +1,6 @@
 import { isWolf } from "./helpers";
 import { teamOf } from "./win";
-import type { GameState, RoleId, Team } from "./types";
+import type { GameState, PhaseRef, RoleId, Team, Winner } from "./types";
 
 /** What a phone may know about its own player. Nothing about anyone else's role. */
 export type PlayerInfo = {
@@ -27,5 +27,27 @@ export function playerInfo(state: GameState, playerId: string): PlayerInfo | nul
     loverId: state.lovers?.includes(playerId) ? (state.lovers.find((id) => id !== playerId) ?? null) : null,
     charmed: !!player.flags.charmed,
     isSheriff: state.sheriffId === playerId,
+  };
+}
+
+/** What everyone at the table already knows: phase, deaths, the Sheriff, the result. */
+export type PublicGame = {
+  phase: PhaseRef;
+  sheriffId: string | null;
+  /** Roles stay hidden when the game is set not to reveal them on death. */
+  dead: { playerId: string; role: RoleId | null }[];
+  winner: Winner | null;
+  /** Everyone's card, once the game is over. */
+  roles: Record<string, RoleId> | null;
+};
+
+export function publicGame(state: GameState): PublicGame {
+  const reveal = state.setup.settings.revealRoleOnDeath || !!state.winner;
+  return {
+    phase: state.phase,
+    sheriffId: state.sheriffId,
+    dead: state.players.filter((p) => !p.alive).map((p) => ({ playerId: p.id, role: reveal ? p.role : null })),
+    winner: state.winner,
+    roles: state.winner ? Object.fromEntries(state.players.map((p) => [p.id, p.role])) : null,
   };
 }
