@@ -1,0 +1,65 @@
+{
+  "routing": {
+    "repo_name": "werewolves",
+    "project_name": "Werewolves",
+    "hero_image": ""
+  },
+  "project_meta": {
+    "role": "Sole Creator & Full-Stack Engineer",
+    "development_phase": "Production (live at werewolves.hy13dev.com)",
+    "languages": ["TypeScript", "CSS"],
+    "frameworks_and_tools": [
+      "Next.js 16.4 (Cache Components / Partial Prerendering)",
+      "React 19.3",
+      "React Compiler",
+      "Tailwind CSS v4",
+      "PartyServer",
+      "Cloudflare Workers & Durable Objects",
+      "Wrangler",
+      "PartySocket (Reconnecting Socket API)",
+      "Vitest",
+      "Progressive Web App (Web App Manifest)",
+      "Lucide Icons"
+    ]
+  },
+  "comprehensive_description": "A game master's companion for Werewolves (Les Loups-Garous de Thiercelieux), built for game nights with friends. Narrating the game by heart is error-prone: roles wake in the wrong order, a power gets forgotten, or nobody notices that a team has already won. The app runs the whole game on the narrator's iPad or laptop, step by step, with the exact lines to read aloud, while players join a room by scanning a QR code and hold their phone to reveal their secret role card. Players without a phone can be added by hand, and only the narrator interacts with the game, so it works for any group. It supports 30 roles from the base game and the Nouvelle Lune, Personnages and Le Village expansions, four themes (Werewolves, Mafia, Vampires, Spaceship) that rename every role and line of narration, and English and French with a flash-free light, dark and auto theme.",
+  "engineering_highlights": [
+    "Event-Sourced Game Engine: The game is stored as its setup plus an append-only action log, and every state is rebuilt by replaying it through pure functions. Undo is popping the last action and replaying, so any misclick, including an accidental end of game, can be taken back.",
+    "Roles as Data: Each role declares its team, night turn order, limited uses and death triggers, and the night sequence is computed from the roles in play. Adding a role means adding a definition rather than editing the game flow.",
+    "Win and 'Who Can Still Win' Detection: Solo goals (Angel, Pied Piper, Abominable Sectarian) are checked before team victories, mixed Cupid couples form their own team, and the narrator always sees which teams can still win.",
+    "Per-Connection Filtered Views: The room server sends each socket its own view. The narrator sees everything, while a phone only receives public information and its own role, so no secret ever reaches another player's device.",
+    "Refresh-Proof Rooms on Durable Objects: Each room is a hibernating Cloudflare Durable Object that persists its state and rebuilds the game on wake-up. Players reclaim their seat with a token saved on their phone after a refresh, a locked screen or a closed tab, and empty rooms clean themselves up after 24 hours.",
+    "Theme Engine Decoupled from Rules: Themes are whole-word rename maps per language plus targeted overrides, applied to the dictionaries at render time. The engine never reads the theme, and tests fail if any werewolf wording leaks into another theme.",
+    "Spoiler-Safe Shared Screen: Because the narrator's screen is visible to the table, roles can be blurred with one tap and private information (such as the Seer's vision) opens in a full-screen reveal that hides the rest of the board."
+  ],
+  "measurable_metrics": {
+    "rules_coverage": "30 roles and 31 distinct night and day step types, each covered by an engine test suite of 67 tests.",
+    "server_footprint": "The whole room server, including the shared game engine, deploys as a 20 KB gzipped Cloudflare Worker.",
+    "operational_cost": "Rooms hibernate between messages and are wiped 24 hours after everyone leaves, so the backend runs on Cloudflare's free plan."
+  },
+  "star_challenges": [
+    {
+      "situation": "Narrating a game with many roles from memory leads to mistakes that can ruin a round: waking roles out of order, forgetting a once-per-game power, or missing that a team has already won.",
+      "action": "Modelled every role as data and built a pure engine that computes the night order, prompts the narrator with each line to read, tracks one-time powers, and checks every win condition after each step.",
+      "result": "The narrator only has to read and tap. The rules are enforced by tested code instead of memory, including edge cases like the Angel's first-vote win and mixed lovers.",
+      "inline_image": ""
+    },
+    {
+      "situation": "In a live game, one wrong tap (the wrong victim, the wrong vote, or ending the game by accident) is hard to fix without restarting.",
+      "action": "Designed the game state as a replay of a setup and an action log, making undo a matter of dropping the last action, and kept a closed game resumable until the lineup changes.",
+      "result": "Any step can be rolled back instantly, with no special-case undo code per role.",
+      "inline_image": ""
+    },
+    {
+      "situation": "The hosted PartyKit platform that ran the realtime rooms shut down in October 2026, taking the multiplayer backend offline.",
+      "action": "Migrated the room server to PartyServer on my own Cloudflare account, moving to Durable Objects with hibernation, storage-backed state and alarms, and verified reconnects, filtered views, undo and persistence across Worker restarts with end-to-end socket tests.",
+      "result": "Rooms survive refreshes and server restarts with no change for players, and the backend now deploys with a single Wrangler command, with a separate staging environment for previews.",
+      "inline_image": ""
+    }
+  ],
+  "architectural_deep_dive": {
+    "text": "The frontend is a Next.js 16 app using Cache Components (Partial Prerendering) and the React Compiler, served per language under /en and /fr and installable as a PWA. The narrator's browser creates a room on a PartyServer Durable Object and holds a secret host token. Phones join with a name and receive a player token, both kept in localStorage. All rules live in a framework-free TypeScript engine shared by the server and the client: the server stores the setup and action log, replays them into the current state, and sends each connection a filtered view. Themes and translations are applied only in the UI layer, so the same engine powers every theme and language.",
+    "illustration": null
+  },
+  "lessons_learned": "Event sourcing pays off quickly in a game with complex rules: once state is a pure replay of actions, undo, persistence and server restarts all come for free, and the engine can be tested without a UI or a network. Keeping the rules engine independent of presentation also made it possible to add themes and languages without touching game logic. Finally, relying on a hosted realtime platform is a risk worth planning for, and keeping the server thin made the migration to self-hosted Durable Objects a matter of hours."
+}
