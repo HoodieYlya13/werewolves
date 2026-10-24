@@ -1,34 +1,42 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Werewolves · Loups-Garous
 
-## Getting Started
+A game master's companion for Werewolves (Les Loups-Garous de Thiercelieux) and other hidden-role games. The game master runs the game on a big screen; players join with their phones to see their role.
 
-First, run the development server:
+- Role and theme research: [docs/roles-and-themes.md](docs/roles-and-themes.md)
+
+## Stack
+
+- Next.js 16 with Cache Components (PPR), Partial Prefetching and the React Compiler
+- Tailwind CSS 4
+- PartyKit for realtime rooms (`party/server.ts`)
+- English by default, French at `/fr` (`lib/i18n`)
+- Light / dark / auto theme with no flash (`lib/theme.ts`)
+- Installable PWA (`app/manifest.ts`, `public/icons`)
+
+## Develop
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+This starts Next.js on port 3000 and PartyKit on port 1999.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+**Testing with phones:** open the app on the game master's device using your computer's LAN IP (for example `http://192.168.1.200:3000`), not `localhost`. The QR code uses that address, and phones connect to PartyKit on the same host.
 
-## Learn More
+## How rooms work
 
-To learn more about Next.js, take a look at the following resources:
+- The game master's browser creates a 4-letter room code and a secret token, saved in `localStorage`.
+- Phones join with a name and get a player id and token, also saved in `localStorage`. A refresh, a locked screen or a closed tab puts them back in the same seat.
+- The server sends each connection its own view: the game master sees everything, a phone only sees public info and its own data.
+- Room state is saved to PartyKit storage and wiped 24 hours after everyone leaves.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Scripts
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Script | What it does |
+|---|---|
+| `npm run dev` | Next.js + PartyKit dev servers |
+| `npm run build` | Production build |
+| `npm run lint` / `npm run typecheck` | ESLint / TypeScript |
+| `npm run party:deploy` | Deploy the PartyKit server |
+| `node scripts/generate-icons.mjs` | Regenerate PNG icons from `public/icons/icon.svg` |
