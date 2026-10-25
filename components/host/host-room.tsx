@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, History, Layers, Lock, LockOpen, Smartphone, UserPlus, X } from "lucide-react";
+import { ChevronDown, ChevronUp, History, Layers, Lock, LockOpen, Pencil, Smartphone, UserPlus, X } from "lucide-react";
 import { GameScreen } from "@/components/host/game-screen";
 import { ThemedI18n } from "@/components/themed-i18n";
+import { CloseRoomButton } from "@/components/host/close-room-button";
+import { PlayerEditor } from "@/components/host/player-editor";
 import { SetupScreen } from "@/components/host/setup-screen";
+import { Avatar, RoomProvider } from "@/components/room-context";
 import { useI18n } from "@/components/i18n-provider";
 import { QrCode } from "@/components/qr-code";
 import { ConnectionBanner, FatalError } from "@/components/room-status";
@@ -22,11 +25,34 @@ export function HostRoom() {
 }
 
 function HostLobby({ code }: { code: string }) {
+  const { view, error, status, send, clockOffset } = useRoom<HostView>(code, "host");
+  const room = {
+    code,
+    players: view?.players ?? [],
+    timer: view?.timer ?? null,
+    clockOffset,
+    ballot: view?.ballot ?? null,
+    send,
+  };
+  return (
+    <RoomProvider value={room}>
+      <HostContent code={code} view={view} error={error} status={status} send={send} />
+    </RoomProvider>
+  );
+}
+
+function HostContent({
+  code,
+  view,
+  error,
+  status,
+  send,
+}: Pick<ReturnType<typeof useRoom<HostView>>, "view" | "error" | "status" | "send"> & { code: string }) {
   const { dict, locale } = useI18n();
   const router = useRouter();
-  const { view, error, status, send } = useRoom<HostView>(code, "host");
   const [name, setName] = useState("");
   const [screen, setScreen] = useState<"lobby" | "setup">("lobby");
+  const [editing, setEditing] = useState<string | null>(null);
 
   // Code collision on create: pick a new code and move there.
   useEffect(() => {
@@ -38,7 +64,7 @@ function HostLobby({ code }: { code: string }) {
     router.replace(`/${locale}/host/${next}`);
   }, [error, code, locale, router]);
 
-  if (error === "room-not-found" || error === "not-host") return <FatalError code={error} />;
+  if (error === "room-not-found" || error === "not-host" || error === "room-closed") return <FatalError code={error} />;
 
   if (view?.game) {
     return (
@@ -118,13 +144,23 @@ function HostLobby({ code }: { code: string }) {
                   className={`size-2.5 shrink-0 rounded-full ${p.manual ? "bg-transparent" : p.connected ? "bg-ok" : "bg-muted/40"}`}
                   title={p.manual ? undefined : p.connected ? dict.host.online : dict.host.offline}
                 />
-                <span className="min-w-0 flex-1 truncate font-medium">{p.name}</span>
+                <button
+                  type="button"
+                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                  onClick={() => setEditing(p.id)}
+                >
+                  <Avatar playerId={p.id} name={p.name} />
+                  <span className="min-w-0 truncate font-medium">{p.name}</span>
+                </button>
                 {p.manual && (
                   <span className="flex items-center gap-1 text-xs text-muted" title={dict.host.noPhone}>
                     <Smartphone aria-hidden className="size-3.5" />
                     <span className="sr-only sm:not-sr-only">{dict.host.noPhone}</span>
                   </span>
                 )}
+                <IconButton label={format(dict.host.editPlayer, { name: p.name })} onClick={() => setEditing(p.id)}>
+                  <Pencil className="size-4" />
+                </IconButton>
                 <IconButton
                   label={format(dict.host.moveUp, { name: p.name })}
                   disabled={i === 0}
@@ -182,6 +218,7 @@ function HostLobby({ code }: { code: string }) {
             </p>
           )}
         </form>
+        {editing && <PlayerEditor playerId={editing} onClose={() => setEditing(null)} />}
 
         {view?.canResume && (
           <button type="button" className="btn btn-ghost h-12 text-base" onClick={() => send({ type: "resume-game" })}>
@@ -201,6 +238,7 @@ function HostLobby({ code }: { code: string }) {
         {players.length < MIN_PLAYERS && (
           <p className="-mt-2 text-center text-sm text-muted">{format(dict.setup.needPlayers, { min: MIN_PLAYERS })}</p>
         )}
+        {view && <CloseRoomButton className="self-center" />}
       </section>
     </main>
   );

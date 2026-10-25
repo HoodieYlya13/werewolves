@@ -18,6 +18,7 @@ export const mafia: Theme = {
       werewolves: "mafia",
       Werewolf: "Mafioso",
       werewolf: "mafioso",
+      Wolves: "Mafia",
       wolves: "mafia",
       wolf: "mafioso",
       eaten: "killed",

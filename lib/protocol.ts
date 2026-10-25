@@ -1,3 +1,4 @@
+import type { Ballot, Timer } from "./ballot";
 import type { Action, GameState, PlayerInfo, PublicGame, RoleId, SetupOptions, Settings } from "./engine";
 
 /**
@@ -16,6 +17,8 @@ export type PublicPlayer = {
   connected: boolean;
   /** Added by the game master for someone without a phone. */
   manual: boolean;
+  /** Version of the player's photo (see `photoUrl`), or null without one. */
+  photo: number | null;
 };
 
 type BaseView = {
@@ -23,6 +26,10 @@ type BaseView = {
   phase: RoomPhase;
   locked: boolean;
   players: PublicPlayer[];
+  /** The countdown the game master started, if any. */
+  timer: Timer | null;
+  /** Server clock when the view was sent, to show the timer accurately. */
+  serverNow: number;
 };
 
 /** The game master sees everything, including every role and the full game state. */
@@ -33,6 +40,19 @@ export type HostView = BaseView & {
   actionCount: number;
   /** A game ended with "End game" that can still be picked up again. */
   canResume: boolean;
+  /** Votes cast on phones, while the game master has a ballot open. */
+  ballot: Ballot | null;
+};
+
+/** The open ballot as a phone sees it: only its own vote. */
+export type PhoneBallot = {
+  candidateIds: string[];
+  canVote: boolean;
+  /** Whether this phone has voted, and for whom (null = no one). */
+  voted: boolean;
+  targetId: string | null;
+  answered: number;
+  voters: number;
 };
 
 /**
@@ -44,6 +64,7 @@ export type PlayerView = BaseView & {
   me: PublicPlayer | null;
   info: PlayerInfo | null;
   game: PublicGame | null;
+  ballot: PhoneBallot | null;
 };
 
 export type RoomView = HostView | PlayerView;
@@ -58,7 +79,8 @@ export type ErrorCode =
   | "removed"
   | "game-in-progress"
   | "invalid-setup"
-  | "invalid-action";
+  | "invalid-action"
+  | "room-closed";
 
 export type ServerMessage =
   | { type: "view"; view: RoomView }
@@ -75,6 +97,12 @@ export type StartGame = SetupOptions &
 export type ClientMessage =
   // Phone
   | { type: "join"; name: string }
+  /** Leaves the room. Mid-game the player stays in the game for the game master to play. */
+  | { type: "leave" }
+  /** null = vote for no one. */
+  | { type: "cast-vote"; targetId: string | null }
+  // Phone (its own photo) or game master (anyone's). `data` is a JPEG data URL; null removes it.
+  | { type: "set-photo"; playerId?: string; data: string | null }
   // Game master
   | { type: "add-player"; name: string }
   | { type: "remove-player"; playerId: string }
@@ -85,7 +113,18 @@ export type ClientMessage =
   | { type: "undo" }
   /** Back to the lobby with the same players. The game is kept until the lineup changes. */
   | { type: "end-game" }
-  | { type: "resume-game" };
+  | { type: "resume-game" }
+  | { type: "rename-player"; playerId: string; name: string }
+  /** Disconnects everyone and deletes the room. */
+  | { type: "close-room" }
+  | { type: "open-ballot" }
+  | { type: "close-ballot" }
+  /** Sets (or with `clear`, removes) someone's vote: misclicks and players without a phone. */
+  | { type: "set-vote"; voterId: string; targetId: string | null; clear?: boolean }
+  /** Starts a countdown of `seconds`, or removes it with null. */
+  | { type: "set-timer"; seconds: number | null }
+  | { type: "pause-timer" }
+  | { type: "resume-timer" };
 
 /** Query params sent when opening the socket. */
 export type ConnectQuery =
@@ -93,3 +132,6 @@ export type ConnectQuery =
   | { as: "player"; id?: string; token?: string };
 
 export const MAX_NAME_LENGTH = 24;
+/** Photos are resized on the device; this caps the data URL sent to the server. */
+export const MAX_PHOTO_LENGTH = 200_000;
+export const PHOTO_SIZE = 256;

@@ -6,9 +6,14 @@ import type { ClientMessage, ConnectQuery, ErrorCode, RoomView, ServerMessage } 
 import { identity, partyHost } from "@/lib/room";
 
 /** Errors after which reconnecting is pointless. */
-const FATAL: ErrorCode[] = ["room-not-found", "room-taken", "not-host"];
+const FATAL: ErrorCode[] = ["room-not-found", "room-taken", "not-host", "room-closed"];
 
 export type RoomStatus = "connecting" | "open" | "reconnecting";
+
+/** Server clock minus this device's clock, measured when a view arrives. */
+function offsetFrom(serverNow: number) {
+  return serverNow - Date.now();
+}
 
 /**
  * Connects to a room as the game master or as a phone. Must only render on the
@@ -18,6 +23,7 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
   const [view, setView] = useState<V | null>(null);
   const [error, setError] = useState<ErrorCode | null>(null);
   const [status, setStatus] = useState<RoomStatus>("connecting");
+  const [clockOffset, setClockOffset] = useState(0);
 
   const socket = usePartySocket({
     host: partyHost(),
@@ -37,6 +43,7 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
           // Stored identity that the room no longer knows (removed, room reset).
           if (msg.view.kind === "player" && !msg.view.me) identity.setPlayer(code, null);
           setView(msg.view as V);
+          setClockOffset(offsetFrom(msg.view.serverNow));
           setError(null);
           break;
         case "joined":
@@ -44,6 +51,10 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
           break;
         case "error":
           if (msg.code === "removed") identity.setPlayer(code, null);
+          if (msg.code === "room-closed") {
+            identity.setPlayer(code, null);
+            identity.setHost(code, null);
+          }
           if (FATAL.includes(msg.code)) socket.close();
           setError(msg.code);
           break;
@@ -56,5 +67,10 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
     socket.send(JSON.stringify(message));
   }
 
-  return { view, error, status, send };
+  /** Stops reconnecting, e.g. after leaving the room. */
+  function close() {
+    socket.close();
+  }
+
+  return { view, error, status, send, clockOffset, close };
 }

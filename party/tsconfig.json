@@ -11,6 +11,6 @@
     "noEmit": true,
     "isolatedModules": true
   },
-  "include": ["*.ts", "../lib/engine/**/*.ts", "../lib/protocol.ts"],
+  "include": ["*.ts", "../lib/engine/**/*.ts", "../lib/protocol.ts", "../lib/ballot.ts"],
   "exclude": ["../lib/engine/**/*.test.ts"]
 }

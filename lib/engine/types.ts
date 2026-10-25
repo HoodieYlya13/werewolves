@@ -152,6 +152,11 @@ export type Step =
   | { kind: "piper"; playerId: string; count: number; min: number }
   | { kind: "charmed"; playerIds: string[]; newIds: string[] }
   | { kind: "raven"; playerId: string }
+  /**
+   * A night turn nobody can play any more (dead, or out of power). With roles
+   * hidden, the narrator still calls it so the village can't tell.
+   */
+  | { kind: "bluff"; turn: string; role: RoleId }
   | { kind: "deaths"; context: "dawn" | "vote" | "hunter"; deaths: Death[] }
   | { kind: "hunter"; playerId: string }
   | { kind: "bear"; playerId: string; growls: boolean }

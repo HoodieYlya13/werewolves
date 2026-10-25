@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { FlaskConical, Skull, Trophy } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
+import { BallotPanel } from "@/components/host/ballot-panel";
 import { PlayerGrid, toggle } from "@/components/host/player-grid";
 import { Reveal } from "@/components/host/reveal";
 import { RoleName } from "@/components/host/role-chip";
+import { TimerControls } from "@/components/vote-timer";
 import { format } from "@/lib/i18n/config";
 import { isWolf, type Action, type GameState, type Player, type Step } from "@/lib/engine";
 
@@ -93,6 +95,8 @@ function StepContent({ game, act }: { game: GameState; act: (action: Action) => 
       return <SheriffStep game={game} step={step} act={act} />;
     case "vote":
       return <VoteStep game={game} step={step} act={act} />;
+    case "bluff":
+      return <BluffStep game={game} step={step} act={act} />;
     case "game-over":
       return <GameOverStep game={game} step={step} act={act} />;
   }
@@ -462,6 +466,8 @@ function VoteStep({ game, step, act }: Props<"vote">) {
       {step.cannotVote.length > 0 && (
         <p className="rounded-xl bg-surface-2 px-4 py-2">{format(t.cannotVote, { names: names(game, step.cannotVote) })}</p>
       )}
+      <TimerControls />
+      <BallotPanel game={game} step={step} act={act} />
       <PickPlayers
         game={game}
         count={1}
@@ -481,6 +487,21 @@ function VoteStep({ game, step, act }: Props<"vote">) {
           </>
         }
       />
+    </>
+  );
+}
+
+/** A turn nobody can play: the narrator calls it anyway, word for word. */
+function BluffStep({ game, step, act }: Props<"bluff">) {
+  const { dict } = useI18n();
+  const turns = dict.game.steps as Record<string, { say?: string }>;
+  const piper = game.setup.settings.piperCharms;
+  const say = format(turns[step.turn]?.say ?? "", { count: piper === "choice" ? 2 : piper });
+  return (
+    <>
+      <Say>{say}</Say>
+      <Do>{dict.game.steps.bluff.do}</Do>
+      <ContinueButton act={act} />
     </>
   );
 }

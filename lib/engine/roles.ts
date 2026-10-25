@@ -291,6 +291,17 @@ export type SequenceEntry = {
   build: (state: GameState) => Step | null;
 };
 
+/**
+ * Keeps calling a night turn that was in the game but can't be played any more,
+ * unless roles are revealed on death or the loss of powers was announced:
+ * otherwise skipping it would tell the village who is gone.
+ */
+function bluff(state: GameState, turn: string, role: RoleId, dealt: boolean): Step | null {
+  if (state.setup.settings.revealRoleOnDeath || !dealt) return null;
+  if (state.villagePowersLost && roles[role].team === "village") return null;
+  return { kind: "bluff", turn, role };
+}
+
 const roleTurns: SequenceEntry[] = roleIds.flatMap((id) => {
   const night = roles[id].night;
   if (!night) return [];
@@ -301,7 +312,8 @@ const roleTurns: SequenceEntry[] = roleIds.flatMap((id) => {
     evenNightsOnly: night.evenNightsOnly,
     build: (state) => {
       const holder = holders(state, id)[0];
-      return holder ? night.act(state, holder) : null;
+      const step = holder ? night.act(state, holder) : null;
+      return step ?? bluff(state, id, id, state.players.some((p) => p.role === id));
     },
   };
   if (!roles[id].actorCanBorrow) return [own];
@@ -343,7 +355,7 @@ const groupTurns: SequenceEntry[] = [
     order: 50,
     build: (state) => {
       const wolves = alive(state).filter(isWolf);
-      if (wolves.length === 0) return null;
+      if (wolves.length === 0) return bluff(state, "wolves", "werewolf", state.players.some(isWolf));
       return {
         kind: "wolves",
         playerIds: wolves.map((p) => p.id),

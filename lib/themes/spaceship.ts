@@ -19,6 +19,7 @@ export const spaceship: Theme = {
       Werewolf: "Impostor",
       werewolf: "impostor",
       "a werewolf": "an impostor",
+      Wolves: "Impostors",
       wolves: "impostors",
       wolf: "impostor",
       eaten: "killed",

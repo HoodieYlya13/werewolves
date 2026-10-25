@@ -51,3 +51,15 @@ export const identity = {
 export function partyHost() {
   return process.env.NEXT_PUBLIC_PARTYKIT_HOST ?? `${window.location.hostname}:1999`;
 }
+
+/** HTTP origin of the room server (partysocket uses the same rule for ws:// vs wss://). */
+function partyOrigin() {
+  const host = partyHost();
+  const local = /^(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.|\[::1\])/.test(host) || host.includes(".local");
+  return `${local ? "http" : "https"}://${host}`;
+}
+
+/** Where a player's photo is served; the version busts the cache when it changes. */
+export function photoUrl(code: string, playerId: string, version: number) {
+  return `${partyOrigin()}/parties/main/${code}/photo/${playerId}?v=${version}`;
+}

@@ -16,7 +16,7 @@ const themedParts = (d: typeof en) => ({ roles: d.roles, teams: d.teams, game: d
 
 // Words a themed game should never show. Checked whole-word, case-sensitive.
 const leftovers = {
-  en: ["werewolf", "werewolves", "Werewolf", "Werewolves", "wolf", "wolves", "Seer", "Witch", "Thief", "Elder", "Defender", "Raven"],
+  en: ["werewolf", "werewolves", "Werewolf", "Werewolves", "wolf", "wolves", "Wolves", "Seer", "Witch", "Thief", "Elder", "Defender", "Raven"],
   fr: ["loup", "loups", "loup-garou", "loups-garous", "Loup-Garou", "Loups-Garous", "Voyante", "Sorcière", "Voleur", "Ancien", "Salvateur", "Corbeau"],
 };
 

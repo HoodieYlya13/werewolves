@@ -1,15 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { useParams } from "next/navigation";
-import { Crown, Moon, Skull, Sun } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { Check, Crown, LogOut, Moon, Skull, Sun, Vote } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { RoleName } from "@/components/host/role-chip";
 import { RoleCard } from "@/components/play/role-card";
+import { PhotoPicker } from "@/components/photo-picker";
+import { Avatar, RoomProvider } from "@/components/room-context";
+import { TimerDisplay } from "@/components/vote-timer";
 import { ThemedI18n } from "@/components/themed-i18n";
 import { ConnectionBanner, FatalError } from "@/components/room-status";
 import { useRoom } from "@/hooks/use-room";
 import { format } from "@/lib/i18n/config";
+import { identity } from "@/lib/room";
 import { MAX_NAME_LENGTH, type PlayerView } from "@/lib/protocol";
 
 export function PlayerRoom() {
@@ -18,15 +22,26 @@ export function PlayerRoom() {
 }
 
 function PlayerScreen({ code }: { code: string }) {
-  const { dict } = useI18n();
-  const { view, error, status, send } = useRoom<PlayerView>(code, "player");
+  const { dict, locale } = useI18n();
+  const router = useRouter();
+  const { view, error, status, send, clockOffset, close } = useRoom<PlayerView>(code, "player");
   const [name, setName] = useState("");
 
-  if (error === "room-not-found") return <FatalError code={error} />;
+  if (error === "room-not-found" || error === "room-closed") return <FatalError code={error} />;
+
+  function leave() {
+    if (!window.confirm(view?.game ? dict.play.leaveConfirmInGame : dict.play.leaveConfirm)) return;
+    send({ type: "leave" });
+    identity.setPlayer(code, null);
+    close();
+    router.push(`/${locale}`);
+  }
 
   const me = view?.me;
+  const room = { code, players: view?.players ?? [], timer: view?.timer ?? null, clockOffset };
 
   return (
+    <RoomProvider value={room}>
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-10">
       <ConnectionBanner status={status} />
       <p className="text-center font-mono text-sm tracking-[0.3em] text-muted">{code}</p>
@@ -68,15 +83,17 @@ function PlayerScreen({ code }: { code: string }) {
       )}
 
       {me && !view?.info && (
-        <section className="card flex flex-col items-center gap-2 p-6 text-center">
+        <section className="card flex flex-col items-center gap-3 p-6 text-center">
+          <Avatar playerId={me.id} name={me.name} className="size-24 text-3xl" />
           <p className="text-xl font-semibold">{format(dict.play.joinedAs, { name: me.name })}</p>
+          <PhotoPicker hasPhoto={me.photo !== null} onChange={(data) => send({ type: "set-photo", data })} />
           <p className="text-muted">{dict.play.waiting}</p>
         </section>
       )}
 
       {me && view?.info && view.game && (
         <ThemedI18n theme={view.game.theme}>
-          <InGame view={view} />
+          <InGame view={view} onVote={(targetId) => send({ type: "cast-vote", targetId })} />
         </ThemedI18n>
       )}
 
@@ -87,20 +104,29 @@ function PlayerScreen({ code }: { code: string }) {
             {view.players.map((p) => (
               <li
                 key={p.id}
-                className={`rounded-full px-3 py-1 text-sm ${p.id === me?.id ? "bg-accent text-accent-fg" : "bg-surface-2"}`}
+                className={`flex items-center gap-1.5 rounded-full py-1 pr-3 pl-1 text-sm ${p.id === me?.id ? "bg-accent text-accent-fg" : "bg-surface-2"}`}
               >
+                <Avatar playerId={p.id} name={p.name} className="size-6" />
                 {p.name}
               </li>
             ))}
           </ul>
         </section>
       )}
+
+      {me && (
+        <button type="button" className="btn btn-ghost mt-auto self-center text-muted" onClick={leave}>
+          <LogOut aria-hidden className="size-4" />
+          {dict.play.leave}
+        </button>
+      )}
     </main>
+    </RoomProvider>
   );
 }
 
 /** The phone during a game: public status, the player's own card, the table. */
-function InGame({ view }: { view: PlayerView }) {
+function InGame({ view, onVote }: { view: PlayerView; onVote: (targetId: string | null) => void }) {
   const { dict } = useI18n();
   const info = view.info!;
   const game = view.game!;
@@ -128,6 +154,10 @@ function InGame({ view }: { view: PlayerView }) {
         </p>
       )}
 
+      {!game.winner && <TimerDisplay />}
+
+      {view.ballot && !game.winner && <PhoneBallotCard view={view} onVote={onVote} />}
+
       {!info.alive && !game.winner && (
         <p role="status" className="rounded-xl bg-surface-2 px-4 py-3 text-center">
           {t.card.dead}
@@ -147,6 +177,7 @@ function InGame({ view }: { view: PlayerView }) {
                 key={p.id}
                 className={`flex items-center gap-2 rounded-lg px-3 py-1.5 ${p.id === me.id ? "bg-surface-2" : ""} ${isDead ? "opacity-50" : ""}`}
               >
+                <Avatar playerId={p.id} name={p.name} className="size-7" />
                 <span className={`min-w-0 flex-1 truncate ${isDead ? "line-through" : ""}`}>{p.name}</span>
                 {game.sheriffId === p.id && <Crown aria-label={dict.game.sheriff} className="size-4 text-moon" />}
                 {isDead && <Skull aria-label={dict.game.dead} className="size-4" />}
@@ -157,5 +188,71 @@ function InGame({ view }: { view: PlayerView }) {
         </ul>
       </section>
     </>
+  );
+}
+
+/** The day's vote on a phone, while the game master has it open. */
+function PhoneBallotCard({ view, onVote }: { view: PlayerView; onVote: (targetId: string | null) => void }) {
+  const { dict } = useI18n();
+  const t = dict.ballot;
+  const ballot = view.ballot!;
+  const me = view.me!;
+  const nameOf = (id: string) => view.players.find((p) => p.id === id)?.name ?? "?";
+
+  if (!ballot.canVote) {
+    return (
+      <p role="status" className="rounded-xl bg-surface-2 px-4 py-3 text-center">
+        {t.phoneCannotVote}
+      </p>
+    );
+  }
+
+  const choices: { id: string | null; label: string }[] = [
+    ...ballot.candidateIds.filter((id) => id !== me.id).map((id) => ({ id, label: nameOf(id) })),
+    { id: null, label: t.noOne },
+  ];
+
+  return (
+    <section className="card flex flex-col gap-3 p-4">
+      <h2 className="flex items-center gap-2 text-lg font-semibold">
+        <Vote aria-hidden className="size-5" />
+        {t.phoneTitle}
+      </h2>
+      <p className="text-sm text-muted">
+        {ballot.voted
+          ? format(t.phoneVoted, { name: ballot.targetId ? nameOf(ballot.targetId) : t.noOne })
+          : t.phoneHint}
+      </p>
+      <ul className="flex flex-col gap-2">
+        {choices.map((choice) => {
+          const selected = ballot.voted && ballot.targetId === choice.id;
+          return (
+            <li key={choice.id ?? "nobody"}>
+              <button
+                type="button"
+                aria-pressed={selected}
+                onClick={() => onVote(choice.id)}
+                className={`flex min-h-14 w-full items-center gap-3 rounded-xl border-2 px-3 py-2 text-left text-lg font-semibold ${
+                  selected ? "border-accent bg-accent/10" : "border-line bg-surface-2"
+                }`}
+              >
+                {choice.id ? (
+                  <Avatar playerId={choice.id} name={choice.label} className="size-9" />
+                ) : (
+                  <span aria-hidden className="grid size-9 place-items-center rounded-full bg-surface text-muted">
+                    –
+                  </span>
+                )}
+                <span className="min-w-0 flex-1 truncate">{choice.label}</span>
+                {selected && <Check aria-hidden className="size-5 text-accent" />}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="text-center text-sm text-muted">
+        {format(t.progress, { answered: ballot.answered, voters: ballot.voters })}
+      </p>
+    </section>
   );
 }

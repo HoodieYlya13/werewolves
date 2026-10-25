@@ -11,8 +11,10 @@ import {
   type GameSetup,
   type GameState,
 } from "../lib/engine";
+import type { Ballot, Timer } from "../lib/ballot";
 import {
   MAX_NAME_LENGTH,
+  MAX_PHOTO_LENGTH,
   type ClientMessage,
   type ErrorCode,
   type PublicPlayer,
@@ -39,7 +41,13 @@ type RoomState = {
   game: { setup: GameSetup; log: Action[] } | null;
   /** The game "End game" closed, so a misclick can be taken back. */
   endedGame?: { setup: GameSetup; log: Action[] } | null;
+  /** Votes cast on phones; closed by any game action. */
+  ballot?: Ballot | null;
+  timer?: Timer | null;
 };
+
+const PHOTO_PREFIX = "photo:";
+const MAX_TIMER_SECONDS = 60 * 60;
 
 /** Who a socket belongs to. Kept on the connection so it survives restarts. */
 type ConnState = { kind: "host" } | { kind: "player"; playerId: string } | { kind: "guest" };
@@ -126,6 +134,7 @@ export class RoomServer extends Server<Env> {
     }
 
     const isHost = sender.state?.kind === "host";
+    const logLength = this.state.game?.log.length;
     const lobbyOnly = ["add-player", "remove-player", "move-player", "start-game", "resume-game"];
     if (lobbyOnly.includes(msg.type) && this.state.game) {
       return this.send(sender, { type: "error", code: "game-in-progress" });
@@ -142,6 +151,34 @@ export class RoomServer extends Server<Env> {
         this.send(sender, { type: "joined", playerId: player.id, token: player.token! });
         break;
       }
+      case "leave": {
+        if (sender.state?.kind !== "player") return;
+        const playerId = sender.state.playerId;
+        sender.setState({ kind: "guest" });
+        if (this.state.game) {
+          // The game needs everyone it was dealt with: the game master plays their part.
+          const player = this.state.players.find((p) => p.id === playerId);
+          if (player) player.connected = false;
+        } else {
+          this.state.endedGame = null;
+          this.state.players = this.state.players.filter((p) => p.id !== playerId);
+          await this.ctx.storage.delete(PHOTO_PREFIX + playerId);
+          this.reseat();
+        }
+        break;
+      }
+      case "close-room": {
+        if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
+        this.state = null;
+        this.game = null;
+        await this.ctx.storage.deleteAll();
+        await this.ctx.storage.deleteAlarm();
+        for (const conn of this.getConnections<ConnState>()) {
+          this.send(conn, { type: "error", code: "room-closed" });
+          conn.close(1000, "room-closed");
+        }
+        return;
+      }
       case "add-player": {
         if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
         // The ended game no longer matches the table.
@@ -155,6 +192,7 @@ export class RoomServer extends Server<Env> {
         if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
         this.state.endedGame = null;
         this.state.players = this.state.players.filter((p) => p.id !== msg.playerId);
+        await this.ctx.storage.delete(PHOTO_PREFIX + msg.playerId);
         this.reseat();
         for (const c of this.getConnections<ConnState>()) {
           if (c.state?.kind === "player" && c.state.playerId === msg.playerId) {
@@ -228,12 +266,126 @@ export class RoomServer extends Server<Env> {
         this.game = replay(this.state.game.setup, this.state.game.log);
         break;
       }
+      case "rename-player": {
+        if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
+        const player = this.state.players.find((p) => p.id === msg.playerId);
+        if (!player) return;
+        const name = this.validateName(sender, msg.name, player.id);
+        if (!name) return;
+        player.name = name;
+        // Names are part of the game setup too, so the game screen follows.
+        for (const game of [this.state.game, this.state.endedGame]) {
+          const entry = game?.setup.players.find((p) => p.id === player.id);
+          if (entry) entry.name = name;
+        }
+        if (this.state.game) this.game = replay(this.state.game.setup, this.state.game.log);
+        break;
+      }
+      case "set-photo": {
+        const ownId = sender.state?.kind === "player" ? sender.state.playerId : null;
+        const playerId = isHost ? msg.playerId : ownId;
+        const player = this.state.players.find((p) => p.id === playerId);
+        if (!player) return;
+        const data = msg.data;
+        if (data === null) {
+          player.photo = null;
+          await this.ctx.storage.delete(PHOTO_PREFIX + player.id);
+          break;
+        }
+        const valid = typeof data === "string" && data.length <= MAX_PHOTO_LENGTH && /^data:image\/(jpeg|webp|png);base64,[A-Za-z0-9+/=]+$/.test(data);
+        if (!valid) return;
+        await this.ctx.storage.put(PHOTO_PREFIX + player.id, data);
+        player.photo = Date.now();
+        break;
+      }
+      case "open-ballot": {
+        if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
+        const step = this.game?.step;
+        if (!this.game || step?.kind !== "vote") return;
+        const living = this.game.players.filter((p) => p.alive).map((p) => p.id);
+        this.state.ballot = {
+          voterIds: living.filter((id) => !step.cannotVote.includes(id)),
+          candidateIds: living,
+          votes: {},
+        };
+        break;
+      }
+      case "close-ballot": {
+        if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
+        this.state.ballot = null;
+        break;
+      }
+      case "cast-vote":
+      case "set-vote": {
+        const ballot = this.state.ballot;
+        if (!ballot) return;
+        let voterId: string;
+        if (msg.type === "set-vote") {
+          if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
+          voterId = msg.voterId;
+        } else {
+          if (sender.state?.kind !== "player") return;
+          voterId = sender.state.playerId;
+        }
+        if (!ballot.voterIds.includes(voterId)) return;
+        if (msg.type === "set-vote" && msg.clear) {
+          delete ballot.votes[voterId];
+          break;
+        }
+        if (msg.targetId !== null && !ballot.candidateIds.includes(msg.targetId)) return;
+        ballot.votes[voterId] = msg.targetId;
+        break;
+      }
+      case "set-timer": {
+        if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
+        if (msg.seconds === null) {
+          this.state.timer = null;
+          break;
+        }
+        const seconds = Math.round(msg.seconds);
+        if (!Number.isFinite(seconds) || seconds < 1 || seconds > MAX_TIMER_SECONDS) return;
+        this.state.timer = { endsAt: Date.now() + seconds * 1000, remainingMs: seconds * 1000, durationMs: seconds * 1000 };
+        break;
+      }
+      case "pause-timer": {
+        if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
+        const timer = this.state.timer;
+        if (!timer || timer.endsAt === null) return;
+        this.state.timer = { ...timer, endsAt: null, remainingMs: Math.max(0, timer.endsAt - Date.now()) };
+        break;
+      }
+      case "resume-timer": {
+        if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
+        const timer = this.state.timer;
+        if (!timer || timer.endsAt !== null) return;
+        this.state.timer = { ...timer, endsAt: Date.now() + timer.remainingMs };
+        break;
+      }
       default:
         return;
     }
 
+    // A ballot and its countdown belong to one vote: any change to the game ends them.
+    if (this.state.game?.log.length !== logLength) {
+      this.state.ballot = null;
+      this.state.timer = null;
+    }
+
     await this.persist();
     this.broadcastViews();
+  }
+
+  /** Serves player photos at /parties/main/:room/photo/:playerId. */
+  async onRequest(request: Request) {
+    const match = new URL(request.url).pathname.match(/\/photo\/([\w-]+)$/);
+    const data = match && this.state ? await this.ctx.storage.get<string>(PHOTO_PREFIX + match[1]) : undefined;
+    if (!data) return new Response("Not found", { status: 404 });
+    const [header, base64] = data.split(",");
+    const type = header.slice("data:".length, header.indexOf(";"));
+    const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+    return new Response(bytes, {
+      headers: { "Content-Type": type, "Cache-Control": "public, max-age=31536000, immutable" },
+    });
   }
 
   async onAlarm() {
@@ -269,18 +421,19 @@ export class RoomServer extends Server<Env> {
       seat: this.state!.players.length,
       connected: !manual,
       manual,
+      photo: null,
     };
     this.state!.players.push(player);
     return player;
   }
 
-  private validateName(conn: Conn, input: unknown): string | null {
+  private validateName(conn: Conn, input: unknown, selfId?: string): string | null {
     const name = typeof input === "string" ? input.trim().replace(/\s+/g, " ") : "";
     if (!name || name.length > MAX_NAME_LENGTH) {
       this.send(conn, { type: "error", code: "invalid-name" });
       return null;
     }
-    const taken = this.state!.players.some((p) => p.name.toLowerCase() === name.toLowerCase());
+    const taken = this.state!.players.some((p) => p.id !== selfId && p.name.toLowerCase() === name.toLowerCase());
     if (taken) {
       this.send(conn, { type: "error", code: "name-taken" });
       return null;
@@ -295,10 +448,19 @@ export class RoomServer extends Server<Env> {
   private viewFor(conn: Conn): RoomView {
     const s = this.state!;
     const players = s.players
-      .map(({ id, name, seat, connected, manual }): PublicPlayer => ({ id, name, seat, connected, manual }))
+      .map(
+        ({ id, name, seat, connected, manual, photo }): PublicPlayer => ({
+          id,
+          name,
+          seat,
+          connected,
+          manual,
+          photo: photo ?? null,
+        }),
+      )
       .sort((a, b) => a.seat - b.seat);
     const phase = !this.game ? "lobby" : this.game.winner ? "ended" : "playing";
-    const base = { code: s.code, phase, locked: s.locked, players } as const;
+    const base = { code: s.code, phase, locked: s.locked, players, timer: s.timer ?? null, serverNow: Date.now() } as const;
     if (conn.state?.kind === "host") {
       return {
         ...base,
@@ -306,12 +468,32 @@ export class RoomServer extends Server<Env> {
         game: this.game,
         actionCount: s.game?.log.length ?? 0,
         canResume: !!s.endedGame,
+        ballot: s.ballot ?? null,
       };
     }
     const state = conn.state;
     const me = state?.kind === "player" ? players.find((p) => p.id === state.playerId) : undefined;
     const info = me && this.game ? playerInfo(this.game, me.id) : null;
-    return { ...base, kind: "player", me: me ?? null, info, game: this.game ? publicGame(this.game) : null };
+    const ballot = s.ballot;
+    const phoneBallot =
+      ballot && me
+        ? {
+            candidateIds: ballot.candidateIds,
+            canVote: ballot.voterIds.includes(me.id),
+            voted: me.id in ballot.votes,
+            targetId: ballot.votes[me.id] ?? null,
+            answered: ballot.voterIds.filter((id) => id in ballot.votes).length,
+            voters: ballot.voterIds.length,
+          }
+        : null;
+    return {
+      ...base,
+      kind: "player",
+      me: me ?? null,
+      info,
+      game: this.game ? publicGame(this.game) : null,
+      ballot: phoneBallot,
+    };
   }
 
   /** Every socket gets its own filtered view, so secrets never reach the wrong phone. */

@@ -152,6 +152,7 @@ function resolve(state: GameState, step: Step, action: Action) {
     case "deaths":
     case "bear":
     case "idiot":
+    case "bluff":
       expect("continue");
       return;
 

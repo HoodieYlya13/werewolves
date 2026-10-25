@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Crown, Eye, EyeOff, Heart, Moon, Music, PawPrint, Skull, Sun, Undo2, X } from "lucide-react";
+import { Crown, Eye, EyeOff, Heart, Moon, Music, PawPrint, Pencil, Skull, Sun, Undo2, X } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
+import { CloseRoomButton } from "@/components/host/close-room-button";
+import { PlayerEditor } from "@/components/host/player-editor";
 import { RoleName, teamColor } from "@/components/host/role-chip";
+import { Avatar } from "@/components/room-context";
 import { StepPanel } from "@/components/host/step-panel";
 import { format } from "@/lib/i18n/config";
 import { isWolf, remainingTeams, roles, teamOf, type GameEvent, type GameState } from "@/lib/engine";
@@ -89,6 +92,7 @@ export function GameScreen({
               <X aria-hidden className="size-4" />
               {over ? dict.game.steps["game-over"].newGame : dict.game.endGame}
             </button>
+            <CloseRoomButton className="h-10 px-4" />
           </div>
         </div>
 
@@ -136,6 +140,7 @@ function Remaining({ game }: { game: GameState }) {
 
 function PlayersPanel({ game }: { game: GameState }) {
   const { dict } = useI18n();
+  const [editing, setEditing] = useState<string | null>(null);
   return (
     <section className="card p-4">
       <h2 className="mb-2 text-sm font-medium tracking-wide text-muted uppercase">{dict.game.players}</h2>
@@ -143,7 +148,16 @@ function PlayersPanel({ game }: { game: GameState }) {
         {game.players.map((p, i) => (
           <li key={p.id} className={`flex items-center gap-2 text-sm ${p.alive ? "" : "opacity-45"}`}>
             <span className="w-5 text-right font-mono text-xs text-muted">{i + 1}</span>
-            <span className={`min-w-0 flex-1 truncate font-medium ${p.alive ? "" : "line-through"}`}>{p.name}</span>
+            <button
+              type="button"
+              className="group flex min-w-0 flex-1 items-center gap-2 text-left"
+              title={format(dict.host.editPlayer, { name: p.name })}
+              onClick={() => setEditing(p.id)}
+            >
+              <Avatar playerId={p.id} name={p.name} className="size-6" />
+              <span className={`min-w-0 truncate font-medium ${p.alive ? "" : "line-through"}`}>{p.name}</span>
+              <Pencil aria-hidden className="size-3 shrink-0 text-muted opacity-0 group-hover:opacity-100" />
+            </button>
             {game.lovers?.includes(p.id) && (
               <Heart aria-label={dict.game.lover} className="secret-role size-3.5 fill-pink-500 text-pink-500" />
             )}
@@ -159,6 +173,7 @@ function PlayersPanel({ game }: { game: GameState }) {
           </li>
         ))}
       </ol>
+      {editing && <PlayerEditor playerId={editing} onClose={() => setEditing(null)} />}
     </section>
   );
 }

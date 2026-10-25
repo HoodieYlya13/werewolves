@@ -325,3 +325,43 @@ describe("expansion setup", () => {
     expectError(() => setup(["abominable-sectarian", "werewolf", "villager"]), "invalid-setup");
   });
 });
+
+describe("calling dead roles", () => {
+  // Night 1: the Seer looks, the wolf eats P3, the Piper charms. Day 1 votes out the wolf.
+  const firstDay: Action[] = [
+    { type: "seer", targetId: "p4" },
+    go,
+    wolves("p3"),
+    pick("p4", "p5"),
+    go,
+    go,
+    vote("p0"),
+    go,
+  ];
+  const roles: RoleId[] = ["werewolf", "pied-piper", "seer", "villager", "villager", "villager"];
+
+  it("still calls the wolves when roles are hidden, so the village can't tell", () => {
+    const s = setup(roles, { settings: { revealRoleOnDeath: false } });
+    const night2 = play(s, [...firstDay, { type: "seer", targetId: "p1" }, go]);
+    expect(night2.step).toEqual({ kind: "bluff", turn: "wolves", role: "werewolf" });
+    expect(play(s, [...firstDay, { type: "seer", targetId: "p1" }, go, go]).step).toMatchObject({ kind: "piper" });
+  });
+
+  it("calls a dead Seer too, but skips turns when roles are revealed", () => {
+    const hidden = setup(roles, { settings: { revealRoleOnDeath: false } });
+    const seerDead = play(hidden, [
+      { type: "seer", targetId: "p4" },
+      go,
+      wolves("p2"),
+      pick("p4", "p5"),
+      go,
+      go,
+      vote(null),
+    ]);
+    expect(seerDead.step).toEqual({ kind: "bluff", turn: "seer", role: "seer" });
+
+    const revealed = setup(roles, { settings: { revealRoleOnDeath: true } });
+    const night2 = play(revealed, [...firstDay, { type: "seer", targetId: "p1" }, go]);
+    expect(night2.step).toMatchObject({ kind: "piper" });
+  });
+});

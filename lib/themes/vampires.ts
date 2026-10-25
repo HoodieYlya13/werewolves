@@ -18,6 +18,7 @@ export const vampires: Theme = {
       werewolves: "vampires",
       Werewolf: "Vampire",
       werewolf: "vampire",
+      Wolves: "Vampires",
       wolves: "vampires",
       wolf: "vampire",
       eaten: "drained",
