@@ -355,7 +355,10 @@ const groupTurns: SequenceEntry[] = [
     order: 50,
     build: (state) => {
       const wolves = alive(state).filter(isWolf);
-      if (wolves.length === 0) return bluff(state, "wolves", "werewolf", state.players.some(isWolf));
+      // The pack is always called, roles revealed or not: the village must never
+      // learn how many wolves are left, and a Wild Child turning wolf mustn't
+      // make the call come back out of nowhere.
+      if (wolves.length === 0) return { kind: "bluff", turn: "wolves", role: "werewolf" };
       return {
         kind: "wolves",
         playerIds: wolves.map((p) => p.id),

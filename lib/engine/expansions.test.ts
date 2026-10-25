@@ -347,7 +347,7 @@ describe("calling dead roles", () => {
     expect(play(s, [...firstDay, { type: "seer", targetId: "p1" }, go, go]).step).toMatchObject({ kind: "piper" });
   });
 
-  it("calls a dead Seer too, but skips turns when roles are revealed", () => {
+  it("calls a dead Seer too when roles are hidden, but not when they're revealed", () => {
     const hidden = setup(roles, { settings: { revealRoleOnDeath: false } });
     const seerDead = play(hidden, [
       { type: "seer", targetId: "p4" },
@@ -361,7 +361,21 @@ describe("calling dead roles", () => {
     expect(seerDead.step).toEqual({ kind: "bluff", turn: "seer", role: "seer" });
 
     const revealed = setup(roles, { settings: { revealRoleOnDeath: true } });
+    const seerGone = play(revealed, [
+      { type: "seer", targetId: "p4" },
+      go,
+      wolves("p2"),
+      pick("p4", "p5"),
+      go,
+      go,
+      vote(null),
+    ]);
+    expect(seerGone.step).toMatchObject({ kind: "wolves" });
+  });
+
+  it("always calls the wolves, even with roles revealed", () => {
+    const revealed = setup(roles, { settings: { revealRoleOnDeath: true } });
     const night2 = play(revealed, [...firstDay, { type: "seer", targetId: "p1" }, go]);
-    expect(night2.step).toMatchObject({ kind: "piper" });
+    expect(night2.step).toEqual({ kind: "bluff", turn: "wolves", role: "werewolf" });
   });
 });
