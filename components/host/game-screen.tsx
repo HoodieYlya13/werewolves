@@ -5,6 +5,7 @@ import { BadgeCheck, Crown, Eye, EyeOff, Heart, Moon, Music, PawPrint, Pencil, S
 import { useI18n } from "@/components/i18n-provider";
 import { CloseRoomButton } from "@/components/host/close-room-button";
 import { PlayerEditor } from "@/components/host/player-editor";
+import { useGameTheme } from "@/hooks/use-game-theme";
 import { RejoinRequests } from "@/components/host/rejoin-requests";
 import { RoleName, teamColor } from "@/components/host/role-chip";
 import { Avatar, useRoomContext } from "@/components/room-context";
@@ -28,6 +29,7 @@ export function GameScreen({
 }) {
   const { dict } = useI18n();
   const isNight = game.phase.kind === "night";
+  useGameTheme(isNight);
   const over = game.step.kind === "game-over";
   const [hideRoles, setHideRoles] = useState(() => {
     try {

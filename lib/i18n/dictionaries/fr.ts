@@ -149,6 +149,7 @@ const fr: Dictionary = {
   },
   settings: {
     theme: "Thème",
+    themeGame: "Suivre la partie : sombre la nuit, clair le jour",
     themeAuto: "Auto",
     themeLight: "Clair",
     themeDark: "Sombre",

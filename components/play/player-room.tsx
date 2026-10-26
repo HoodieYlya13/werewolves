@@ -12,6 +12,7 @@ import { Avatar, Face, RoomProvider } from "@/components/room-context";
 import { TimerDisplay } from "@/components/vote-timer";
 import { ThemedI18n } from "@/components/themed-i18n";
 import { ConnectionBanner, FatalError } from "@/components/room-status";
+import { useGameTheme } from "@/hooks/use-game-theme";
 import { useRoom } from "@/hooks/use-room";
 import { format } from "@/lib/i18n/config";
 import { identity } from "@/lib/room";
@@ -241,6 +242,7 @@ function InGame({ view, onVote }: { view: PlayerView; onVote: (targetId: string 
   const nameOf = (id: string) => view.players.find((p) => p.id === id)?.name ?? "?";
   const dead = new Map(game.dead.map((d) => [d.playerId, d.role]));
   const isNight = game.phase.kind === "night";
+  useGameTheme(isNight);
   const t = dict.play;
 
   return (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useSyncExternalStore } from "react";
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Monitor, Moon, Sun, SunMoon } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { applyTheme, readTheme, THEME_KEY, type Theme } from "@/lib/theme";
 
@@ -24,7 +24,7 @@ function subscribe(listener: () => void) {
 
 function setTheme(theme: Theme) {
   try {
-    if (theme === "auto") localStorage.removeItem(THEME_KEY);
+    if (theme === "game") localStorage.removeItem(THEME_KEY);
     else localStorage.setItem(THEME_KEY, theme);
   } catch {}
   applyTheme(theme);
@@ -32,6 +32,7 @@ function setTheme(theme: Theme) {
 }
 
 const options = [
+  { value: "game", icon: SunMoon, label: "themeGame" },
   { value: "auto", icon: Monitor, label: "themeAuto" },
   { value: "light", icon: Sun, label: "themeLight" },
   { value: "dark", icon: Moon, label: "themeDark" },
@@ -39,7 +40,7 @@ const options = [
 
 export function ThemeSwitcher() {
   const { dict } = useI18n();
-  const theme = useSyncExternalStore(subscribe, readTheme, () => "auto" as Theme);
+  const theme = useSyncExternalStore(subscribe, readTheme, () => "game" as Theme);
 
   // React's dev remount resets <html> attributes, dropping what the inline script set.
   useLayoutEffect(() => applyTheme(readTheme()), []);

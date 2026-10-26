@@ -147,6 +147,7 @@ const en = {
   },
   settings: {
     theme: "Theme",
+    themeGame: "Follow the game: dark at night, light by day",
     themeAuto: "Auto",
     themeLight: "Light",
     themeDark: "Dark",

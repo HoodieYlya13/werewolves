@@ -1,9 +1,10 @@
 @import "tailwindcss";
 
 /*
- * Theme tokens. "auto" = no data-theme attribute, so the OS setting decides with
- * no JavaScript. A forced theme sets data-theme on <html> before first paint
- * (see lib/theme.ts), which is why there is never a flash.
+ * Theme tokens. No data-theme attribute ("auto", or "game" outside a game) =
+ * the OS setting decides with no JavaScript. A forced theme sets data-theme on
+ * <html> before first paint (see lib/theme.ts), which is why there is never a
+ * flash. The "game" theme forces dark at night and light by day during a game.
  */
 :root {
   color-scheme: light;
@@ -114,9 +115,10 @@
   }
   .segmented > [aria-current="true"],
   /* Active theme is styled from the <html> attribute, so it is right before hydration. */
-  :root:not([data-theme]) .segmented > [data-theme-option="auto"],
-  :root[data-theme="light"] .segmented > [data-theme-option="light"],
-  :root[data-theme="dark"] .segmented > [data-theme-option="dark"] {
+  :root[data-theme-choice="game"] .segmented > [data-theme-option="game"],
+  :root[data-theme-choice="auto"] .segmented > [data-theme-option="auto"],
+  :root[data-theme-choice="light"] .segmented > [data-theme-option="light"],
+  :root[data-theme-choice="dark"] .segmented > [data-theme-option="dark"] {
     background: var(--surface-2);
     color: var(--fg);
   }
