@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Cinzel, Geist } from "next/font/google";
 import Link from "next/link";
+import { AccountButton } from "@/components/account-button";
 import { I18nProvider } from "@/components/i18n-provider";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeSwitcher } from "@/components/theme-switcher";
@@ -59,6 +60,10 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
               <div className="flex items-center gap-2">
                 <LocaleSwitcher />
                 <ThemeSwitcher />
+                {/* Phones sign in from the join screen: the header is full there. */}
+                <div className="hidden sm:block">
+                  <AccountButton />
+                </div>
               </div>
             </header>
             {children}

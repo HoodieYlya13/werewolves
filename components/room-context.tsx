@@ -35,15 +35,21 @@ function initials(name: string) {
   return (parts.length > 1 ? parts[0][0] + parts[1][0] : name.slice(0, 2)).toUpperCase();
 }
 
-/** A player's photo, or their initials on a colour picked from their name. */
+/** A player's photo (their account's, or one set in the room), or their initials. */
 export function Avatar({ playerId, name, className = "size-8" }: { playerId: string; name: string; className?: string }) {
   const { code, players } = useRoomContext();
-  const photo = players.find((p) => p.id === playerId)?.photo ?? null;
-  if (photo !== null) {
+  const player = players.find((p) => p.id === playerId);
+  const src = player?.picture ?? (player?.photo != null ? photoUrl(code, playerId, player.photo) : null);
+  return <Face name={name} src={src} className={className} />;
+}
+
+/** A photo, or initials on a colour picked from the name. */
+export function Face({ name, src, className = "size-8" }: { name: string; src: string | null; className?: string }) {
+  if (src) {
     return (
-      // A plain img: photos come from the room server, not from Next's image pipeline.
+      // A plain img: photos come from the room or auth server, not from Next's image pipeline.
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={photoUrl(code, playerId, photo)} alt="" className={`${className} shrink-0 rounded-full object-cover`} />
+      <img src={src} alt="" className={`${className} shrink-0 rounded-full object-cover`} />
     );
   }
   const hue = [...name].reduce((sum, char) => sum + char.charCodeAt(0), 0) % AVATAR_COLORS.length;

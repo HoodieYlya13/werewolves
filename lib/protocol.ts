@@ -21,6 +21,13 @@ export type PublicPlayer = {
   photo: number | null;
   /** Left the room during a game; still in it, played by the game master. */
   left: boolean;
+  /**
+   * Signed in with an account: the name and photo come from it, and only the
+   * account can change them (not the player in the room, nor the game master).
+   */
+  account: boolean;
+  /** The account's photo URL, shown instead of a room photo. */
+  picture: string | null;
 };
 
 /** Someone who left and asks the game master to let them back in. */
@@ -75,7 +82,9 @@ export type PlayerView = BaseView & {
    * Set when this phone belongs to someone who left: they need the game
    * master's permission to come back.
    */
-  rejoin: { name: string; status: "idle" | "pending" | "denied" } | null;
+  rejoin: { name: string; account: boolean; status: "idle" | "pending" | "denied" } | null;
+  /** This player's name was given to someone who signed in with it; they can pick another. */
+  renamed: boolean;
 };
 
 export type RoomView = HostView | PlayerView;
@@ -91,7 +100,11 @@ export type ErrorCode =
   | "game-in-progress"
   | "invalid-setup"
   | "invalid-action"
-  | "room-closed";
+  | "room-closed"
+  /** The account couldn't be checked (expired sign-in, accounts off): sign in again. */
+  | "invalid-account"
+  /** That account is already another player in this room. */
+  | "account-in-use";
 
 export type ServerMessage =
   | { type: "view"; view: RoomView }
@@ -107,15 +120,23 @@ export type StartGame = SetupOptions &
 
 export type ClientMessage =
   // Phone
-  /** `photo`: the photo this phone used last time, to start with (a JPEG data URL). */
-  | { type: "join"; name: string; photo?: string | null }
+  /**
+   * `photo`: the photo this phone used last time, to start with (a JPEG data URL).
+   * `idToken`: joins with an account, whose name and photo replace `name` and `photo`.
+   */
+  | { type: "join"; name: string; photo?: string | null; idToken?: string }
+  /** A player who signed in after joining links their seat to the account. */
+  | { type: "link-account"; idToken: string }
+  /** A player without an account changes their own name, at any time. */
+  | { type: "rename-self"; name: string }
   /** Leaves the room. Mid-game the player stays in the game for the game master to play. */
   | { type: "leave" }
   /** Someone who left asks to come back, possibly under a new name. */
   | { type: "request-rejoin"; name: string }
   /** null = vote for no one. */
   | { type: "cast-vote"; targetId: string | null }
-  // Phone (its own photo) or game master (anyone's). `data` is a JPEG data URL; null removes it.
+  // Phone (its own photo) or game master (anyone's), except for account players.
+  // `data` is a JPEG data URL; null removes it.
   | { type: "set-photo"; playerId?: string; data: string | null }
   // Game master
   | { type: "add-player"; name: string }
@@ -128,6 +149,7 @@ export type ClientMessage =
   /** Back to the lobby with the same players. The game is kept until the lineup changes. */
   | { type: "end-game" }
   | { type: "resume-game" }
+  /** Not for account players: their name comes from the account. */
   | { type: "rename-player"; playerId: string; name: string }
   /** Disconnects everyone and deletes the room. */
   | { type: "close-room" }

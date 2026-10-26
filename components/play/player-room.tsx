@@ -1,19 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Check, Crown, LogOut, Moon, Skull, Sun, UserRound, Vote } from "lucide-react";
+import { Check, Crown, LogIn, LogOut, Moon, Pencil, Skull, Sun, UserRound, Vote } from "lucide-react";
+import { AuthButton } from "@/components/account-button";
 import { useI18n } from "@/components/i18n-provider";
 import { RoleName } from "@/components/host/role-chip";
 import { RoleCard } from "@/components/play/role-card";
 import { PhotoPicker } from "@/components/photo-picker";
-import { Avatar, RoomProvider } from "@/components/room-context";
+import { Avatar, Face, RoomProvider } from "@/components/room-context";
 import { TimerDisplay } from "@/components/vote-timer";
 import { ThemedI18n } from "@/components/themed-i18n";
 import { ConnectionBanner, FatalError } from "@/components/room-status";
 import { useRoom } from "@/hooks/use-room";
 import { format } from "@/lib/i18n/config";
 import { identity } from "@/lib/room";
+import { freshIdToken, useSession } from "@/lib/session";
 import { MAX_NAME_LENGTH, type ErrorCode, type PlayerView } from "@/lib/protocol";
 
 export function PlayerRoom() {
@@ -28,6 +30,17 @@ function PlayerScreen({ code }: { code: string }) {
   // The name used last time, ready to change.
   const [name, setName] = useState(() => identity.getName());
   const [photo, setPhoto] = useState(() => identity.getPhoto());
+  const session = useSession();
+  const account = session?.account ?? null;
+  const me = view?.me;
+
+  // Signed in after joining as a guest: the seat becomes the account's.
+  const linked = useRef<string | null>(null);
+  useEffect(() => {
+    if (!me || me.account || !account || linked.current === me.id) return;
+    linked.current = me.id;
+    void freshIdToken().then((idToken) => idToken && send({ type: "link-account", idToken }));
+  }, [me, account, send]);
 
   // The photo is remembered on this phone for the next rooms too.
   function changePhoto(data: string | null) {
@@ -45,7 +58,17 @@ function PlayerScreen({ code }: { code: string }) {
     router.push(`/${locale}`);
   }
 
-  const me = view?.me;
+  async function joinWithAccount() {
+    const idToken = await freshIdToken();
+    // Signed out meanwhile: the session update shows the guest form instead.
+    if (idToken && account) send({ type: "join", name: account.name, idToken });
+  }
+
+  function rename(newName: string) {
+    identity.setName(newName.trim());
+    send({ type: "rename-self", name: newName });
+  }
+
   const room = { code, players: view?.players ?? [], timer: view?.timer ?? null, clockOffset };
 
   return (
@@ -60,6 +83,12 @@ function PlayerScreen({ code }: { code: string }) {
         </p>
       )}
 
+      {me && view?.renamed && (
+        <p role="status" className="rounded-xl bg-surface-2 px-4 py-3 text-center">
+          {format(dict.play.renamed, { name: me.name })}
+        </p>
+      )}
+
       {view?.rejoin && (
         <RejoinCard
           rejoin={view.rejoin}
@@ -71,7 +100,28 @@ function PlayerScreen({ code }: { code: string }) {
         />
       )}
 
-      {view && !me && !view.rejoin && (
+      {view && !me && !view.rejoin && account && (
+        <section className="card flex flex-col items-center gap-3 p-6 text-center">
+          <Face name={account.name} src={account.picture} className="size-24 text-3xl" />
+          <p className="text-muted">{dict.account.fromAccount}</p>
+          <button type="button" className="btn w-full" onClick={joinWithAccount}>
+            {format(dict.account.joinAs, { name: account.name })}
+          </button>
+          {(error === "room-locked" || error === "invalid-account" || error === "account-in-use") && (
+            <p role="alert" className="text-sm text-accent">
+              {dict.errors[error]}
+            </p>
+          )}
+          <p className="text-sm text-muted">
+            {dict.account.notYou}{" "}
+            <AuthButton to="out" className="underline">
+              {dict.account.signOut}
+            </AuthButton>
+          </p>
+        </section>
+      )}
+
+      {view && !me && !view.rejoin && !account && (
         <form
           className="card flex flex-col gap-3 p-6"
           onSubmit={(e) => {
@@ -111,6 +161,12 @@ function PlayerScreen({ code }: { code: string }) {
               {dict.errors[error]}
             </p>
           )}
+          {session?.enabled && (
+            <AuthButton to="in" className="flex items-center justify-center gap-1.5 text-center text-sm text-muted underline">
+              <LogIn aria-hidden className="size-4 shrink-0" />
+              {dict.account.orSignIn}
+            </AuthButton>
+          )}
         </form>
       )}
 
@@ -118,13 +174,20 @@ function PlayerScreen({ code }: { code: string }) {
         <section className="card flex flex-col items-center gap-3 p-6 text-center">
           <Avatar playerId={me.id} name={me.name} className="size-24 text-3xl" />
           <p className="text-xl font-semibold">{format(dict.play.joinedAs, { name: me.name })}</p>
-          <PhotoPicker
-            hasPhoto={me.photo !== null}
-            onChange={(data) => {
-              changePhoto(data);
-              send({ type: "set-photo", data });
-            }}
-          />
+          {me.account ? (
+            <p className="text-sm text-muted">{dict.account.fromAccount}</p>
+          ) : (
+            <>
+              <PhotoPicker
+                hasPhoto={me.photo !== null}
+                onChange={(data) => {
+                  changePhoto(data);
+                  send({ type: "set-photo", data });
+                }}
+              />
+              <NameEditor name={me.name} error={error} onSave={rename} />
+            </>
+          )}
           <p className="text-muted">{dict.play.waiting}</p>
         </section>
       )}
@@ -150,6 +213,12 @@ function PlayerScreen({ code }: { code: string }) {
             ))}
           </ul>
         </section>
+      )}
+
+      {me && !me.account && view?.info && (
+        <div className="flex justify-center">
+          <NameEditor name={me.name} error={error} onSave={rename} />
+        </div>
       )}
 
       {me && (
@@ -295,6 +364,62 @@ function PhoneBallotCard({ view, onVote }: { view: PlayerView; onVote: (targetId
   );
 }
 
+/** A player without an account renames themself, in the lobby or mid-game. */
+function NameEditor({ name, error, onSave }: { name: string; error: ErrorCode | null; onSave: (name: string) => void }) {
+  const { dict } = useI18n();
+  const [draft, setDraft] = useState<string | null>(null);
+  const alert = (error === "name-taken" || error === "invalid-name") && (
+    <p role="alert" className="text-sm text-accent">
+      {dict.errors[error]}
+    </p>
+  );
+
+  if (draft === null) {
+    return (
+      <div className="flex flex-col items-center gap-1">
+        <button type="button" className="btn btn-ghost text-sm" onClick={() => setDraft(name)}>
+          <Pencil aria-hidden className="size-4" />
+          {dict.play.changeName}
+        </button>
+        {alert}
+      </div>
+    );
+  }
+
+  return (
+    <form
+      className="flex w-full flex-col gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!draft.trim()) return;
+        if (draft.trim() !== name) onSave(draft);
+        setDraft(null);
+      }}
+    >
+      <label htmlFor="new-name" className="sr-only">
+        {dict.play.yourName}
+      </label>
+      <input
+        id="new-name"
+        className="input text-lg"
+        autoComplete="nickname"
+        autoFocus
+        maxLength={MAX_NAME_LENGTH}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+      />
+      <div className="flex gap-2">
+        <button type="button" className="btn btn-ghost flex-1" onClick={() => setDraft(null)}>
+          {dict.host.cancel}
+        </button>
+        <button type="submit" className="btn flex-1" disabled={!draft.trim()}>
+          {dict.host.save}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 /** Someone who left this room asks the game master to let them back in. */
 function RejoinCard({
   rejoin,
@@ -327,18 +452,23 @@ function RejoinCard({
       }}
     >
       <p className="text-xl font-semibold">{t.title}</p>
-      <p className="text-muted">{rejoin.status === "denied" ? t.denied : t.hint}</p>
-      <label htmlFor="rejoin-name" className="font-medium">
-        {dict.play.yourName}
-      </label>
-      <input
-        id="rejoin-name"
-        className="input text-lg"
-        autoComplete="nickname"
-        maxLength={MAX_NAME_LENGTH}
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-      />
+      <p className="text-muted">{rejoin.status === "denied" ? t.denied : rejoin.account ? t.hintAccount : t.hint}</p>
+      {/* An account comes back under its own name. */}
+      {!rejoin.account && (
+        <>
+          <label htmlFor="rejoin-name" className="font-medium">
+            {dict.play.yourName}
+          </label>
+          <input
+            id="rejoin-name"
+            className="input text-lg"
+            autoComplete="nickname"
+            maxLength={MAX_NAME_LENGTH}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </>
+      )}
       <button type="submit" className="btn" disabled={!name.trim()}>
         {rejoin.status === "denied" ? t.askAgain : t.ask}
       </button>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, History, Layers, Lock, LockOpen, Pencil, Smartphone, UserPlus, X } from "lucide-react";
+import { BadgeCheck, ChevronDown, ChevronUp, History, Layers, Lock, LockOpen, Pencil, Smartphone, UserPlus, X } from "lucide-react";
 import { GameScreen } from "@/components/host/game-screen";
 import { ThemedI18n } from "@/components/themed-i18n";
 import { CloseRoomButton } from "@/components/host/close-room-button";
@@ -150,6 +150,8 @@ function HostContent({
                 <button
                   type="button"
                   className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                  // Account players' names and photos are theirs to change.
+                  disabled={p.account}
                   onClick={() => setEditing(p.id)}
                 >
                   <Avatar playerId={p.id} name={p.name} />
@@ -162,9 +164,15 @@ function HostContent({
                     <span className="sr-only sm:not-sr-only">{dict.host.noPhone}</span>
                   </span>
                 )}
-                <IconButton label={format(dict.host.editPlayer, { name: p.name })} onClick={() => setEditing(p.id)}>
-                  <Pencil className="size-4" />
-                </IconButton>
+                {p.account ? (
+                  <span className="grid size-9 place-items-center text-ok" title={dict.host.accountPlayer}>
+                    <BadgeCheck aria-label={dict.host.accountPlayer} className="size-4" />
+                  </span>
+                ) : (
+                  <IconButton label={format(dict.host.editPlayer, { name: p.name })} onClick={() => setEditing(p.id)}>
+                    <Pencil className="size-4" />
+                  </IconButton>
+                )}
                 <IconButton
                   label={format(dict.host.moveUp, { name: p.name })}
                   disabled={i === 0}

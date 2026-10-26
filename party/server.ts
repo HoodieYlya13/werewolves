@@ -11,6 +11,7 @@ import {
   type GameSetup,
   type GameState,
 } from "../lib/engine";
+import { DEFAULT_ISSUER, verifyIdToken, type Account } from "../lib/account";
 import type { Ballot, Timer } from "../lib/ballot";
 import {
   MAX_NAME_LENGTH,
@@ -29,7 +30,14 @@ import {
 const ROOM_TTL_MS = 24 * 60 * 60 * 1000;
 const STORAGE_KEY = "room";
 
-type StoredPlayer = PublicPlayer & { token: string | null };
+type StoredPlayer = Omit<PublicPlayer, "account" | "picture"> & {
+  token: string | null;
+  /** The account's id, for players who signed in. */
+  sub?: string;
+  picture?: string | null;
+  /** Lost their name to someone who signed in with it. */
+  renamed?: boolean;
+};
 
 /**
  * Everything the room persists. Secrets (tokens) never leave the server.
@@ -173,15 +181,66 @@ export class RoomServer extends Server<Env> {
     switch (msg.type) {
       case "join": {
         if (sender.state?.kind !== "guest") return;
+        const account = msg.idToken === undefined ? null : await this.verifyAccount(sender, msg.idToken);
+        if (msg.idToken !== undefined && !account) return;
+        // Checking the account went to the network: the room may have changed meanwhile.
+        if (!this.state || sender.state?.kind !== "guest") return;
+
+        // Already in this room under that account (another phone, or after leaving).
+        const known = account && this.findAccount(account.sub);
+        if (known) {
+          if (known.left || !this.state.players.includes(known)) {
+            sender.setState({ kind: "returning", playerId: known.id });
+          } else {
+            this.applyAccount(known, account);
+            known.connected = true;
+            sender.setState({ kind: "player", playerId: known.id });
+          }
+          this.send(sender, { type: "joined", playerId: known.id, token: known.token! });
+          break;
+        }
+
         if (this.state.locked) return this.send(sender, { type: "error", code: "room-locked" });
-        const name = this.validateName(sender, msg.name);
+        const name = account ? this.claimName(account.name) : this.validateName(sender, msg.name);
         if (!name) return;
         const { deviceId, token } = sender.state;
         const taken = [...this.state.players, ...(this.state.formerPlayers ?? [])].some((p) => p.id === deviceId);
         const player = this.addPlayer(name, false, deviceId && token && !taken ? { id: deviceId, token } : undefined);
-        if (msg.photo) await this.storePhoto(player, msg.photo);
+        if (account) {
+          player.sub = account.sub;
+          player.picture = account.picture;
+        } else if (msg.photo) {
+          await this.storePhoto(player, msg.photo);
+        }
         sender.setState({ kind: "player", playerId: player.id });
         this.send(sender, { type: "joined", playerId: player.id, token: player.token! });
+        break;
+      }
+      case "link-account": {
+        if (sender.state?.kind !== "player") return;
+        const account = await this.verifyAccount(sender, msg.idToken);
+        if (!account || !this.state || sender.state?.kind !== "player") return;
+        const playerId = sender.state.playerId;
+        const player = this.state.players.find((p) => p.id === playerId);
+        if (!player || player.sub === account.sub) return;
+        const other = this.findAccount(account.sub);
+        if (player.sub || other) return this.send(sender, { type: "error", code: "account-in-use" });
+        player.sub = account.sub;
+        // The account's photo replaces the one set in the room.
+        player.photo = null;
+        await this.ctx.storage.delete(PHOTO_PREFIX + player.id);
+        this.applyAccount(player, account);
+        break;
+      }
+      case "rename-self": {
+        if (sender.state?.kind !== "player") return;
+        const playerId = sender.state.playerId;
+        const player = this.state.players.find((p) => p.id === playerId);
+        if (!player || player.sub) return;
+        const name = this.validateName(sender, msg.name, player.id);
+        if (!name) return;
+        this.renamePlayer(player, name);
+        player.renamed = false;
         break;
       }
       case "leave": {
@@ -208,7 +267,9 @@ export class RoomServer extends Server<Env> {
       case "request-rejoin": {
         if (sender.state?.kind !== "returning") return;
         const playerId = sender.state.playerId;
-        const name = this.validateName(sender, msg.name, playerId);
+        const known = [...this.state.players, ...(this.state.formerPlayers ?? [])].find((p) => p.id === playerId);
+        // An account keeps its name; anyone else may come back under a new one.
+        const name = known?.sub ? known.name : this.validateName(sender, msg.name, playerId);
         if (!name) return;
         this.state.requests = [...(this.state.requests ?? []).filter((r) => r.id !== playerId), { id: playerId, name }];
         this.state.deniedIds = (this.state.deniedIds ?? []).filter((id) => id !== playerId);
@@ -235,7 +296,13 @@ export class RoomServer extends Server<Env> {
           this.state.players.push(player);
           this.state.endedGame = null;
         }
-        if (player.name !== request.name) this.renamePlayer(player, request.name);
+        // The name may have been taken while they were away.
+        const name = player.sub
+          ? this.claimName(request.name, player.id)
+          : this.isNameFree(request.name, player.id)
+            ? request.name
+            : this.uniqueName(request.name, player.id);
+        if (player.name !== name) this.renamePlayer(player, name);
         for (const c of this.getConnections<ConnState>()) {
           if (c.state?.kind === "returning" && c.state.playerId === player.id) {
             c.setState({ kind: "player", playerId: player.id });
@@ -347,7 +414,8 @@ export class RoomServer extends Server<Env> {
       case "rename-player": {
         if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
         const player = this.state.players.find((p) => p.id === msg.playerId);
-        if (!player) return;
+        // An account's name is the account's to change.
+        if (!player || player.sub) return;
         const name = this.validateName(sender, msg.name, player.id);
         if (!name) return;
         this.renamePlayer(player, name);
@@ -357,7 +425,8 @@ export class RoomServer extends Server<Env> {
         const ownId = sender.state?.kind === "player" ? sender.state.playerId : null;
         const playerId = isHost ? msg.playerId : ownId;
         const player = this.state.players.find((p) => p.id === playerId);
-        if (!player) return;
+        // Account players use their account's photo.
+        if (!player || player.sub) return;
         if (msg.data === null) {
           player.photo = null;
           await this.ctx.storage.delete(PHOTO_PREFIX + player.id);
@@ -502,12 +571,58 @@ export class RoomServer extends Server<Env> {
       this.send(conn, { type: "error", code: "invalid-name" });
       return null;
     }
-    const taken = this.state!.players.some((p) => p.id !== selfId && p.name.toLowerCase() === name.toLowerCase());
-    if (taken) {
+    if (!this.isNameFree(name, selfId)) {
       this.send(conn, { type: "error", code: "name-taken" });
       return null;
     }
     return name;
+  }
+
+  private isNameFree(name: string, selfId?: string) {
+    return !this.state!.players.some((p) => p.id !== selfId && p.name.toLowerCase() === name.toLowerCase());
+  }
+
+  /** "Name 2", "Name 3"… the first one nobody else uses. */
+  private uniqueName(base: string, selfId?: string) {
+    for (let n = 2; ; n++) {
+      const suffix = ` ${n}`;
+      const name = base.slice(0, MAX_NAME_LENGTH - suffix.length) + suffix;
+      if (this.isNameFree(name, selfId)) return name;
+    }
+  }
+
+  /**
+   * The name an account gets. Accounts have priority: a player without one
+   * who uses that name is renamed (and can pick another). If another account
+   * already has it, this one gets a number instead.
+   */
+  private claimName(wanted: string, selfId?: string) {
+    const holder = this.state!.players.find((p) => p.id !== selfId && p.name.toLowerCase() === wanted.toLowerCase());
+    if (!holder) return wanted;
+    if (holder.sub) return this.uniqueName(wanted, selfId);
+    this.renamePlayer(holder, this.uniqueName(wanted, holder.id));
+    holder.renamed = true;
+    return wanted;
+  }
+
+  /** Checks an ID token from the auth server. Accounts are off when no client id is set. */
+  private async verifyAccount(conn: Conn, idToken: unknown) {
+    const clientId = this.env.AUTH_CLIENT_ID;
+    const account = clientId ? await verifyIdToken(idToken, { issuer: this.env.AUTH_ISSUER || DEFAULT_ISSUER, clientId }) : null;
+    if (!account) this.send(conn, { type: "error", code: "invalid-account" });
+    return account;
+  }
+
+  /** A player (current or former) signed in with this account. */
+  private findAccount(sub: string) {
+    return [...this.state!.players, ...(this.state!.formerPlayers ?? [])].find((p) => p.sub === sub);
+  }
+
+  /** Keeps a player's name and photo in step with their account. */
+  private applyAccount(player: StoredPlayer, account: Account) {
+    player.picture = account.picture;
+    const name = this.claimName(account.name, player.id);
+    if (name !== player.name) this.renamePlayer(player, name);
   }
 
   /** Saves a photo sent as a data URL. Returns false when it isn't a valid, small image. */
@@ -540,7 +655,7 @@ export class RoomServer extends Server<Env> {
     const s = this.state!;
     const players = s.players
       .map(
-        ({ id, name, seat, connected, manual, photo, left }): PublicPlayer => ({
+        ({ id, name, seat, connected, manual, photo, left, sub, picture }): PublicPlayer => ({
           id,
           name,
           seat,
@@ -548,6 +663,8 @@ export class RoomServer extends Server<Env> {
           manual,
           photo: photo ?? null,
           left: !!left,
+          account: !!sub,
+          picture: sub ? (picture ?? null) : null,
         }),
       )
       .sort((a, b) => a.seat - b.seat);
@@ -585,6 +702,7 @@ export class RoomServer extends Server<Env> {
       const known = [...s.players, ...(s.formerPlayers ?? [])].find((p) => p.id === state.playerId);
       rejoin = {
         name: request?.name ?? known?.name ?? "",
+        account: !!known?.sub,
         status: request ? "pending" : s.deniedIds?.includes(state.playerId) ? "denied" : "idle",
       };
     }
@@ -596,6 +714,7 @@ export class RoomServer extends Server<Env> {
       game: this.game ? publicGame(this.game) : null,
       ballot: phoneBallot,
       rejoin,
+      renamed: !!(me && s.players.find((p) => p.id === me.id)?.renamed),
     };
   }
 

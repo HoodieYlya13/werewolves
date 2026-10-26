@@ -16,5 +16,7 @@ if (!args) {
   console.log(`Not a Vercel production or preview build (VERCEL_ENV=${env ?? "unset"}): skipping the server deploy.`);
 } else {
   console.log(`Deploying the ${env === "preview" ? "staging" : "production"} server...`);
-  execFileSync("npx", ["wrangler", ...args], { stdio: "inherit" });
+  // Same OIDC client as the site, so the server accepts the tokens it hands out.
+  const vars = ["AUTH_ISSUER", "AUTH_CLIENT_ID"].filter((key) => process.env[key]).flatMap((key) => ["--var", `${key}:${process.env[key]}`]);
+  execFileSync("npx", ["wrangler", ...args, ...vars], { stdio: "inherit" });
 }

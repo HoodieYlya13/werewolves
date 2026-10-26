@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Crown, Eye, EyeOff, Heart, Moon, Music, PawPrint, Pencil, Skull, Sun, Undo2, X } from "lucide-react";
+import { BadgeCheck, Crown, Eye, EyeOff, Heart, Moon, Music, PawPrint, Pencil, Skull, Sun, Undo2, X } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { CloseRoomButton } from "@/components/host/close-room-button";
 import { PlayerEditor } from "@/components/host/player-editor";
@@ -146,6 +146,7 @@ function PlayersPanel({ game }: { game: GameState }) {
   const [editing, setEditing] = useState<string | null>(null);
   const { players: roomPlayers } = useRoomContext();
   const leftIds = new Set(roomPlayers.filter((p) => p.left).map((p) => p.id));
+  const accountIds = new Set(roomPlayers.filter((p) => p.account).map((p) => p.id));
   return (
     <section className="card p-4">
       <h2 className="mb-2 text-sm font-medium tracking-wide text-muted uppercase">{dict.game.players}</h2>
@@ -156,12 +157,18 @@ function PlayersPanel({ game }: { game: GameState }) {
             <button
               type="button"
               className="group flex min-w-0 flex-1 items-center gap-2 text-left"
-              title={format(dict.host.editPlayer, { name: p.name })}
+              title={accountIds.has(p.id) ? dict.host.accountPlayer : format(dict.host.editPlayer, { name: p.name })}
+              // Account players' names and photos are theirs to change.
+              disabled={accountIds.has(p.id)}
               onClick={() => setEditing(p.id)}
             >
               <Avatar playerId={p.id} name={p.name} className="size-6" />
               <span className={`min-w-0 truncate font-medium ${p.alive ? "" : "line-through"}`}>{p.name}</span>
-              <Pencil aria-hidden className="size-3 shrink-0 text-muted opacity-0 group-hover:opacity-100" />
+              {accountIds.has(p.id) ? (
+                <BadgeCheck aria-label={dict.host.accountPlayer} className="size-3 shrink-0 text-ok" />
+              ) : (
+                <Pencil aria-hidden className="size-3 shrink-0 text-muted opacity-0 group-hover:opacity-100" />
+              )}
             </button>
             {leftIds.has(p.id) && <span className="text-xs text-accent">{dict.host.left}</span>}
             {game.lovers?.includes(p.id) && (

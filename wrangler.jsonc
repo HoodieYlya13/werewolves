@@ -10,10 +10,16 @@
     "bindings": [{ "name": "Main", "class_name": "RoomServer" }]
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RoomServer"] }],
+  // Accounts: the room server checks ID tokens from this issuer. AUTH_CLIENT_ID
+  // comes from .env.local in dev and from the Vercel build on deploy (see
+  // scripts/deploy-server.mjs); left empty, signing in is off.
+  "vars": { "AUTH_ISSUER": "https://auth.hy13dev.com", "AUTH_CLIENT_ID": "" },
   "env": {
     // npx wrangler deploy --env staging  →  werewolves-staging.<subdomain>.workers.dev
     "staging": {
       "name": "werewolves-staging",
+      // Vars aren't inherited by environments.
+      "vars": { "AUTH_ISSUER": "https://auth.hy13dev.com", "AUTH_CLIENT_ID": "" },
       "durable_objects": {
         "bindings": [{ "name": "Main", "class_name": "RoomServer" }]
       }
