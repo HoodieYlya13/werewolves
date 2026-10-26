@@ -59,14 +59,14 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
               </Link>
               <div className="flex items-center gap-2">
                 <LocaleSwitcher />
-                <ThemeSwitcher />
-                {/* Phones sign in from the join screen: the header is full there. */}
-                <div className="hidden sm:block">
-                  <AccountButton />
-                </div>
+                <AccountButton />
               </div>
             </header>
             {children}
+            {/* Down here, so the header has room for the account on phones. */}
+            <footer className="flex justify-center px-4 py-4">
+              <ThemeSwitcher />
+            </footer>
           </div>
         </I18nProvider>
       </body>

@@ -1,5 +1,4 @@
 import { Crown, Smartphone } from "lucide-react";
-import { AccountRow } from "@/components/account-button";
 import { CreateRoomButton } from "@/components/home/create-room-button";
 import { JoinForm } from "@/components/home/join-form";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
@@ -31,8 +30,6 @@ export default async function HomePage() {
             <p className="mt-1 text-sm text-muted">{dict.home.joinDescription}</p>
           </div>
           <JoinForm />
-          {/* Bigger screens have it in the header. */}
-          <AccountRow className="sm:hidden" />
         </section>
       </div>
     </main>

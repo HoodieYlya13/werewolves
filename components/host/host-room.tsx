@@ -102,7 +102,7 @@ function HostContent({
   const players = view?.players ?? [];
 
   return (
-    <main className="mx-auto grid w-full max-w-6xl flex-1 gap-6 px-4 pb-10 sm:px-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+    <main className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-[minmax(0,1fr)] gap-6 px-4 pb-10 sm:px-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
       <div className="lg:col-span-2">
         <ConnectionBanner status={status} />
       </div>
@@ -129,7 +129,7 @@ function HostContent({
         {view?.locked && <p className="text-sm text-muted">{dict.host.locked}</p>}
       </section>
 
-      <section className="card flex flex-col gap-4 p-6">
+      <section className="card flex flex-col gap-4 p-4 sm:p-6">
         <RejoinRequests />
         <div>
           <h1 className="text-xl font-semibold">{format(dict.host.players, { count: players.length })}</h1>
@@ -141,8 +141,8 @@ function HostContent({
         ) : (
           <ol className="flex flex-col gap-2">
             {players.map((p, i) => (
-              <li key={p.id} className="flex items-center gap-3 rounded-xl bg-surface-2 py-2 pr-2 pl-3">
-                <span className="w-6 text-right font-mono text-sm text-muted">{i + 1}</span>
+              <li key={p.id} className="flex items-center gap-2 rounded-xl bg-surface-2 py-2 pr-1 pl-2 sm:gap-3 sm:pr-2 sm:pl-3">
+                <span className="w-5 shrink-0 text-right font-mono text-sm text-muted sm:w-6">{i + 1}</span>
                 <span
                   className={`size-2.5 shrink-0 rounded-full ${p.manual ? "bg-transparent" : p.connected ? "bg-ok" : "bg-muted/40"}`}
                   title={p.manual ? undefined : p.connected ? dict.host.online : dict.host.offline}
@@ -152,24 +152,27 @@ function HostContent({
                   className="flex min-w-0 flex-1 items-center gap-2 text-left"
                   // Account players' names and photos are theirs to change.
                   disabled={p.account}
+                  title={p.account ? dict.host.accountPlayer : undefined}
                   onClick={() => setEditing(p.id)}
                 >
                   <Avatar playerId={p.id} name={p.name} />
                   <span className="min-w-0 truncate font-medium">{p.name}</span>
+                  {p.account && <BadgeCheck aria-label={dict.host.accountPlayer} className="size-3.5 shrink-0 text-ok" />}
                 </button>
-                {p.left && <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent">{dict.host.left}</span>}
+                {p.left && <span className="shrink-0 rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent">{dict.host.left}</span>}
                 {p.manual && (
-                  <span className="flex items-center gap-1 text-xs text-muted" title={dict.host.noPhone}>
+                  <span className="flex shrink-0 items-center gap-1 text-xs text-muted" title={dict.host.noPhone}>
                     <Smartphone aria-hidden className="size-3.5" />
                     <span className="sr-only sm:not-sr-only">{dict.host.noPhone}</span>
                   </span>
                 )}
-                {p.account ? (
-                  <span className="grid size-9 place-items-center text-ok" title={dict.host.accountPlayer}>
-                    <BadgeCheck aria-label={dict.host.accountPlayer} className="size-4" />
-                  </span>
-                ) : (
-                  <IconButton label={format(dict.host.editPlayer, { name: p.name })} onClick={() => setEditing(p.id)}>
+                {/* On phones the row is too narrow: tapping the name edits too. */}
+                {!p.account && (
+                  <IconButton
+                    label={format(dict.host.editPlayer, { name: p.name })}
+                    className="hidden sm:grid"
+                    onClick={() => setEditing(p.id)}
+                  >
                     <Pencil className="size-4" />
                   </IconButton>
                 )}
@@ -259,6 +262,7 @@ function HostContent({
 function IconButton({
   label,
   children,
+  className = "grid",
   ...props
 }: { label: string; children: React.ReactNode } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
@@ -266,7 +270,7 @@ function IconButton({
       type="button"
       aria-label={label}
       title={label}
-      className="grid size-8 place-items-center rounded-lg text-muted hover:bg-surface hover:text-fg disabled:opacity-30"
+      className={`${className} size-8 shrink-0 place-items-center rounded-lg text-muted hover:bg-surface hover:text-fg disabled:opacity-30`}
       {...props}
     >
       {children}
