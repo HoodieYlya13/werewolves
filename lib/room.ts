@@ -26,6 +26,7 @@ const hostKey = (code: string) => `ww:host:${code}`;
 const playerKey = (code: string) => `ww:player:${code}`;
 const DEVICE_KEY = "ww:device";
 const NAME_KEY = "ww:name";
+const PHOTO_KEY = "ww:photo";
 
 function read<T>(key: string): T | null {
   try {
@@ -62,6 +63,9 @@ export const identity = {
   /** The last name used to join, offered again next time. */
   getName: () => read<string>(NAME_KEY) ?? "",
   setName: (name: string) => write(NAME_KEY, name),
+  /** The last photo this phone used (a small JPEG data URL), offered again next time. */
+  getPhoto: () => read<string>(PHOTO_KEY),
+  setPhoto: (photo: string | null) => write(PHOTO_KEY, photo),
 };
 
 export function partyHost() {

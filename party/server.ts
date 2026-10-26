@@ -179,6 +179,7 @@ export class RoomServer extends Server<Env> {
         const { deviceId, token } = sender.state;
         const taken = [...this.state.players, ...(this.state.formerPlayers ?? [])].some((p) => p.id === deviceId);
         const player = this.addPlayer(name, false, deviceId && token && !taken ? { id: deviceId, token } : undefined);
+        if (msg.photo) await this.storePhoto(player, msg.photo);
         sender.setState({ kind: "player", playerId: player.id });
         this.send(sender, { type: "joined", playerId: player.id, token: player.token! });
         break;
@@ -357,16 +358,12 @@ export class RoomServer extends Server<Env> {
         const playerId = isHost ? msg.playerId : ownId;
         const player = this.state.players.find((p) => p.id === playerId);
         if (!player) return;
-        const data = msg.data;
-        if (data === null) {
+        if (msg.data === null) {
           player.photo = null;
           await this.ctx.storage.delete(PHOTO_PREFIX + player.id);
           break;
         }
-        const valid = typeof data === "string" && data.length <= MAX_PHOTO_LENGTH && /^data:image\/(jpeg|webp|png);base64,[A-Za-z0-9+/=]+$/.test(data);
-        if (!valid) return;
-        await this.ctx.storage.put(PHOTO_PREFIX + player.id, data);
-        player.photo = Date.now();
+        if (!(await this.storePhoto(player, msg.data))) return;
         break;
       }
       case "open-ballot": {
@@ -511,6 +508,18 @@ export class RoomServer extends Server<Env> {
       return null;
     }
     return name;
+  }
+
+  /** Saves a photo sent as a data URL. Returns false when it isn't a valid, small image. */
+  private async storePhoto(player: StoredPlayer, data: unknown) {
+    const valid =
+      typeof data === "string" &&
+      data.length <= MAX_PHOTO_LENGTH &&
+      /^data:image\/(jpeg|webp|png);base64,[A-Za-z0-9+/=]+$/.test(data);
+    if (!valid) return false;
+    await this.ctx.storage.put(PHOTO_PREFIX + player.id, data);
+    player.photo = Date.now();
+    return true;
   }
 
   /** Names are part of the game setup too, so the game screen follows. */

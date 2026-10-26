@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Check, Crown, LogOut, Moon, Skull, Sun, Vote } from "lucide-react";
+import { Check, Crown, LogOut, Moon, Skull, Sun, UserRound, Vote } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { RoleName } from "@/components/host/role-chip";
 import { RoleCard } from "@/components/play/role-card";
@@ -27,6 +27,13 @@ function PlayerScreen({ code }: { code: string }) {
   const { view, error, status, send, clockOffset, close } = useRoom<PlayerView>(code, "player");
   // The name used last time, ready to change.
   const [name, setName] = useState(() => identity.getName());
+  const [photo, setPhoto] = useState(() => identity.getPhoto());
+
+  // The photo is remembered on this phone for the next rooms too.
+  function changePhoto(data: string | null) {
+    setPhoto(data);
+    identity.setPhoto(data);
+  }
 
   if (error === "room-not-found" || error === "room-closed") return <FatalError code={error} />;
 
@@ -71,9 +78,20 @@ function PlayerScreen({ code }: { code: string }) {
             e.preventDefault();
             if (!name.trim()) return;
             identity.setName(name.trim());
-            send({ type: "join", name });
+            send({ type: "join", name, photo });
           }}
         >
+          <div className="flex flex-col items-center gap-3">
+            {photo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={photo} alt="" className="size-24 rounded-full object-cover" />
+            ) : (
+              <span aria-hidden className="grid size-24 place-items-center rounded-full bg-surface-2 text-muted">
+                <UserRound className="size-10" />
+              </span>
+            )}
+            <PhotoPicker hasPhoto={photo !== null} onChange={changePhoto} />
+          </div>
           <label htmlFor="name" className="font-medium">
             {dict.play.yourName}
           </label>
@@ -100,7 +118,13 @@ function PlayerScreen({ code }: { code: string }) {
         <section className="card flex flex-col items-center gap-3 p-6 text-center">
           <Avatar playerId={me.id} name={me.name} className="size-24 text-3xl" />
           <p className="text-xl font-semibold">{format(dict.play.joinedAs, { name: me.name })}</p>
-          <PhotoPicker hasPhoto={me.photo !== null} onChange={(data) => send({ type: "set-photo", data })} />
+          <PhotoPicker
+            hasPhoto={me.photo !== null}
+            onChange={(data) => {
+              changePhoto(data);
+              send({ type: "set-photo", data });
+            }}
+          />
           <p className="text-muted">{dict.play.waiting}</p>
         </section>
       )}

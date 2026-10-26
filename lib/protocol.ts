@@ -107,7 +107,8 @@ export type StartGame = SetupOptions &
 
 export type ClientMessage =
   // Phone
-  | { type: "join"; name: string }
+  /** `photo`: the photo this phone used last time, to start with (a JPEG data URL). */
+  | { type: "join"; name: string; photo?: string | null }
   /** Leaves the room. Mid-game the player stays in the game for the game master to play. */
   | { type: "leave" }
   /** Someone who left asks to come back, possibly under a new name. */
