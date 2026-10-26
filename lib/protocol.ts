@@ -19,7 +19,12 @@ export type PublicPlayer = {
   manual: boolean;
   /** Version of the player's photo (see `photoUrl`), or null without one. */
   photo: number | null;
+  /** Left the room during a game; still in it, played by the game master. */
+  left: boolean;
 };
+
+/** Someone who left and asks the game master to let them back in. */
+export type RejoinRequest = { id: string; name: string };
 
 type BaseView = {
   code: string;
@@ -42,6 +47,7 @@ export type HostView = BaseView & {
   canResume: boolean;
   /** Votes cast on phones, while the game master has a ballot open. */
   ballot: Ballot | null;
+  requests: RejoinRequest[];
 };
 
 /** The open ballot as a phone sees it: only its own vote. */
@@ -65,6 +71,11 @@ export type PlayerView = BaseView & {
   info: PlayerInfo | null;
   game: PublicGame | null;
   ballot: PhoneBallot | null;
+  /**
+   * Set when this phone belongs to someone who left: they need the game
+   * master's permission to come back.
+   */
+  rejoin: { name: string; status: "idle" | "pending" | "denied" } | null;
 };
 
 export type RoomView = HostView | PlayerView;
@@ -99,6 +110,8 @@ export type ClientMessage =
   | { type: "join"; name: string }
   /** Leaves the room. Mid-game the player stays in the game for the game master to play. */
   | { type: "leave" }
+  /** Someone who left asks to come back, possibly under a new name. */
+  | { type: "request-rejoin"; name: string }
   /** null = vote for no one. */
   | { type: "cast-vote"; targetId: string | null }
   // Phone (its own photo) or game master (anyone's). `data` is a JPEG data URL; null removes it.
@@ -117,6 +130,7 @@ export type ClientMessage =
   | { type: "rename-player"; playerId: string; name: string }
   /** Disconnects everyone and deletes the room. */
   | { type: "close-room" }
+  | { type: "answer-rejoin"; playerId: string; allow: boolean }
   | { type: "open-ballot" }
   | { type: "close-ballot" }
   /** Sets (or with `clear`, removes) someone's vote: misclicks and players without a phone. */

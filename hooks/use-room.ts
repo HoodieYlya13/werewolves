@@ -31,8 +31,10 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
     // A function, so each reconnect picks up an identity saved since the last one.
     query: (): ConnectQuery => {
       if (as === "host") return { as, token: identity.getHost(code)?.token ?? "", create: "1" };
-      const player = identity.getPlayer(code);
-      return player ? { as, id: player.id, token: player.token } : { as };
+      // A seat saved for this room, or else this device's id so a player who
+      // left is recognised when they come back.
+      const player = identity.getPlayer(code) ?? identity.device();
+      return { as, id: player.id, token: player.token };
     },
     onOpen: () => setStatus("open"),
     onClose: () => setStatus((s) => (s === "open" ? "reconnecting" : s)),
@@ -41,7 +43,7 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
       switch (msg.type) {
         case "view":
           // Stored identity that the room no longer knows (removed, room reset).
-          if (msg.view.kind === "player" && !msg.view.me) identity.setPlayer(code, null);
+          if (msg.view.kind === "player" && !msg.view.me && !msg.view.rejoin) identity.setPlayer(code, null);
           setView(msg.view as V);
           setClockOffset(offsetFrom(msg.view.serverNow));
           setError(null);

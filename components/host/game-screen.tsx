@@ -5,8 +5,9 @@ import { Crown, Eye, EyeOff, Heart, Moon, Music, PawPrint, Pencil, Skull, Sun, U
 import { useI18n } from "@/components/i18n-provider";
 import { CloseRoomButton } from "@/components/host/close-room-button";
 import { PlayerEditor } from "@/components/host/player-editor";
+import { RejoinRequests } from "@/components/host/rejoin-requests";
 import { RoleName, teamColor } from "@/components/host/role-chip";
-import { Avatar } from "@/components/room-context";
+import { Avatar, useRoomContext } from "@/components/room-context";
 import { StepPanel } from "@/components/host/step-panel";
 import { format } from "@/lib/i18n/config";
 import { isWolf, remainingTeams, roles, teamOf, type GameEvent, type GameState } from "@/lib/engine";
@@ -102,6 +103,8 @@ export function GameScreen({
           </p>
         )}
 
+        <RejoinRequests />
+
         <section className="flex flex-col gap-5">
           <StepPanel
             key={view.actionCount}
@@ -141,6 +144,8 @@ function Remaining({ game }: { game: GameState }) {
 function PlayersPanel({ game }: { game: GameState }) {
   const { dict } = useI18n();
   const [editing, setEditing] = useState<string | null>(null);
+  const { players: roomPlayers } = useRoomContext();
+  const leftIds = new Set(roomPlayers.filter((p) => p.left).map((p) => p.id));
   return (
     <section className="card p-4">
       <h2 className="mb-2 text-sm font-medium tracking-wide text-muted uppercase">{dict.game.players}</h2>
@@ -158,6 +163,7 @@ function PlayersPanel({ game }: { game: GameState }) {
               <span className={`min-w-0 truncate font-medium ${p.alive ? "" : "line-through"}`}>{p.name}</span>
               <Pencil aria-hidden className="size-3 shrink-0 text-muted opacity-0 group-hover:opacity-100" />
             </button>
+            {leftIds.has(p.id) && <span className="text-xs text-accent">{dict.host.left}</span>}
             {game.lovers?.includes(p.id) && (
               <Heart aria-label={dict.game.lover} className="secret-role size-3.5 fill-pink-500 text-pink-500" />
             )}

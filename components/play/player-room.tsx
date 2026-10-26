@@ -14,7 +14,7 @@ import { ConnectionBanner, FatalError } from "@/components/room-status";
 import { useRoom } from "@/hooks/use-room";
 import { format } from "@/lib/i18n/config";
 import { identity } from "@/lib/room";
-import { MAX_NAME_LENGTH, type PlayerView } from "@/lib/protocol";
+import { MAX_NAME_LENGTH, type ErrorCode, type PlayerView } from "@/lib/protocol";
 
 export function PlayerRoom() {
   const { code } = useParams<{ code: string }>();
@@ -25,7 +25,8 @@ function PlayerScreen({ code }: { code: string }) {
   const { dict, locale } = useI18n();
   const router = useRouter();
   const { view, error, status, send, clockOffset, close } = useRoom<PlayerView>(code, "player");
-  const [name, setName] = useState("");
+  // The name used last time, ready to change.
+  const [name, setName] = useState(() => identity.getName());
 
   if (error === "room-not-found" || error === "room-closed") return <FatalError code={error} />;
 
@@ -52,12 +53,25 @@ function PlayerScreen({ code }: { code: string }) {
         </p>
       )}
 
-      {view && !me && (
+      {view?.rejoin && (
+        <RejoinCard
+          rejoin={view.rejoin}
+          error={error}
+          onAsk={(newName) => {
+            identity.setName(newName.trim());
+            send({ type: "request-rejoin", name: newName });
+          }}
+        />
+      )}
+
+      {view && !me && !view.rejoin && (
         <form
           className="card flex flex-col gap-3 p-6"
           onSubmit={(e) => {
             e.preventDefault();
-            if (name.trim()) send({ type: "join", name });
+            if (!name.trim()) return;
+            identity.setName(name.trim());
+            send({ type: "join", name });
           }}
         >
           <label htmlFor="name" className="font-medium">
@@ -254,5 +268,61 @@ function PhoneBallotCard({ view, onVote }: { view: PlayerView; onVote: (targetId
         {format(t.progress, { answered: ballot.answered, voters: ballot.voters })}
       </p>
     </section>
+  );
+}
+
+/** Someone who left this room asks the game master to let them back in. */
+function RejoinCard({
+  rejoin,
+  error,
+  onAsk,
+}: {
+  rejoin: NonNullable<PlayerView["rejoin"]>;
+  error: ErrorCode | null;
+  onAsk: (name: string) => void;
+}) {
+  const { dict } = useI18n();
+  const t = dict.play.rejoin;
+  const [name, setName] = useState(rejoin.name);
+
+  if (rejoin.status === "pending") {
+    return (
+      <section role="status" className="card flex flex-col items-center gap-2 p-6 text-center">
+        <p className="text-xl font-semibold">{format(t.pending, { name: rejoin.name })}</p>
+        <p className="text-muted">{t.pendingHint}</p>
+      </section>
+    );
+  }
+
+  return (
+    <form
+      className="card flex flex-col gap-3 p-6"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (name.trim()) onAsk(name);
+      }}
+    >
+      <p className="text-xl font-semibold">{t.title}</p>
+      <p className="text-muted">{rejoin.status === "denied" ? t.denied : t.hint}</p>
+      <label htmlFor="rejoin-name" className="font-medium">
+        {dict.play.yourName}
+      </label>
+      <input
+        id="rejoin-name"
+        className="input text-lg"
+        autoComplete="nickname"
+        maxLength={MAX_NAME_LENGTH}
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+      />
+      <button type="submit" className="btn" disabled={!name.trim()}>
+        {rejoin.status === "denied" ? t.askAgain : t.ask}
+      </button>
+      {(error === "name-taken" || error === "invalid-name") && (
+        <p role="alert" className="text-sm text-accent">
+          {dict.errors[error]}
+        </p>
+      )}
+    </form>
   );
 }

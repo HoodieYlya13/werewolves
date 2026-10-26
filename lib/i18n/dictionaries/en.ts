@@ -39,6 +39,10 @@ const en = {
     save: "Save",
     closeRoom: "Close the room",
     closeRoomConfirm: "Close the room? Every phone is disconnected and the room is deleted, game included.",
+    rejoinRequest: "{name} left and asks to come back.",
+    letIn: "Let in",
+    refuse: "Refuse",
+    left: "left",
   },
   play: {
     yourName: "Your name",
@@ -62,6 +66,15 @@ const en = {
     leave: "Leave the room",
     leaveConfirm: "Leave the room?",
     leaveConfirmInGame: "Leave the room? You stay in the game: the game master plays your part.",
+    rejoin: {
+      title: "You left this room",
+      hint: "Ask the game master to let you back in. You can change your name first.",
+      ask: "Ask to come back",
+      askAgain: "Ask again",
+      pending: "Waiting for the game master, {name}…",
+      pendingHint: "They'll let you back in from their screen.",
+      denied: "The game master didn't let you back in. You can ask again.",
+    },
   },
   photo: {
     add: "Add a photo",

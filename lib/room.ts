@@ -24,6 +24,8 @@ type PlayerIdentity = { id: string; token: string };
 
 const hostKey = (code: string) => `ww:host:${code}`;
 const playerKey = (code: string) => `ww:player:${code}`;
+const DEVICE_KEY = "ww:device";
+const NAME_KEY = "ww:name";
 
 function read<T>(key: string): T | null {
   try {
@@ -46,6 +48,20 @@ export const identity = {
   setHost: (code: string, value: HostIdentity | null) => write(hostKey(code), value),
   getPlayer: (code: string) => read<PlayerIdentity>(playerKey(code)),
   setPlayer: (code: string, value: PlayerIdentity | null) => write(playerKey(code), value),
+  /**
+   * This device's id across every room. Rooms know players by it, so someone
+   * who left can be recognised when they come back.
+   */
+  device: (): PlayerIdentity => {
+    const saved = read<PlayerIdentity>(DEVICE_KEY);
+    if (saved) return saved;
+    const created = { id: crypto.randomUUID(), token: crypto.randomUUID() };
+    write(DEVICE_KEY, created);
+    return created;
+  },
+  /** The last name used to join, offered again next time. */
+  getName: () => read<string>(NAME_KEY) ?? "",
+  setName: (name: string) => write(NAME_KEY, name),
 };
 
 export function partyHost() {

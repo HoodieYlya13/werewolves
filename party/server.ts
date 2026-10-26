@@ -17,7 +17,9 @@ import {
   MAX_PHOTO_LENGTH,
   type ClientMessage,
   type ErrorCode,
+  type PlayerView,
   type PublicPlayer,
+  type RejoinRequest,
   type RoomView,
   type ServerMessage,
   type StartGame,
@@ -44,13 +46,26 @@ type RoomState = {
   /** Votes cast on phones; closed by any game action. */
   ballot?: Ballot | null;
   timer?: Timer | null;
+  /** Players who left the lobby, remembered so they can ask to come back. */
+  formerPlayers?: StoredPlayer[];
+  requests?: RejoinRequest[];
+  /** Players whose last request the game master refused, so their phone can say so. */
+  deniedIds?: string[];
 };
 
 const PHOTO_PREFIX = "photo:";
 const MAX_TIMER_SECONDS = 60 * 60;
 
 /** Who a socket belongs to. Kept on the connection so it survives restarts. */
-type ConnState = { kind: "host" } | { kind: "player"; playerId: string } | { kind: "guest" };
+type ConnState =
+  | { kind: "host" }
+  | { kind: "player"; playerId: string }
+  /** Someone who left: they see the room but need the game master's OK to come back. */
+  | { kind: "returning"; playerId: string }
+  /** Not a player yet. Keeps the device's id, used as the player id if they join. */
+  | { kind: "guest"; deviceId?: string; token?: string };
+
+const isDeviceId = (value: string | null): value is string => !!value && /^[\w-]{16,64}$/.test(value);
 
 type Conn = Connection<ConnState>;
 
@@ -97,15 +112,30 @@ export class RoomServer extends Server<Env> {
     if (!this.state) return this.reject(conn, "room-not-found");
 
     // A returning phone: same id + token puts it back on its player.
-    const player = this.state.players.find((p) => p.id === params.get("id"));
+    const id = params.get("id");
+    const player = this.state.players.find((p) => p.id === id);
     if (player && token && player.token === token) {
+      // Someone who left needs the game master's permission first.
+      if (player.left) {
+        conn.setState({ kind: "returning", playerId: player.id });
+        return this.send(conn, { type: "view", view: this.viewFor(conn) });
+      }
       conn.setState({ kind: "player", playerId: player.id });
       player.connected = true;
       await this.persist();
       return this.broadcastViews();
     }
+    const former = this.state.formerPlayers?.find((p) => p.id === id);
+    if (former && token && former.token === token) {
+      conn.setState({ kind: "returning", playerId: former.id });
+      return this.send(conn, { type: "view", view: this.viewFor(conn) });
+    }
 
-    conn.setState({ kind: "guest" });
+    conn.setState({
+      kind: "guest",
+      deviceId: isDeviceId(id) ? id : undefined,
+      token: isDeviceId(token) ? token : undefined,
+    });
     this.send(conn, { type: "view", view: this.viewFor(conn) });
   }
 
@@ -146,7 +176,9 @@ export class RoomServer extends Server<Env> {
         if (this.state.locked) return this.send(sender, { type: "error", code: "room-locked" });
         const name = this.validateName(sender, msg.name);
         if (!name) return;
-        const player = this.addPlayer(name, false);
+        const { deviceId, token } = sender.state;
+        const taken = [...this.state.players, ...(this.state.formerPlayers ?? [])].some((p) => p.id === deviceId);
+        const player = this.addPlayer(name, false, deviceId && token && !taken ? { id: deviceId, token } : undefined);
         sender.setState({ kind: "player", playerId: player.id });
         this.send(sender, { type: "joined", playerId: player.id, token: player.token! });
         break;
@@ -154,16 +186,60 @@ export class RoomServer extends Server<Env> {
       case "leave": {
         if (sender.state?.kind !== "player") return;
         const playerId = sender.state.playerId;
-        sender.setState({ kind: "guest" });
+        const player = this.state.players.find((p) => p.id === playerId);
+        if (!player) return;
+        for (const c of this.getConnections<ConnState>()) {
+          if (c.state?.kind === "player" && c.state.playerId === playerId) c.setState({ kind: "returning", playerId });
+        }
+        player.connected = false;
         if (this.state.game) {
           // The game needs everyone it was dealt with: the game master plays their part.
-          const player = this.state.players.find((p) => p.id === playerId);
-          if (player) player.connected = false;
+          player.left = true;
         } else {
+          // Remembered (photo included) so they can ask to come back.
           this.state.endedGame = null;
           this.state.players = this.state.players.filter((p) => p.id !== playerId);
-          await this.ctx.storage.delete(PHOTO_PREFIX + playerId);
+          this.state.formerPlayers = [...(this.state.formerPlayers ?? []).filter((p) => p.id !== playerId), player];
           this.reseat();
+        }
+        break;
+      }
+      case "request-rejoin": {
+        if (sender.state?.kind !== "returning") return;
+        const playerId = sender.state.playerId;
+        const name = this.validateName(sender, msg.name, playerId);
+        if (!name) return;
+        this.state.requests = [...(this.state.requests ?? []).filter((r) => r.id !== playerId), { id: playerId, name }];
+        this.state.deniedIds = (this.state.deniedIds ?? []).filter((id) => id !== playerId);
+        break;
+      }
+      case "answer-rejoin": {
+        if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
+        const request = this.state.requests?.find((r) => r.id === msg.playerId);
+        if (!request) return;
+        this.state.requests = this.state.requests!.filter((r) => r.id !== request.id);
+        if (!msg.allow) {
+          this.state.deniedIds = [...(this.state.deniedIds ?? []), request.id];
+          break;
+        }
+        let player = this.state.players.find((p) => p.id === request.id);
+        if (player) {
+          player.left = false;
+        } else {
+          const former = this.state.formerPlayers?.find((p) => p.id === request.id);
+          if (!former) break;
+          this.state.formerPlayers = this.state.formerPlayers!.filter((p) => p.id !== former.id);
+          // Back at the end of the table. Mid-game they sit out until the next one.
+          player = { ...former, seat: this.state.players.length, left: false };
+          this.state.players.push(player);
+          this.state.endedGame = null;
+        }
+        if (player.name !== request.name) this.renamePlayer(player, request.name);
+        for (const c of this.getConnections<ConnState>()) {
+          if (c.state?.kind === "returning" && c.state.playerId === player.id) {
+            c.setState({ kind: "player", playerId: player.id });
+            player.connected = true;
+          }
         }
         break;
       }
@@ -192,10 +268,11 @@ export class RoomServer extends Server<Env> {
         if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
         this.state.endedGame = null;
         this.state.players = this.state.players.filter((p) => p.id !== msg.playerId);
+        this.state.requests = this.state.requests?.filter((r) => r.id !== msg.playerId);
         await this.ctx.storage.delete(PHOTO_PREFIX + msg.playerId);
         this.reseat();
         for (const c of this.getConnections<ConnState>()) {
-          if (c.state?.kind === "player" && c.state.playerId === msg.playerId) {
+          if ((c.state?.kind === "player" || c.state?.kind === "returning") && c.state.playerId === msg.playerId) {
             this.send(c, { type: "error", code: "removed" });
             c.setState({ kind: "guest" });
           }
@@ -272,13 +349,7 @@ export class RoomServer extends Server<Env> {
         if (!player) return;
         const name = this.validateName(sender, msg.name, player.id);
         if (!name) return;
-        player.name = name;
-        // Names are part of the game setup too, so the game screen follows.
-        for (const game of [this.state.game, this.state.endedGame]) {
-          const entry = game?.setup.players.find((p) => p.id === player.id);
-          if (entry) entry.name = name;
-        }
-        if (this.state.game) this.game = replay(this.state.game.setup, this.state.game.log);
+        this.renamePlayer(player, name);
         break;
       }
       case "set-photo": {
@@ -413,15 +484,16 @@ export class RoomServer extends Server<Env> {
     this.send(conn, { type: "error", code, detail: error.message });
   }
 
-  private addPlayer(name: string, manual: boolean) {
+  private addPlayer(name: string, manual: boolean, device?: { id: string; token: string }) {
     const player: StoredPlayer = {
-      id: crypto.randomUUID(),
-      token: manual ? null : crypto.randomUUID(),
+      id: device?.id ?? crypto.randomUUID(),
+      token: manual ? null : (device?.token ?? crypto.randomUUID()),
       name,
       seat: this.state!.players.length,
       connected: !manual,
       manual,
       photo: null,
+      left: false,
     };
     this.state!.players.push(player);
     return player;
@@ -441,6 +513,16 @@ export class RoomServer extends Server<Env> {
     return name;
   }
 
+  /** Names are part of the game setup too, so the game screen follows. */
+  private renamePlayer(player: StoredPlayer, name: string) {
+    player.name = name;
+    for (const game of [this.state!.game, this.state!.endedGame]) {
+      const entry = game?.setup.players.find((p) => p.id === player.id);
+      if (entry) entry.name = name;
+    }
+    if (this.state!.game) this.game = replay(this.state!.game.setup, this.state!.game.log);
+  }
+
   private reseat() {
     this.state!.players.forEach((p, i) => (p.seat = i));
   }
@@ -449,13 +531,14 @@ export class RoomServer extends Server<Env> {
     const s = this.state!;
     const players = s.players
       .map(
-        ({ id, name, seat, connected, manual, photo }): PublicPlayer => ({
+        ({ id, name, seat, connected, manual, photo, left }): PublicPlayer => ({
           id,
           name,
           seat,
           connected,
           manual,
           photo: photo ?? null,
+          left: !!left,
         }),
       )
       .sort((a, b) => a.seat - b.seat);
@@ -469,6 +552,7 @@ export class RoomServer extends Server<Env> {
         actionCount: s.game?.log.length ?? 0,
         canResume: !!s.endedGame,
         ballot: s.ballot ?? null,
+        requests: s.requests ?? [],
       };
     }
     const state = conn.state;
@@ -486,6 +570,15 @@ export class RoomServer extends Server<Env> {
             voters: ballot.voterIds.length,
           }
         : null;
+    let rejoin: PlayerView["rejoin"] = null;
+    if (state?.kind === "returning") {
+      const request = s.requests?.find((r) => r.id === state.playerId);
+      const known = [...s.players, ...(s.formerPlayers ?? [])].find((p) => p.id === state.playerId);
+      rejoin = {
+        name: request?.name ?? known?.name ?? "",
+        status: request ? "pending" : s.deniedIds?.includes(state.playerId) ? "denied" : "idle",
+      };
+    }
     return {
       ...base,
       kind: "player",
@@ -493,6 +586,7 @@ export class RoomServer extends Server<Env> {
       info,
       game: this.game ? publicGame(this.game) : null,
       ballot: phoneBallot,
+      rejoin,
     };
   }
 

@@ -41,6 +41,10 @@ const fr: Dictionary = {
     save: "Enregistrer",
     closeRoom: "Fermer la partie",
     closeRoomConfirm: "Fermer la partie ? Tous les téléphones sont déconnectés et la partie est supprimée.",
+    rejoinRequest: "{name} a quitté la partie et demande à revenir.",
+    letIn: "Laisser entrer",
+    refuse: "Refuser",
+    left: "a quitté",
   },
   play: {
     yourName: "Votre nom",
@@ -64,6 +68,15 @@ const fr: Dictionary = {
     leave: "Quitter la partie",
     leaveConfirm: "Quitter la partie ?",
     leaveConfirmInGame: "Quitter la partie ? Le meneur continuera à jouer votre rôle à votre place.",
+    rejoin: {
+      title: "Vous avez quitté cette partie",
+      hint: "Demandez au meneur de vous laisser revenir. Vous pouvez d'abord changer de nom.",
+      ask: "Demander à revenir",
+      askAgain: "Redemander",
+      pending: "En attente du meneur, {name}…",
+      pendingHint: "Le meneur peut vous laisser revenir depuis son écran.",
+      denied: "Le meneur ne vous a pas laissé revenir. Vous pouvez redemander.",
+    },
   },
   photo: {
     add: "Ajouter une photo",

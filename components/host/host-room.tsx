@@ -7,6 +7,7 @@ import { GameScreen } from "@/components/host/game-screen";
 import { ThemedI18n } from "@/components/themed-i18n";
 import { CloseRoomButton } from "@/components/host/close-room-button";
 import { PlayerEditor } from "@/components/host/player-editor";
+import { RejoinRequests } from "@/components/host/rejoin-requests";
 import { SetupScreen } from "@/components/host/setup-screen";
 import { Avatar, RoomProvider } from "@/components/room-context";
 import { useI18n } from "@/components/i18n-provider";
@@ -32,6 +33,7 @@ function HostLobby({ code }: { code: string }) {
     timer: view?.timer ?? null,
     clockOffset,
     ballot: view?.ballot ?? null,
+    requests: view?.requests ?? [],
     send,
   };
   return (
@@ -128,6 +130,7 @@ function HostContent({
       </section>
 
       <section className="card flex flex-col gap-4 p-6">
+        <RejoinRequests />
         <div>
           <h1 className="text-xl font-semibold">{format(dict.host.players, { count: players.length })}</h1>
           <p className="mt-1 text-sm text-muted">{dict.host.seatingHint}</p>
@@ -152,6 +155,7 @@ function HostContent({
                   <Avatar playerId={p.id} name={p.name} />
                   <span className="min-w-0 truncate font-medium">{p.name}</span>
                 </button>
+                {p.left && <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent">{dict.host.left}</span>}
                 {p.manual && (
                   <span className="flex items-center gap-1 text-xs text-muted" title={dict.host.noPhone}>
                     <Smartphone aria-hidden className="size-3.5" />
