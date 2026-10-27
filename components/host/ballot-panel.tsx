@@ -6,6 +6,8 @@ import { Avatar, useRoomContext } from "@/components/room-context";
 import { tallyBallot } from "@/lib/ballot";
 import type { Action, GameState, Step } from "@/lib/engine";
 import { format } from "@/lib/i18n/config";
+import { Button } from "@/components/ui/button";
+import { NativeSelect } from "@/components/ui/native-select";
 
 const NOT_VOTED = "";
 const NO_ONE = "__nobody__";
@@ -33,11 +35,11 @@ export function BallotPanel({
   if (!ballot) {
     return (
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" className="btn btn-ghost h-11" onClick={() => send({ type: "open-ballot" })}>
+        <Button type="button" variant="outline" className="h-11" onClick={() => send({ type: "open-ballot" })}>
           <Smartphone aria-hidden className="size-4" />
           {t.open}
-        </button>
-        <p className="text-sm text-muted">{t.openHint}</p>
+        </Button>
+        <p className="text-sm text-muted-foreground">{t.openHint}</p>
       </div>
     );
   }
@@ -61,10 +63,10 @@ export function BallotPanel({
           <Smartphone aria-hidden className="size-4" />
           {format(t.progress, { answered: tally.answered, voters: ballot.voterIds.length })}
         </h3>
-        <button type="button" className="btn btn-ghost h-9 px-3" onClick={() => send({ type: "close-ballot" })}>
+        <Button type="button" variant="outline" className="h-9 px-3" onClick={() => send({ type: "close-ballot" })}>
           <X aria-hidden className="size-4" />
           {t.cancel}
-        </button>
+        </Button>
       </div>
 
       <ul className="grid gap-2 sm:grid-cols-2">
@@ -79,11 +81,11 @@ export function BallotPanel({
                   {nameOf(voterId)}
                   {voterId === step.sheriffId && <span className="text-moon"> ×2</span>}
                 </span>
-                {manual && <span className="block text-xs text-muted">{dict.host.noPhone}</span>}
+                {manual && <span className="block text-xs text-muted-foreground">{dict.host.noPhone}</span>}
               </span>
-              <select
+              <NativeSelect
                 aria-label={format(t.voteOf, { name: nameOf(voterId) })}
-                className={`input h-9 w-36 py-0 text-sm ${value === NOT_VOTED ? "text-muted" : ""}`}
+                className={`h-9 w-36 py-0 text-sm ${value === NOT_VOTED ? "text-muted-foreground" : ""}`}
                 value={value}
                 onChange={(e) => {
                   const choice = e.target.value;
@@ -98,23 +100,23 @@ export function BallotPanel({
                     {nameOf(id)}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </li>
           );
         })}
       </ul>
 
       <div className="flex flex-col gap-2">
-        <h4 className="text-sm font-medium tracking-wide text-muted uppercase">{t.results}</h4>
+        <h4 className="text-sm font-medium tracking-wide text-muted-foreground uppercase">{t.results}</h4>
         {ranked.length === 0 && tally.nobody === 0 ? (
-          <p className="text-sm text-muted">{t.noVotes}</p>
+          <p className="text-sm text-muted-foreground">{t.noVotes}</p>
         ) : (
           <ul className="flex flex-wrap gap-2 text-sm">
             {ranked.map(([id, count]) => (
               <li key={id} className="flex items-center gap-1.5 rounded-full bg-surface-2 py-1 pr-3 pl-1">
                 <Avatar playerId={id} name={nameOf(id)} className="size-6" />
                 {nameOf(id)} · <strong>{count}</strong>
-                {id === step.ravenTargetId && <span className="text-muted">{t.ravenBonus}</span>}
+                {id === step.ravenTargetId && <span className="text-muted-foreground">{t.ravenBonus}</span>}
               </li>
             ))}
             {tally.nobody > 0 && (
@@ -124,10 +126,10 @@ export function BallotPanel({
             )}
           </ul>
         )}
-        <p className="text-sm text-muted">{t.rule}</p>
+        <p className="text-sm text-muted-foreground">{t.rule}</p>
       </div>
 
-      <button type="button" className="btn h-12 text-base" onClick={validate}>
+      <Button type="button" className="h-12 text-base" onClick={validate}>
         <Check aria-hidden className="size-5" />
         {outcome.kind === "eliminate"
           ? format(t.validateEliminate, { name: nameOf(outcome.targetId) })
@@ -136,7 +138,7 @@ export function BallotPanel({
               ? t.validateTieScapegoat
               : format(t.validateTie, { names: outcome.targetIds.map(nameOf).join(", ") })
             : t.validateNobody}
-      </button>
+      </Button>
     </section>
   );
 }

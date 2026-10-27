@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { useState } from "react";
 import { useI18n } from "@/components/i18n-provider";
 import { PhotoPicker } from "@/components/photo-picker";
 import { Avatar, useRoomContext } from "@/components/room-context";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { format } from "@/lib/i18n/config";
 import { MAX_NAME_LENGTH } from "@/lib/protocol";
 
@@ -14,52 +17,35 @@ export function PlayerEditor({ playerId, onClose }: { playerId: string; onClose:
   const { players, send } = useRoomContext();
   const player = players.find((p) => p.id === playerId);
   const [name, setName] = useState(player?.name ?? "");
-  const dialog = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    dialog.current?.showModal();
-  }, []);
 
   if (!player || !send) return null;
 
   return (
-    <dialog
-      ref={dialog}
-      onClose={onClose}
-      className="m-auto w-[min(26rem,calc(100vw-2rem))] rounded-2xl border border-line bg-surface p-0 text-fg backdrop:bg-black/60"
-    >
-      <form
-        method="dialog"
-        className="flex flex-col items-center gap-4 p-6"
-        onSubmit={(e) => {
-          if (name.trim() && name.trim() !== player.name) {
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent closeLabel={dict.host.close} className="max-w-[min(26rem,calc(100vw-2rem))] sm:max-w-[26rem]">
+        <DialogHeader>
+          <DialogTitle>{format(dict.host.editPlayer, { name: player.name })}</DialogTitle>
+          <DialogDescription className="sr-only">{dict.host.name}</DialogDescription>
+        </DialogHeader>
+        <form
+          className="flex flex-col items-center gap-4"
+          onSubmit={(e) => {
             e.preventDefault();
-            send({ type: "rename-player", playerId, name });
-            dialog.current?.close();
-          }
-        }}
-      >
-        <div className="flex w-full items-center justify-between">
-          <h2 className="text-lg font-semibold">{format(dict.host.editPlayer, { name: player.name })}</h2>
-          <button type="button" aria-label={dict.host.close} className="grid size-8 place-items-center rounded-lg text-muted hover:bg-surface-2" onClick={() => dialog.current?.close()}>
-            <X className="size-4" />
-          </button>
-        </div>
-        <Avatar playerId={player.id} name={player.name} className="size-28 text-4xl" />
-        <PhotoPicker hasPhoto={player.photo !== null} onChange={(data) => send({ type: "set-photo", playerId, data })} />
-        <label className="flex w-full flex-col gap-1 text-sm font-medium">
-          {dict.host.name}
-          <input
-            className="input text-base"
-            maxLength={MAX_NAME_LENGTH}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </label>
-        <button type="submit" className="btn w-full" disabled={!name.trim()}>
-          {dict.host.save}
-        </button>
-      </form>
-    </dialog>
+            if (name.trim() && name.trim() !== player.name) send({ type: "rename-player", playerId, name });
+            onClose();
+          }}
+        >
+          <Avatar playerId={player.id} name={player.name} className="size-28 text-4xl" />
+          <PhotoPicker hasPhoto={player.photo !== null} onChange={(data) => send({ type: "set-photo", playerId, data })} />
+          <div className="flex w-full flex-col gap-1.5">
+            <Label htmlFor="player-name">{dict.host.name}</Label>
+            <Input id="player-name" maxLength={MAX_NAME_LENGTH} value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <Button type="submit" className="w-full" disabled={!name.trim()}>
+            {dict.host.save}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

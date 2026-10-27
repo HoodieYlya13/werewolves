@@ -20,6 +20,8 @@ import {
 } from "@/lib/engine";
 import type { ClientMessage, PublicPlayer } from "@/lib/protocol";
 import { themeDictionary, themeIds, themes } from "@/lib/themes";
+import { Button } from "@/components/ui/button";
+import { NativeSelect } from "@/components/ui/native-select";
 
 type Counts = Partial<Record<RoleId, number>>;
 
@@ -137,27 +139,27 @@ export function SetupScreen({
       <main className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-[minmax(0,1fr)] gap-6 px-4 pb-10 sm:px-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <section className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <button type="button" className="btn btn-ghost h-9 px-3 text-sm" onClick={onBack}>
+            <Button type="button" variant="outline" className="h-9 px-3 text-sm" onClick={onBack}>
               <ArrowLeft aria-hidden className="size-4" />
               {dict.setup.back}
-            </button>
+            </Button>
             <div className="flex gap-2">
-              <button
+              <Button
                 type="button"
-                className="btn btn-ghost h-9 px-3 text-sm"
+                variant="outline" className="h-9 px-3 text-sm"
                 onClick={() => setCounts(toCounts(suggestedDeck(players.length)))}
               >
                 <Sparkles aria-hidden className="size-4" />
                 {dict.setup.suggest}
-              </button>
-              <button type="button" className="btn btn-ghost h-9 px-3 text-sm" onClick={() => setCounts({})}>
+              </Button>
+              <Button type="button" variant="outline" className="h-9 px-3 text-sm" onClick={() => setCounts({})}>
                 {dict.setup.clear}
-              </button>
+              </Button>
             </div>
           </div>
 
           <section>
-            <h2 className="mb-2 text-sm font-medium tracking-wide text-muted uppercase">{dict.setup.theme}</h2>
+            <h2 className="mb-2 text-sm font-medium tracking-wide text-muted-foreground uppercase">{dict.setup.theme}</h2>
             <ul className="grid grid-cols-2 gap-2 lg:grid-cols-4">
               {themeIds.map((id) => (
                 <li key={id}>
@@ -166,11 +168,11 @@ export function SetupScreen({
                     aria-pressed={settings.theme === id}
                     onClick={() => setSettings((s) => ({ ...s, theme: id }))}
                     className={`flex h-full w-full flex-col gap-1 rounded-xl border-2 p-3 text-left transition-colors ${
-                      settings.theme === id ? "border-accent bg-accent/10" : "border-line bg-surface hover:border-fg/30"
+                      settings.theme === id ? "border-primary bg-primary/10" : "border-line bg-surface hover:border-fg/30"
                     }`}
                   >
                     <span className="font-semibold">{themes[id].name[locale]}</span>
-                    <span className="text-xs text-muted">{themes[id].description[locale]}</span>
+                    <span className="text-xs text-muted-foreground">{themes[id].description[locale]}</span>
                   </button>
                 </li>
               ))}
@@ -190,7 +192,7 @@ export function SetupScreen({
                 >
                   <div className="min-w-0 flex-1">
                     <RoleName role={role} className="font-semibold" />
-                    <p className="mt-1 text-sm text-muted">{dict.roles[role].power}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{dict.roles[role].power}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-1 self-center">
                     <button
@@ -222,13 +224,13 @@ export function SetupScreen({
         <aside className="flex flex-col gap-4 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:self-start lg:overflow-y-auto lg:pb-1">
           <section className="card flex flex-col gap-2 p-5">
             <p
-              className={`font-mono text-3xl font-bold tabular-nums ${deck.length === needed ? "text-ok" : "text-accent"}`}
+              className={`font-mono text-3xl font-bold tabular-nums ${deck.length === needed ? "text-ok" : "text-primary"}`}
             >
               {format(dict.setup.cards, { count: deck.length, needed })}
             </p>
-            {deck.includes("thief") && <p className="text-sm text-muted">{dict.setup.thiefNote}</p>}
+            {deck.includes("thief") && <p className="text-sm text-muted-foreground">{dict.setup.thiefNote}</p>}
             {problems.length > 0 && (
-              <ul className="flex flex-col gap-1 text-sm text-accent">
+              <ul className="flex flex-col gap-1 text-sm text-primary">
                 {problems.map((p) => (
                   <li key={p}>{dict.setup.problems[p]}</li>
                 ))}
@@ -242,13 +244,13 @@ export function SetupScreen({
               <label key={key} className="flex cursor-pointer items-start gap-3">
                 <input
                   type="checkbox"
-                  className="mt-1 size-4 accent-[var(--accent)]"
+                  className="mt-1 size-4 accent-[var(--primary)]"
                   checked={settings[key]}
                   onChange={(e) => setSettings((s) => ({ ...s, [key]: e.target.checked }))}
                 />
                 <span>
                   <span className="block">{dict.setup[key]}</span>
-                  {hint && <span className="block text-sm text-muted">{hint}</span>}
+                  {hint && <span className="block text-sm text-muted-foreground">{hint}</span>}
                 </span>
               </label>
             ))}
@@ -280,13 +282,13 @@ export function SetupScreen({
                   <input
                     type="radio"
                     name="angel-rule"
-                    className="mt-1 size-4 accent-[var(--accent)]"
+                    className="mt-1 size-4 accent-[var(--primary)]"
                     checked={settings.angelRule === rule}
                     onChange={() => setSettings((s) => ({ ...s, angelRule: rule }))}
                   />
                   <span>
                     <span className="block">{dict.setup.angelRules[rule].label}</span>
-                    <span className="block text-sm text-muted">{dict.setup.angelRules[rule].hint}</span>
+                    <span className="block text-sm text-muted-foreground">{dict.setup.angelRules[rule].hint}</span>
                   </span>
                 </label>
               ))}
@@ -297,12 +299,13 @@ export function SetupScreen({
             <section className="card flex flex-col gap-3 p-5">
               <div>
                 <h2 className="font-semibold">{dict.setup.actorCards}</h2>
-                <p className="text-sm text-muted">{dict.setup.actorCardsHint}</p>
+                <p className="text-sm text-muted-foreground">{dict.setup.actorCardsHint}</p>
               </div>
               {[0, 1, 2].map((i) => (
-                <select
+                <NativeSelect
                   key={i}
-                  className="input h-10 py-0"
+                  wrapperClassName="w-full"
+                  className="h-10 py-0"
                   value={actorCards[i] ?? ""}
                   onChange={(e) =>
                     setActorCards((cards) => {
@@ -320,9 +323,9 @@ export function SetupScreen({
                       {dict.roles[r].name}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               ))}
-              {!actorReady && <p className="text-sm text-accent">{dict.setup.actorNeedsCards}</p>}
+              {!actorReady && <p className="text-sm text-primary">{dict.setup.actorNeedsCards}</p>}
             </section>
           )}
 
@@ -330,7 +333,7 @@ export function SetupScreen({
             <section className="card flex flex-col gap-3 p-5">
               <div>
                 <h2 className="font-semibold">{dict.setup.groups}</h2>
-                <p className="text-sm text-muted">{dict.setup.groupsHint}</p>
+                <p className="text-sm text-muted-foreground">{dict.setup.groupsHint}</p>
               </div>
               <ol className="flex flex-col gap-2">
                 {players.map((p) => (
@@ -351,7 +354,7 @@ export function SetupScreen({
                   </li>
                 ))}
               </ol>
-              {!groupsReady && <p className="text-sm text-accent">{dict.setup.groupsNeeded}</p>}
+              {!groupsReady && <p className="text-sm text-primary">{dict.setup.groupsNeeded}</p>}
             </section>
           )}
 
@@ -376,8 +379,8 @@ export function SetupScreen({
                   return (
                     <li key={p.id} className="flex items-center gap-3">
                       <span className="min-w-0 flex-1 truncate">{p.name}</span>
-                      <select
-                        className="input h-10 w-44 py-0"
+                      <NativeSelect
+                        className="h-10 w-44 py-0"
                         value={holds.has(p.id) ? current : ""}
                         onChange={(e) => setAssignment((a) => ({ ...a, [p.id]: e.target.value as RoleId }))}
                       >
@@ -389,12 +392,12 @@ export function SetupScreen({
                             {dict.roles[r].name}
                           </option>
                         ))}
-                      </select>
+                      </NativeSelect>
                     </li>
                   );
                 })}
                 {everyoneAssigned && leftover.length > 0 && (
-                  <li className="text-sm text-muted">
+                  <li className="text-sm text-muted-foreground">
                     {dict.setup.leftover}: {leftover.map((r) => dict.roles[r].name).join(", ")}
                   </li>
                 )}
@@ -403,16 +406,16 @@ export function SetupScreen({
           </section>
 
           {canResume && (
-            <button type="button" className="btn btn-ghost h-12 text-base" onClick={() => send({ type: "resume-game" })}>
+            <Button type="button" variant="outline" className="h-12 text-base" onClick={() => send({ type: "resume-game" })}>
               <History aria-hidden className="size-5" />
               {dict.host.resume}
-            </button>
+            </Button>
           )}
-          <button type="button" className="btn h-12 text-base" disabled={!canStart} onClick={start}>
+          <Button type="button" className="h-12 text-base" disabled={!canStart} onClick={start}>
             {dict.setup.begin}
-          </button>
+          </Button>
           {players.length < MIN_PLAYERS && (
-            <p className="text-sm text-accent">{format(dict.setup.needPlayers, { min: MIN_PLAYERS })}</p>
+            <p className="text-sm text-primary">{format(dict.setup.needPlayers, { min: MIN_PLAYERS })}</p>
           )}
         </aside>
       </main>

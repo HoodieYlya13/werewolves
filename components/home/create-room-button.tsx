@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n-provider";
 import { generateRoomCode, identity } from "@/lib/room";
+import { Button } from "@/components/ui/button";
 
 export function CreateRoomButton() {
   const { dict, locale } = useI18n();
@@ -15,8 +16,8 @@ export function CreateRoomButton() {
   }
 
   return (
-    <button type="button" className="btn mt-auto" onClick={create}>
+    <Button type="button" className="mt-auto" onClick={create}>
       {dict.home.createRoom}
-    </button>
+    </Button>
   );
 }

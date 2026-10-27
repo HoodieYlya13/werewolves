@@ -1,9 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef } from "react";
+import { toast } from "sonner";
 import { Camera, Trash2 } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { resizePhoto } from "@/lib/photo";
+import { Button } from "@/components/ui/button";
 
 /** Take or pick a photo (the device offers the camera or the library), or remove it. */
 export function PhotoPicker({
@@ -15,30 +17,28 @@ export function PhotoPicker({
 }) {
   const { dict } = useI18n();
   const input = useRef<HTMLInputElement>(null);
-  const [failed, setFailed] = useState(false);
 
   async function pick(file: File | undefined) {
     if (!file) return;
     try {
       onChange(await resizePhoto(file));
-      setFailed(false);
     } catch {
-      setFailed(true);
+      toast.error(dict.photo.failed);
     }
   }
 
   return (
     <div className="flex flex-col items-center gap-2">
       <div className="flex flex-wrap justify-center gap-2">
-        <button type="button" className="btn btn-ghost h-10 px-4" onClick={() => input.current?.click()}>
+        <Button type="button" variant="outline" className="h-10 px-4" onClick={() => input.current?.click()}>
           <Camera aria-hidden className="size-4" />
           {hasPhoto ? dict.photo.change : dict.photo.add}
-        </button>
+        </Button>
         {hasPhoto && (
-          <button type="button" className="btn btn-ghost h-10 px-4" onClick={() => onChange(null)}>
+          <Button type="button" variant="outline" className="h-10 px-4" onClick={() => onChange(null)}>
             <Trash2 aria-hidden className="size-4" />
             {dict.photo.remove}
-          </button>
+          </Button>
         )}
       </div>
       <input
@@ -51,11 +51,6 @@ export function PhotoPicker({
           e.target.value = "";
         }}
       />
-      {failed && (
-        <p role="alert" className="text-sm text-accent">
-          {dict.photo.failed}
-        </p>
-      )}
     </div>
   );
 }

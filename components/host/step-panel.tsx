@@ -10,6 +10,7 @@ import { RoleName } from "@/components/host/role-chip";
 import { TimerControls } from "@/components/vote-timer";
 import { format } from "@/lib/i18n/config";
 import { isWolf, type Action, type GameState, type Player, type Step } from "@/lib/engine";
+import { Button } from "@/components/ui/button";
 
 type Props<K extends Step["kind"]> = {
   game: GameState;
@@ -108,31 +109,31 @@ function Say({ children }: { children: React.ReactNode }) {
   const { dict } = useI18n();
   return (
     <blockquote className="rounded-2xl border-l-4 border-moon bg-surface-2 px-5 py-4">
-      <p className="mb-1 text-xs font-semibold tracking-wide text-muted uppercase">{dict.game.say}</p>
+      <p className="mb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{dict.game.say}</p>
       <p className="text-xl leading-snug text-balance sm:text-2xl">{children}</p>
     </blockquote>
   );
 }
 
 function Do({ children }: { children: React.ReactNode }) {
-  return <p className="text-muted">{children}</p>;
+  return <p className="text-muted-foreground">{children}</p>;
 }
 
 function ContinueButton({ act, label }: { act: Props<"lovers">["act"]; label?: string }) {
   const { dict } = useI18n();
   return (
-    <button type="button" className="btn h-12 self-start px-8 text-base" onClick={() => act({ type: "continue" })}>
+    <Button type="button" className="h-12 self-start px-8 text-base" onClick={() => act({ type: "continue" })}>
       {label ?? dict.game.continue}
-    </button>
+    </Button>
   );
 }
 
 function ConfirmButton({ disabled, onClick }: { disabled: boolean; onClick: () => void }) {
   const { dict } = useI18n();
   return (
-    <button type="button" className="btn h-12 px-8 text-base" disabled={disabled} onClick={onClick}>
+    <Button type="button" className="h-12 px-8 text-base" disabled={disabled} onClick={onClick}>
       {dict.game.confirm}
-    </button>
+    </Button>
   );
 }
 
@@ -176,9 +177,9 @@ function PickPlayers({
           onClick={() => onConfirm(selected)}
         />
         {skip && (
-          <button type="button" className="btn btn-ghost h-12" onClick={() => onConfirm([])}>
+          <Button type="button" variant="outline" className="h-12" onClick={() => onConfirm([])}>
             {skip}
-          </button>
+          </Button>
         )}
         {extra}
       </div>
@@ -194,9 +195,9 @@ function ChoiceButtons({ options }: { options: { label: React.ReactNode; onClick
   return (
     <div className="flex flex-wrap gap-2">
       {options.map((o, i) => (
-        <button key={i} type="button" className={`btn h-12 px-6 text-base ${o.ghost ? "btn-ghost" : ""}`} onClick={o.onClick}>
+        <Button key={i} type="button" variant={o.ghost ? "outline" : "default"} className="h-12 px-6 text-base" onClick={o.onClick}>
           {o.label}
-        </button>
+        </Button>
       ))}
     </div>
   );
@@ -226,11 +227,11 @@ function ThiefStep({ game, step, act }: Props<"thief">) {
           ))}
         </div>
         {step.mustTakeWolf ? (
-          <p className="text-accent">{t.mustTakeWolf}</p>
+          <p className="text-primary">{t.mustTakeWolf}</p>
         ) : (
-          <button type="button" className="btn btn-ghost h-12" onClick={() => act({ type: "thief", pick: null })}>
+          <Button type="button" variant="outline" className="h-12" onClick={() => act({ type: "thief", pick: null })}>
             {t.keep}
-          </button>
+          </Button>
         )}
       </Reveal>
     </>
@@ -331,11 +332,11 @@ function WitchStep({ game, step, act }: Props<"witch">) {
       <Reveal to={nameOf(game, step.playerId)}>
         <p className="text-3xl font-semibold sm:text-4xl">{victim ? format(t.victim, { name: victim }) : t.noVictim}</p>
         <ul className="flex flex-col gap-2 text-lg">
-          <li className={step.canHeal ? "text-ok" : "text-muted line-through"}>
+          <li className={step.canHeal ? "text-ok" : "text-muted-foreground line-through"}>
             <FlaskConical aria-hidden className="mr-2 inline size-5" />
             {step.canHeal ? t.healAvailable : t.healUsed}
           </li>
-          <li className={step.canPoison ? "text-accent" : "text-muted line-through"}>
+          <li className={step.canPoison ? "text-primary" : "text-muted-foreground line-through"}>
             <Skull aria-hidden className="mr-2 inline size-5" />
             {step.canPoison ? t.poisonAvailable : t.poisonUsed}
           </li>
@@ -359,7 +360,7 @@ function WitchStep({ game, step, act }: Props<"witch">) {
 
       <div className={`flex flex-col gap-3 ${step.canPoison ? "" : "opacity-50"}`}>
         <p className="flex items-center gap-2 font-medium">
-          <Skull aria-hidden className="size-5 text-accent" />
+          <Skull aria-hidden className="size-5 text-primary" />
           {step.canPoison ? t.poison : t.poisonUsed}
         </p>
         {step.canPoison && (
@@ -373,13 +374,13 @@ function WitchStep({ game, step, act }: Props<"witch">) {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <button
+        <Button
           type="button"
-          className="btn h-12 px-8 text-base"
+          className="h-12 px-8 text-base"
           onClick={() => act({ type: "witch", heal, poisonId: poison[0] ?? null })}
         >
           {heal || poison.length > 0 ? dict.game.confirm : t.nothing}
-        </button>
+        </Button>
       </div>
     </>
   );
@@ -403,7 +404,7 @@ function DeathsStep({ game, step, act }: Props<"deaths">) {
                 <p className="text-xl">
                   {format(t.died, { name: player.name, cause: dict.game.causes[d.cause] })}
                 </p>
-                <p className="text-muted">
+                <p className="text-muted-foreground">
                   {reveal ? (
                     <>
                       {t.reveal}{" "}
@@ -474,16 +475,16 @@ function VoteStep({ game, step, act }: Props<"vote">) {
         onConfirm={([targetId]) => act({ type: "vote", targetId })}
         extra={
           <>
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost h-12"
+              variant="outline" className="h-12"
               onClick={() => act({ type: "vote", targetId: null, tie: true })}
             >
               {step.scapegoatId ? t.tieScapegoat : t.tie}
-            </button>
-            <button type="button" className="btn btn-ghost h-12" onClick={() => act({ type: "vote", targetId: null })}>
+            </Button>
+            <Button type="button" variant="outline" className="h-12" onClick={() => act({ type: "vote", targetId: null })}>
               {t.nobody}
-            </button>
+            </Button>
           </>
         }
       />
@@ -527,9 +528,9 @@ function ActorStep({ game, step, act }: Props<"actor">) {
           </button>
         ))}
       </div>
-      <button type="button" className="btn btn-ghost self-start" onClick={() => act({ type: "choose", value: null })}>
+      <Button type="button" variant="outline" className="self-start" onClick={() => act({ type: "choose", value: null })}>
         {t.none}
-      </button>
+      </Button>
     </>
   );
 }
@@ -619,7 +620,7 @@ function FoxResultStep({ game, step, act }: Props<"fox-result">) {
     <>
       <Do>{format(t.do, { name: nameOf(game, step.playerId) })}</Do>
       <Reveal to={nameOf(game, step.playerId)}>
-        <p className={`font-display text-4xl font-bold ${step.hasWolf ? "text-accent" : "text-ok"}`}>
+        <p className={`font-display text-4xl font-bold ${step.hasWolf ? "text-primary" : "text-ok"}`}>
           {step.hasWolf ? t.yes : t.no}
         </p>
         <p className="text-2xl">{names(game, step.playerIds)}</p>
@@ -808,7 +809,7 @@ function GameOverStep({ game, step }: Props<"game-over">) {
       <p className="font-display text-3xl font-bold sm:text-4xl">{team ? t.wins[team] : t.draw}</p>
       {playerIds.length > 0 && (
         <div>
-          <p className="mb-2 text-sm font-medium tracking-wide text-muted uppercase">{t.winners}</p>
+          <p className="mb-2 text-sm font-medium tracking-wide text-muted-foreground uppercase">{t.winners}</p>
           <ul className="flex flex-wrap justify-center gap-2">
             {playerIds.map((id) => {
               const p = game.players.find((pl) => pl.id === id)!;

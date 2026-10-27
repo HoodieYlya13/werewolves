@@ -41,11 +41,16 @@ const fr: Dictionary = {
     save: "Enregistrer",
     cancel: "Annuler",
     closeRoom: "Fermer la partie",
-    closeRoomConfirm: "Fermer la partie ? Tous les téléphones sont déconnectés et la partie est supprimée.",
+    closeRoomConfirm: {
+      title: "Fermer la partie ?",
+      body: "Tous les téléphones sont déconnectés et la partie est supprimée.",
+    },
     rejoinRequest: "{name} a quitté la partie et demande à revenir.",
     letIn: "Laisser entrer",
     refuse: "Refuser",
     left: "a quitté",
+    toastRejoin: "{name} demande à revenir",
+    toastLeft: "{name} a quitté la partie : vous jouez son rôle à sa place",
     accountPlayer: "Joue avec son compte : le nom et la photo en viennent",
   },
   play: {
@@ -70,8 +75,11 @@ const fr: Dictionary = {
     changeName: "Changer de nom",
     renamed: "Une personne connectée à son compte utilise maintenant votre nom : vous voici {name}. Vous pouvez le changer.",
     leave: "Quitter la partie",
-    leaveConfirm: "Quitter la partie ?",
-    leaveConfirmInGame: "Quitter la partie ? Le meneur continuera à jouer votre rôle à votre place.",
+    leaveConfirm: {
+      title: "Quitter la partie ?",
+      body: "Vous pourrez demander au meneur de vous laisser revenir.",
+      bodyInGame: "Le meneur continuera à jouer votre rôle à votre place. Vous pourrez demander à revenir.",
+    },
     rejoin: {
       title: "Vous avez quitté cette partie",
       hint: "Demandez au meneur de vous laisser revenir. Vous pouvez d'abord changer de nom.",
@@ -267,7 +275,10 @@ const fr: Dictionary = {
     dayZeroHint: "L'Ange est en jeu : la partie commence par un vote",
     undo: "Annuler",
     endGame: "Terminer la partie",
-    endGameConfirm: "Terminer cette partie et revenir à la salle d'attente ? Vous pourrez la reprendre tant que les joueurs ne changent pas.",
+    endGameConfirm: {
+      title: "Terminer cette partie ?",
+      body: "Retour à la salle d'attente. Vous pourrez reprendre la partie tant que les joueurs ne changent pas.",
+    },
     confirm: "Valider",
     continue: "Continuer",
     say: "À dire",

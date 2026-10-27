@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { useParams, useRouter } from "next/navigation";
 import { Check, Crown, LogIn, LogOut, Moon, Pencil, Skull, Sun, UserRound, Vote } from "lucide-react";
 import { AuthButton } from "@/components/account-button";
+import { ConfirmButton } from "@/components/confirm-button";
+import { useErrorToast } from "@/components/toasts";
 import { useI18n } from "@/components/i18n-provider";
 import { RoleName } from "@/components/host/role-chip";
 import { RoleCard } from "@/components/play/role-card";
@@ -18,11 +21,16 @@ import { format } from "@/lib/i18n/config";
 import { identity } from "@/lib/room";
 import { freshIdToken, useSession } from "@/lib/session";
 import { MAX_NAME_LENGTH, type ErrorCode, type PlayerView } from "@/lib/protocol";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export function PlayerRoom() {
   const { code } = useParams<{ code: string }>();
   return <PlayerScreen key={code} code={code} />;
 }
+
+/** Errors about the account, which the screen has no better place to show. */
+const PHONE_TOASTS: ErrorCode[] = ["invalid-account", "account-in-use"];
 
 function PlayerScreen({ code }: { code: string }) {
   const { dict, locale } = useI18n();
@@ -34,6 +42,15 @@ function PlayerScreen({ code }: { code: string }) {
   const session = useSession();
   const account = session?.account ?? null;
   const me = view?.me;
+
+  useErrorToast(error, PHONE_TOASTS);
+
+  // Someone signed in with this player's name: say so once, they can pick another.
+  const renamed = !!view?.renamed;
+  const myName = me?.name;
+  useEffect(() => {
+    if (renamed && myName) toast(format(dict.play.renamed, { name: myName }), { duration: 10_000 });
+  }, [renamed, myName, dict]);
 
   // Signed in after joining as a guest: the seat becomes the account's.
   const linked = useRef<string | null>(null);
@@ -52,7 +69,6 @@ function PlayerScreen({ code }: { code: string }) {
   if (error === "room-not-found" || error === "room-closed") return <FatalError code={error} />;
 
   function leave() {
-    if (!window.confirm(view?.game ? dict.play.leaveConfirmInGame : dict.play.leaveConfirm)) return;
     send({ type: "leave" });
     identity.setPlayer(code, null);
     close();
@@ -76,17 +92,11 @@ function PlayerScreen({ code }: { code: string }) {
     <RoomProvider value={room}>
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-10">
       <ConnectionBanner status={status} />
-      <p className="text-center font-mono text-sm tracking-[0.3em] text-muted">{code}</p>
+      <p className="text-center font-mono text-sm tracking-[0.3em] text-muted-foreground">{code}</p>
 
       {error === "removed" && (
-        <p role="alert" className="text-center text-accent">
+        <p role="alert" className="text-center text-primary">
           {dict.errors.removed}
-        </p>
-      )}
-
-      {me && view?.renamed && (
-        <p role="status" className="rounded-xl bg-surface-2 px-4 py-3 text-center">
-          {format(dict.play.renamed, { name: me.name })}
         </p>
       )}
 
@@ -104,18 +114,18 @@ function PlayerScreen({ code }: { code: string }) {
       {view && !me && !view.rejoin && account && (
         <section className="card flex flex-col items-center gap-3 p-6 text-center">
           <Face name={account.name} src={account.picture} className="size-24 text-3xl" />
-          <p className="text-muted">{dict.account.fromAccount}</p>
-          <button type="button" className="btn w-full" onClick={joinWithAccount}>
+          <p className="text-muted-foreground">{dict.account.fromAccount}</p>
+          <Button type="button" className="w-full" onClick={joinWithAccount}>
             {format(dict.account.joinAs, { name: account.name })}
-          </button>
-          {(error === "room-locked" || error === "invalid-account" || error === "account-in-use") && (
-            <p role="alert" className="text-sm text-accent">
+          </Button>
+          {error === "room-locked" && (
+            <p role="alert" className="text-sm text-primary">
               {dict.errors[error]}
             </p>
           )}
-          <p className="text-sm text-muted">
+          <p className="text-sm text-muted-foreground">
             {dict.account.notYou}{" "}
-            <AuthButton to="out" className="underline">
+            <AuthButton to="out" variant="link" className="h-auto p-0 text-sm font-normal underline">
               {dict.account.signOut}
             </AuthButton>
           </p>
@@ -137,7 +147,7 @@ function PlayerScreen({ code }: { code: string }) {
               // eslint-disable-next-line @next/next/no-img-element
               <img src={photo} alt="" className="size-24 rounded-full object-cover" />
             ) : (
-              <span aria-hidden className="grid size-24 place-items-center rounded-full bg-surface-2 text-muted">
+              <span aria-hidden className="grid size-24 place-items-center rounded-full bg-surface-2 text-muted-foreground">
                 <UserRound className="size-10" />
               </span>
             )}
@@ -146,24 +156,24 @@ function PlayerScreen({ code }: { code: string }) {
           <label htmlFor="name" className="font-medium">
             {dict.play.yourName}
           </label>
-          <input
+          <Input
             id="name"
-            className="input text-lg"
+            className="text-lg"
             autoComplete="nickname"
             maxLength={MAX_NAME_LENGTH}
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
-          <button type="submit" className="btn" disabled={!name.trim()}>
+          <Button type="submit"  disabled={!name.trim()}>
             {dict.play.join}
-          </button>
+          </Button>
           {(error === "name-taken" || error === "invalid-name" || error === "room-locked") && (
-            <p role="alert" className="text-sm text-accent">
+            <p role="alert" className="text-sm text-primary">
               {dict.errors[error]}
             </p>
           )}
           {session?.enabled && (
-            <AuthButton to="in" className="flex items-center justify-center gap-1.5 text-center text-sm text-muted underline">
+            <AuthButton to="in" variant="link" className="h-auto p-0 text-sm font-normal whitespace-normal text-muted-foreground underline">
               <LogIn aria-hidden className="size-4 shrink-0" />
               {dict.account.orSignIn}
             </AuthButton>
@@ -176,7 +186,7 @@ function PlayerScreen({ code }: { code: string }) {
           <Avatar playerId={me.id} name={me.name} className="size-24 text-3xl" />
           <p className="text-xl font-semibold">{format(dict.play.joinedAs, { name: me.name })}</p>
           {me.account ? (
-            <p className="text-sm text-muted">{dict.account.fromAccount}</p>
+            <p className="text-sm text-muted-foreground">{dict.account.fromAccount}</p>
           ) : (
             <>
               <PhotoPicker
@@ -189,7 +199,7 @@ function PlayerScreen({ code }: { code: string }) {
               <NameEditor name={me.name} error={error} onSave={rename} />
             </>
           )}
-          <p className="text-muted">{dict.play.waiting}</p>
+          <p className="text-muted-foreground">{dict.play.waiting}</p>
         </section>
       )}
 
@@ -201,12 +211,12 @@ function PlayerScreen({ code }: { code: string }) {
 
       {view && !view.game && view.players.length > 0 && (
         <section>
-          <h2 className="mb-2 text-sm font-medium text-muted">{dict.play.roomPlayers}</h2>
+          <h2 className="mb-2 text-sm font-medium text-muted-foreground">{dict.play.roomPlayers}</h2>
           <ul className="flex flex-wrap gap-2">
             {view.players.map((p) => (
               <li
                 key={p.id}
-                className={`flex items-center gap-1.5 rounded-full py-1 pr-3 pl-1 text-sm ${p.id === me?.id ? "bg-accent text-accent-fg" : "bg-surface-2"}`}
+                className={`flex items-center gap-1.5 rounded-full py-1 pr-3 pl-1 text-sm ${p.id === me?.id ? "bg-primary text-primary-foreground" : "bg-surface-2"}`}
               >
                 <Avatar playerId={p.id} name={p.name} className="size-6" />
                 {p.name}
@@ -223,10 +233,18 @@ function PlayerScreen({ code }: { code: string }) {
       )}
 
       {me && (
-        <button type="button" className="btn btn-ghost mt-auto self-center text-muted" onClick={leave}>
+        <ConfirmButton
+          type="button"
+          variant="outline"
+          className="mt-auto self-center text-muted-foreground"
+          title={dict.play.leaveConfirm.title}
+          description={view?.game ? dict.play.leaveConfirm.bodyInGame : dict.play.leaveConfirm.body}
+          action={dict.play.leave}
+          onConfirm={leave}
+        >
           <LogOut aria-hidden className="size-4" />
           {dict.play.leave}
-        </button>
+        </ConfirmButton>
       )}
     </main>
     </RoomProvider>
@@ -252,12 +270,12 @@ function InGame({ view, onVote }: { view: PlayerView; onVote: (targetId: string 
           <p className="font-display text-2xl font-bold">
             {game.winner.team ? dict.game.steps["game-over"].wins[game.winner.team] : dict.game.steps["game-over"].draw}
           </p>
-          <p className={`text-lg font-semibold ${game.winner.playerIds.includes(me.id) ? "text-ok" : "text-accent"}`}>
+          <p className={`text-lg font-semibold ${game.winner.playerIds.includes(me.id) ? "text-ok" : "text-primary"}`}>
             {game.winner.playerIds.includes(me.id) ? t.youWin : t.youLose}
           </p>
         </section>
       ) : (
-        <p className="flex items-center justify-center gap-2 text-muted">
+        <p className="flex items-center justify-center gap-2 text-muted-foreground">
           {isNight ? <Moon aria-hidden className="size-4" /> : <Sun aria-hidden className="size-4" />}
           {format(isNight ? dict.game.night : dict.game.day, { n: game.phase.number })}
         </p>
@@ -276,7 +294,7 @@ function InGame({ view, onVote }: { view: PlayerView; onVote: (targetId: string 
       <RoleCard info={info} loverName={info.loverId ? nameOf(info.loverId) : null} alwaysShown={!!game.winner} />
 
       <section>
-        <h2 className="mb-2 text-sm font-medium text-muted">{t.roomPlayers}</h2>
+        <h2 className="mb-2 text-sm font-medium text-muted-foreground">{t.roomPlayers}</h2>
         <ul className="flex flex-col gap-1">
           {view.players.map((p) => {
             const isDead = dead.has(p.id);
@@ -327,7 +345,7 @@ function PhoneBallotCard({ view, onVote }: { view: PlayerView; onVote: (targetId
         <Vote aria-hidden className="size-5" />
         {t.phoneTitle}
       </h2>
-      <p className="text-sm text-muted">
+      <p className="text-sm text-muted-foreground">
         {ballot.voted
           ? format(t.phoneVoted, { name: ballot.targetId ? nameOf(ballot.targetId) : t.noOne })
           : t.phoneHint}
@@ -342,24 +360,24 @@ function PhoneBallotCard({ view, onVote }: { view: PlayerView; onVote: (targetId
                 aria-pressed={selected}
                 onClick={() => onVote(choice.id)}
                 className={`flex min-h-14 w-full items-center gap-3 rounded-xl border-2 px-3 py-2 text-left text-lg font-semibold ${
-                  selected ? "border-accent bg-accent/10" : "border-line bg-surface-2"
+                  selected ? "border-primary bg-primary/10" : "border-line bg-surface-2"
                 }`}
               >
                 {choice.id ? (
                   <Avatar playerId={choice.id} name={choice.label} className="size-9" />
                 ) : (
-                  <span aria-hidden className="grid size-9 place-items-center rounded-full bg-surface text-muted">
+                  <span aria-hidden className="grid size-9 place-items-center rounded-full bg-surface text-muted-foreground">
                     –
                   </span>
                 )}
                 <span className="min-w-0 flex-1 truncate">{choice.label}</span>
-                {selected && <Check aria-hidden className="size-5 text-accent" />}
+                {selected && <Check aria-hidden className="size-5 text-primary" />}
               </button>
             </li>
           );
         })}
       </ul>
-      <p className="text-center text-sm text-muted">
+      <p className="text-center text-sm text-muted-foreground">
         {format(t.progress, { answered: ballot.answered, voters: ballot.voters })}
       </p>
     </section>
@@ -371,7 +389,7 @@ function NameEditor({ name, error, onSave }: { name: string; error: ErrorCode | 
   const { dict } = useI18n();
   const [draft, setDraft] = useState<string | null>(null);
   const alert = (error === "name-taken" || error === "invalid-name") && (
-    <p role="alert" className="text-sm text-accent">
+    <p role="alert" className="text-sm text-primary">
       {dict.errors[error]}
     </p>
   );
@@ -379,10 +397,10 @@ function NameEditor({ name, error, onSave }: { name: string; error: ErrorCode | 
   if (draft === null) {
     return (
       <div className="flex flex-col items-center gap-1">
-        <button type="button" className="btn btn-ghost text-sm" onClick={() => setDraft(name)}>
+        <Button type="button" variant="outline" className="text-sm" onClick={() => setDraft(name)}>
           <Pencil aria-hidden className="size-4" />
           {dict.play.changeName}
-        </button>
+        </Button>
         {alert}
       </div>
     );
@@ -401,9 +419,9 @@ function NameEditor({ name, error, onSave }: { name: string; error: ErrorCode | 
       <label htmlFor="new-name" className="sr-only">
         {dict.play.yourName}
       </label>
-      <input
+      <Input
         id="new-name"
-        className="input text-lg"
+        className="text-lg"
         autoComplete="nickname"
         autoFocus
         maxLength={MAX_NAME_LENGTH}
@@ -411,12 +429,12 @@ function NameEditor({ name, error, onSave }: { name: string; error: ErrorCode | 
         onChange={(e) => setDraft(e.target.value)}
       />
       <div className="flex gap-2">
-        <button type="button" className="btn btn-ghost flex-1" onClick={() => setDraft(null)}>
+        <Button type="button" variant="outline" className="flex-1" onClick={() => setDraft(null)}>
           {dict.host.cancel}
-        </button>
-        <button type="submit" className="btn flex-1" disabled={!draft.trim()}>
+        </Button>
+        <Button type="submit" className="flex-1" disabled={!draft.trim()}>
           {dict.host.save}
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -440,7 +458,7 @@ function RejoinCard({
     return (
       <section role="status" className="card flex flex-col items-center gap-2 p-6 text-center">
         <p className="text-xl font-semibold">{format(t.pending, { name: rejoin.name })}</p>
-        <p className="text-muted">{t.pendingHint}</p>
+        <p className="text-muted-foreground">{t.pendingHint}</p>
       </section>
     );
   }
@@ -454,16 +472,16 @@ function RejoinCard({
       }}
     >
       <p className="text-xl font-semibold">{t.title}</p>
-      <p className="text-muted">{rejoin.status === "denied" ? t.denied : rejoin.account ? t.hintAccount : t.hint}</p>
+      <p className="text-muted-foreground">{rejoin.status === "denied" ? t.denied : rejoin.account ? t.hintAccount : t.hint}</p>
       {/* An account comes back under its own name. */}
       {!rejoin.account && (
         <>
           <label htmlFor="rejoin-name" className="font-medium">
             {dict.play.yourName}
           </label>
-          <input
+          <Input
             id="rejoin-name"
-            className="input text-lg"
+            className="text-lg"
             autoComplete="nickname"
             maxLength={MAX_NAME_LENGTH}
             value={name}
@@ -471,11 +489,11 @@ function RejoinCard({
           />
         </>
       )}
-      <button type="submit" className="btn" disabled={!name.trim()}>
+      <Button type="submit"  disabled={!name.trim()}>
         {rejoin.status === "denied" ? t.askAgain : t.ask}
-      </button>
+      </Button>
       {(error === "name-taken" || error === "invalid-name") && (
-        <p role="alert" className="text-sm text-accent">
+        <p role="alert" className="text-sm text-primary">
           {dict.errors[error]}
         </p>
       )}

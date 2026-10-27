@@ -5,6 +5,7 @@ import { BadgeCheck, Crown, Eye, EyeOff, Heart, Moon, Music, PawPrint, Pencil, S
 import { useI18n } from "@/components/i18n-provider";
 import { CloseRoomButton } from "@/components/host/close-room-button";
 import { PlayerEditor } from "@/components/host/player-editor";
+import { ConfirmButton } from "@/components/confirm-button";
 import { useGameTheme } from "@/hooks/use-game-theme";
 import { RejoinRequests } from "@/components/host/rejoin-requests";
 import { RoleName, teamColor } from "@/components/host/role-chip";
@@ -12,19 +13,18 @@ import { Avatar, useRoomContext } from "@/components/room-context";
 import { StepPanel } from "@/components/host/step-panel";
 import { format } from "@/lib/i18n/config";
 import { isWolf, remainingTeams, roles, teamOf, type GameEvent, type GameState } from "@/lib/engine";
-import type { ClientMessage, ErrorCode, HostView } from "@/lib/protocol";
+import type { ClientMessage, HostView } from "@/lib/protocol";
+import { Button } from "@/components/ui/button";
 
 const HIDE_ROLES_KEY = "ww:hide-roles";
 
 export function GameScreen({
   view,
   game,
-  error,
   send,
 }: {
   view: HostView;
   game: GameState;
-  error: ErrorCode | null;
   send: (message: ClientMessage) => void;
 }) {
   const { dict } = useI18n();
@@ -46,10 +46,6 @@ export function GameScreen({
     } catch {}
   }
 
-  function endGame() {
-    if (over || window.confirm(dict.game.endGameConfirm)) send({ type: "end-game" });
-  }
-
   return (
     <main
       data-hide-roles={hideRoles || undefined}
@@ -67,43 +63,48 @@ export function GameScreen({
               <h1 className="font-display text-2xl leading-tight font-bold">
                 {format(isNight ? dict.game.night : dict.game.day, { n: game.phase.number })}
               </h1>
-              <p className="text-sm text-muted">
+              <p className="text-sm text-muted-foreground">
                 {isNight ? dict.game.nightHint : game.phase.number === 0 ? dict.game.dayZeroHint : dict.game.dayHint}
               </p>
             </div>
           </div>
           <div className="ml-auto flex flex-wrap gap-2">
-            <button
+            <Button
               type="button"
-              className="btn btn-ghost h-10 px-4"
+              variant="outline" className="h-10 px-4"
               aria-pressed={hideRoles}
               onClick={toggleRoles}
             >
               {hideRoles ? <Eye aria-hidden className="size-4" /> : <EyeOff aria-hidden className="size-4" />}
               {hideRoles ? dict.game.showRoles : dict.game.hideRoles}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="btn btn-ghost h-10 px-4"
+              variant="outline" className="h-10 px-4"
               disabled={view.actionCount === 0}
               onClick={() => send({ type: "undo" })}
             >
               <Undo2 aria-hidden className="size-4" />
               {dict.game.undo}
-            </button>
-            <button type="button" className="btn btn-ghost h-10 px-4" onClick={endGame}>
+            </Button>
+            {/* A finished game ends without asking. */}
+            <ConfirmButton
+              type="button"
+              variant="outline"
+              className="h-10 px-4"
+              skip={over}
+              title={dict.game.endGameConfirm.title}
+              description={dict.game.endGameConfirm.body}
+              action={dict.game.endGame}
+              onConfirm={() => send({ type: "end-game" })}
+            >
               <X aria-hidden className="size-4" />
               {over ? dict.game.steps["game-over"].newGame : dict.game.endGame}
-            </button>
+            </ConfirmButton>
             <CloseRoomButton className="h-10 px-4" />
           </div>
         </div>
 
-        {error && (
-          <p role="alert" className="rounded-xl bg-accent/10 px-4 py-2 text-sm text-accent">
-            {dict.errors[error]}
-          </p>
-        )}
 
         <RejoinRequests />
 
@@ -130,8 +131,8 @@ function Remaining({ game }: { game: GameState }) {
   const living = game.players.filter((p) => p.alive);
   return (
     <section className="card p-4">
-      <h2 className="mb-2 text-sm font-medium tracking-wide text-muted uppercase">{dict.game.remaining}</h2>
-      {game.villagePowersLost && <p className="mb-2 text-sm text-accent">{dict.game.powersLost}</p>}
+      <h2 className="mb-2 text-sm font-medium tracking-wide text-muted-foreground uppercase">{dict.game.remaining}</h2>
+      {game.villagePowersLost && <p className="mb-2 text-sm text-primary">{dict.game.powersLost}</p>}
       <ul className="secret-role flex flex-wrap gap-2">
         {remainingTeams(game).map((team) => (
           <li key={team} className={`rounded-full bg-surface-2 px-3 py-1 text-sm font-semibold ${teamColor[team]}`}>
@@ -151,11 +152,11 @@ function PlayersPanel({ game }: { game: GameState }) {
   const accountIds = new Set(roomPlayers.filter((p) => p.account).map((p) => p.id));
   return (
     <section className="card p-4">
-      <h2 className="mb-2 text-sm font-medium tracking-wide text-muted uppercase">{dict.game.players}</h2>
+      <h2 className="mb-2 text-sm font-medium tracking-wide text-muted-foreground uppercase">{dict.game.players}</h2>
       <ol className="flex flex-col gap-1">
         {game.players.map((p, i) => (
           <li key={p.id} className={`flex items-center gap-2 text-sm ${p.alive ? "" : "opacity-45"}`}>
-            <span className="w-5 text-right font-mono text-xs text-muted">{i + 1}</span>
+            <span className="w-5 text-right font-mono text-xs text-muted-foreground">{i + 1}</span>
             <button
               type="button"
               className="group flex min-w-0 flex-1 items-center gap-2 text-left"
@@ -169,10 +170,10 @@ function PlayersPanel({ game }: { game: GameState }) {
               {accountIds.has(p.id) ? (
                 <BadgeCheck aria-label={dict.host.accountPlayer} className="size-3 shrink-0 text-ok" />
               ) : (
-                <Pencil aria-hidden className="size-3 shrink-0 text-muted opacity-0 group-hover:opacity-100" />
+                <Pencil aria-hidden className="size-3 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100" />
               )}
             </button>
-            {leftIds.has(p.id) && <span className="text-xs text-accent">{dict.host.left}</span>}
+            {leftIds.has(p.id) && <span className="text-xs text-primary">{dict.host.left}</span>}
             {game.lovers?.includes(p.id) && (
               <Heart aria-label={dict.game.lover} className="secret-role size-3.5 fill-pink-500 text-pink-500" />
             )}
@@ -181,7 +182,7 @@ function PlayersPanel({ game }: { game: GameState }) {
               <Music aria-label={dict.game.charmed} className="secret-role size-3.5 text-emerald-500" />
             )}
             {isWolf(p) && roles[p.role].team !== "wolves" && p.role !== "white-werewolf" && (
-              <PawPrint aria-hidden className="secret-role size-3.5 text-accent" />
+              <PawPrint aria-hidden className="secret-role size-3.5 text-primary" />
             )}
             {!p.alive && <Skull aria-label={dict.game.dead} className="size-3.5" />}
             <RoleName role={p.role} className="text-xs" secret />
@@ -198,13 +199,13 @@ function Timeline({ game }: { game: GameState }) {
   if (game.events.length === 0) return null;
   return (
     <details className="card p-4">
-      <summary className="cursor-pointer text-sm font-medium tracking-wide text-muted uppercase">
+      <summary className="cursor-pointer text-sm font-medium tracking-wide text-muted-foreground uppercase">
         {dict.game.timeline}
       </summary>
       <ol className="secret-role mt-3 flex flex-col gap-1.5 text-sm">
         {[...game.events].reverse().map((e, i) => (
           <li key={i} className="flex gap-2">
-            <span className="w-8 shrink-0 font-mono text-xs text-muted">
+            <span className="w-8 shrink-0 font-mono text-xs text-muted-foreground">
               {e.phase.kind === "night" ? dict.game.nightShort : dict.game.dayShort}
               {e.phase.number}
             </span>

@@ -3,6 +3,7 @@
 import { Pause, Play, Plus, Timer as TimerIcon, X } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { formatDuration, useCountdown, useRoomContext } from "@/components/room-context";
+import { Button } from "@/components/ui/button";
 
 const PRESETS = [60, 120, 180, 300];
 
@@ -16,7 +17,7 @@ export function TimerDisplay({ className = "" }: { className?: string }) {
     <p
       role="timer"
       className={`flex items-center justify-center gap-2 rounded-xl px-4 py-2 font-mono text-2xl font-bold tabular-nums ${
-        done ? "animate-pulse bg-accent text-accent-fg" : "bg-surface-2"
+        done ? "animate-pulse bg-primary text-primary-foreground" : "bg-surface-2"
       } ${className}`}
     >
       <TimerIcon aria-hidden className="size-5" />
@@ -35,19 +36,19 @@ export function TimerControls() {
   if (!timer || remaining === null) {
     return (
       <div className="flex flex-wrap items-center gap-2">
-        <span className="flex items-center gap-1.5 text-sm text-muted">
+        <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
           <TimerIcon aria-hidden className="size-4" />
           {dict.timer.start}
         </span>
         {PRESETS.map((seconds) => (
-          <button
+          <Button
             key={seconds}
             type="button"
-            className="btn btn-ghost h-9 px-3 font-mono"
+            variant="outline" className="h-9 px-3 font-mono"
             onClick={() => send({ type: "set-timer", seconds })}
           >
             {formatDuration(seconds * 1000)}
-          </button>
+          </Button>
         ))}
       </div>
     );
@@ -58,27 +59,27 @@ export function TimerControls() {
     <div className="flex flex-wrap items-center gap-2">
       <TimerDisplay className="min-w-36" />
       {remaining > 0 && (
-        <button
+        <Button
           type="button"
-          className="btn btn-ghost h-10 px-3"
+          variant="outline" className="h-10 px-3"
           onClick={() => send({ type: running ? "pause-timer" : "resume-timer" })}
         >
           {running ? <Pause aria-hidden className="size-4" /> : <Play aria-hidden className="size-4" />}
           {running ? dict.timer.pause : dict.timer.resume}
-        </button>
+        </Button>
       )}
-      <button
+      <Button
         type="button"
-        className="btn btn-ghost h-10 px-3"
+        variant="outline" className="h-10 px-3"
         onClick={() => send({ type: "set-timer", seconds: Math.ceil(remaining / 1000) + 30 })}
       >
         <Plus aria-hidden className="size-4" />
         {dict.timer.add30}
-      </button>
-      <button type="button" className="btn btn-ghost h-10 px-3" onClick={() => send({ type: "set-timer", seconds: null })}>
+      </Button>
+      <Button type="button" variant="outline" className="h-10 px-3" onClick={() => send({ type: "set-timer", seconds: null })}>
         <X aria-hidden className="size-4" />
         {dict.timer.clear}
-      </button>
+      </Button>
     </div>
   );
 }

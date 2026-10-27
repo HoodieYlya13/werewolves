@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n-provider";
 import { CODE_LENGTH, isRoomCode, normalizeRoomCode } from "@/lib/room";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export function JoinForm() {
   const { dict, locale } = useI18n();
@@ -18,8 +20,8 @@ export function JoinForm() {
         if (isRoomCode(code)) router.push(`/${locale}/play/${code}`);
       }}
     >
-      <input
-        className="input text-center font-mono text-lg tracking-[0.4em] uppercase"
+      <Input
+        className="text-center font-mono text-lg tracking-[0.4em] uppercase"
         aria-label={dict.home.roomCode}
         placeholder={"•".repeat(CODE_LENGTH)}
         autoComplete="off"
@@ -28,9 +30,9 @@ export function JoinForm() {
         value={code}
         onChange={(e) => setCode(normalizeRoomCode(e.target.value))}
       />
-      <button type="submit" className="btn btn-ghost" disabled={!isRoomCode(code)}>
+      <Button type="submit" variant="outline" disabled={!isRoomCode(code)}>
         {dict.home.join}
-      </button>
+      </Button>
     </form>
   );
 }

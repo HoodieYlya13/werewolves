@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
 /*
  * Theme tokens. No data-theme attribute ("auto", or "game" outside a game) =
@@ -12,10 +13,10 @@
   --surface: #fffdf8;
   --surface-2: #efe8da;
   --fg: #1e1a26;
-  --muted: #6b6475;
+  --muted-foreground: #6b6475;
   --line: #ddd3c2;
-  --accent: #a3201a;
-  --accent-fg: #fff7f2;
+  --primary: #a3201a;
+  --primary-foreground: #fff7f2;
   --moon: #c9962b;
   --ok: #2f7d4f;
 }
@@ -27,10 +28,10 @@
     --surface: #17141f;
     --surface-2: #211d2c;
     --fg: #ece7f3;
-    --muted: #9a93a8;
+    --muted-foreground: #9a93a8;
     --line: #2d2839;
-    --accent: #e0483e;
-    --accent-fg: #160807;
+    --primary: #e0483e;
+    --primary-foreground: #160807;
     --moon: #f2d58a;
     --ok: #5fc48a;
   }
@@ -42,23 +43,62 @@
   --surface: #17141f;
   --surface-2: #211d2c;
   --fg: #ece7f3;
-  --muted: #9a93a8;
+  --muted-foreground: #9a93a8;
   --line: #2d2839;
-  --accent: #e0483e;
-  --accent-fg: #160807;
+  --primary: #e0483e;
+  --primary-foreground: #160807;
   --moon: #f2d58a;
   --ok: #5fc48a;
 }
 
+/*
+ * shadcn/ui tokens, mapped onto the palette above. `primary` is the brand red,
+ * `accent` and `muted` are the subtle surface shades shadcn uses for hovers.
+ */
+:root {
+  --background: var(--bg);
+  --foreground: var(--fg);
+  --card: var(--surface);
+  --card-foreground: var(--fg);
+  --popover: var(--surface);
+  --popover-foreground: var(--fg);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--fg);
+  --muted: var(--surface-2);
+  --accent: var(--surface-2);
+  --accent-foreground: var(--fg);
+  --destructive: var(--primary);
+  --border: var(--line);
+  --input: var(--line);
+  --ring: var(--primary);
+  --radius: 0.75rem;
+}
+
 @theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  /* The app's own names for the same palette. */
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-fg: var(--fg);
-  --color-muted: var(--muted);
   --color-line: var(--line);
-  --color-accent: var(--accent);
-  --color-accent-fg: var(--accent-fg);
   --color-moon: var(--moon);
   --color-ok: var(--ok);
   --font-sans: var(--font-geist-sans);
@@ -78,6 +118,9 @@
 }
 
 @layer base {
+  * {
+    border-color: var(--border);
+  }
   html {
     -webkit-tap-highlight-color: transparent;
   }
@@ -87,7 +130,7 @@
     min-height: 100dvh;
   }
   :focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--primary);
     outline-offset: 2px;
   }
 }
@@ -111,7 +154,7 @@
     border-radius: 9999px;
     font-size: 0.8125rem;
     font-weight: 600;
-    color: var(--muted);
+    color: var(--muted-foreground);
   }
   .segmented > [aria-current="true"],
   /* Active theme is styled from the <html> attribute, so it is right before hydration. */
@@ -123,45 +166,11 @@
     color: var(--fg);
   }
 
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    height: 2.75rem;
-    padding: 0 1.25rem;
-    border-radius: 0.75rem;
-    font-weight: 600;
-    background: var(--accent);
-    color: var(--accent-fg);
-    transition: filter 150ms;
-  }
-  .btn:hover {
-    filter: brightness(1.08);
-  }
-  .btn:disabled {
-    opacity: 0.5;
-    pointer-events: none;
-  }
-  .btn-ghost {
-    background: transparent;
-    color: var(--fg);
-    border: 1px solid var(--line);
-  }
-  .input {
-    height: 2.75rem;
-    width: 100%;
-    padding: 0 0.875rem;
-    border-radius: 0.75rem;
-    border: 1px solid var(--line);
-    background: var(--surface);
-    color: var(--fg);
-  }
   /* "Hide roles" on the game master screen: blur anything that gives roles away. */
   [data-hide-roles] .secret-role {
     filter: blur(0.45em);
     /* Team colours would give roles away even when blurred. */
-    color: var(--muted) !important;
+    color: var(--muted-foreground) !important;
     user-select: none;
   }
   /* Lover hearts, team counts and the timeline can't be blurred safely: hide them. */
@@ -171,9 +180,11 @@
     visibility: hidden;
   }
 
+  /* shadcn's card look, kept as a class so cards stay <section>s and <form>s. */
   .card {
-    border: 1px solid var(--line);
+    border: 1px solid var(--border);
     border-radius: 1.25rem;
-    background: var(--surface);
+    background: var(--card);
+    color: var(--card-foreground);
   }
 }

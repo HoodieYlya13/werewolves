@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { format } from "@/lib/i18n/config";
+import { Button } from "@/components/ui/button";
 
 /**
  * A button that opens a full-screen panel to hand the device to one player.
@@ -24,10 +25,10 @@ export function Reveal({ to, children }: { to: string; children: React.ReactNode
 
   return (
     <>
-      <button type="button" className="btn h-12 self-start px-6 text-base" onClick={() => setOpen(true)}>
+      <Button type="button" className="h-12 self-start px-6 text-base" onClick={() => setOpen(true)}>
         <Eye aria-hidden className="size-5" />
         {format(dict.game.showTo, { name: to })}
-      </button>
+      </Button>
       {open &&
         createPortal(
           <div
@@ -36,10 +37,10 @@ export function Reveal({ to, children }: { to: string; children: React.ReactNode
             className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-8 overflow-y-auto bg-bg p-6 pt-[max(1.5rem,env(safe-area-inset-top))] text-center"
           >
             <div className="flex w-full max-w-xl flex-col items-center gap-6">{children}</div>
-            <button type="button" className="btn btn-ghost h-12 px-6" onClick={() => setOpen(false)}>
+            <Button type="button" variant="outline" className="h-12 px-6" onClick={() => setOpen(false)}>
               <EyeOff aria-hidden className="size-5" />
               {dict.game.hide}
-            </button>
+            </Button>
           </div>,
           document.body,
         )}

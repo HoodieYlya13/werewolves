@@ -39,11 +39,16 @@ const en = {
     save: "Save",
     cancel: "Cancel",
     closeRoom: "Close the room",
-    closeRoomConfirm: "Close the room? Every phone is disconnected and the room is deleted, game included.",
+    closeRoomConfirm: {
+      title: "Close the room?",
+      body: "Every phone is disconnected and the room is deleted, game included.",
+    },
     rejoinRequest: "{name} left and asks to come back.",
     letIn: "Let in",
     refuse: "Refuse",
     left: "left",
+    toastRejoin: "{name} asks to come back",
+    toastLeft: "{name} left the room: you play their part now",
     accountPlayer: "Signed in: the name and photo come from their account",
   },
   play: {
@@ -68,8 +73,11 @@ const en = {
     changeName: "Change name",
     renamed: "Someone signed in with the name you used, so you're now {name}. You can change it.",
     leave: "Leave the room",
-    leaveConfirm: "Leave the room?",
-    leaveConfirmInGame: "Leave the room? You stay in the game: the game master plays your part.",
+    leaveConfirm: {
+      title: "Leave the room?",
+      body: "You can ask the game master to let you back in later.",
+      bodyInGame: "You stay in the game: the game master plays your part. You can ask to come back later.",
+    },
     rejoin: {
       title: "You left this room",
       hint: "Ask the game master to let you back in. You can change your name first.",
@@ -265,7 +273,10 @@ const en = {
     dayZeroHint: "The Angel is in play: the game opens with a vote",
     undo: "Undo",
     endGame: "End game",
-    endGameConfirm: "End this game and go back to the lobby? You can resume it from there as long as the players don't change.",
+    endGameConfirm: {
+      title: "End this game?",
+      body: "You go back to the lobby. You can resume the game from there as long as the players don't change.",
+    },
     confirm: "Confirm",
     continue: "Continue",
     say: "Say",

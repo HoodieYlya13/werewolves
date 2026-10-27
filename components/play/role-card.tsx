@@ -39,7 +39,7 @@ export function RoleCard({
   const t = dict.play.card;
   const notes: { icon: React.ReactNode; text: string }[] = [];
   if (info.wakesWithWolves && roles[info.role].team !== "wolves") {
-    notes.push({ icon: <PawPrint aria-hidden className="size-4 text-accent" />, text: t.wolves });
+    notes.push({ icon: <PawPrint aria-hidden className="size-4 text-primary" />, text: t.wolves });
   }
   if (loverName) {
     notes.push({ icon: <Heart aria-hidden className="size-4 fill-pink-500 text-pink-500" />, text: format(t.lover, { name: loverName }) });
@@ -78,7 +78,7 @@ export function RoleCard({
             <span className={`font-display text-3xl leading-tight font-bold text-balance ${teamColor[roles[info.role].team]}`}>
               {dict.roles[info.role].name}
             </span>
-            <span className="text-sm text-balance text-muted">{dict.roles[info.role].power}</span>
+            <span className="text-sm text-balance text-muted-foreground">{dict.roles[info.role].power}</span>
             <span className={`text-sm font-semibold ${teamColor[info.team]}`}>
               {format(t.team, { team: dict.teams[info.team] })}
             </span>
@@ -107,7 +107,7 @@ export function RoleCard({
           </span>
         )}
       </button>
-      {!alwaysShown && <p className="text-center text-sm text-muted">{t.hint}</p>}
+      {!alwaysShown && <p className="text-center text-sm text-muted-foreground">{t.hint}</p>}
     </div>
   );
 }

@@ -35,7 +35,7 @@ export function PlayerGrid({
               disabled={disabled}
               onClick={() => onToggle(p.id)}
               className={`flex h-full min-h-16 w-full flex-col items-start justify-center gap-0.5 rounded-xl border-2 px-3 py-2 text-left transition-colors disabled:opacity-35 ${
-                isSelected ? "border-accent bg-accent/10" : "border-line bg-surface-2 hover:border-fg/30"
+                isSelected ? "border-primary bg-primary/10" : "border-line bg-surface-2 hover:border-fg/30"
               }`}
             >
               <span className="flex w-full items-center gap-1.5">
