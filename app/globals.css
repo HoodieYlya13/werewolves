@@ -188,3 +188,9 @@
     color: var(--card-foreground);
   }
 }
+
+/* Nightfall and daybreak in the "game" theme (see setGamePhase): a slow cross-fade. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.8s;
+}

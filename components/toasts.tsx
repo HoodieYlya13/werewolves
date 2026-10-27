@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useEffectEvent, useRef } from "react";
 import { toast } from "sonner";
 import { useI18n } from "@/components/i18n-provider";
 import { format } from "@/lib/i18n/config";
@@ -9,15 +9,20 @@ import type { ErrorCode, HostView } from "@/lib/protocol";
 /** Shows the room's latest error as a toast when it's one of `codes` (a constant list). */
 export function useErrorToast(error: ErrorCode | null, codes: readonly ErrorCode[]) {
   const { dict } = useI18n();
+  // Reads the current dictionary without re-showing the toast when it changes.
+  const show = useEffectEvent((error: ErrorCode) => {
+    if (codes.includes(error)) toast.error(dict.errors[error], { id: error });
+  });
   useEffect(() => {
-    if (error && codes.includes(error)) toast.error(dict.errors[error], { id: error });
-  }, [error, codes, dict]);
+    if (error) show(error);
+  }, [error]);
 }
 
 /** Tells the game master when someone asks to come back or leaves mid-game. */
 export function useHostToasts(view: HostView | null) {
   const { dict } = useI18n();
   const seen = useRef<{ requests: Set<string>; left: Set<string> } | null>(null);
+  const say = useEffectEvent((key: "toastRejoin" | "toastLeft", name: string) => toast(format(dict.host[key], { name })));
   useEffect(() => {
     if (!view) return;
     const previous = seen.current;
@@ -28,10 +33,10 @@ export function useHostToasts(view: HostView | null) {
     // Nothing to announce about what was already there when the screen opened.
     if (!previous) return;
     for (const r of view.requests) {
-      if (!previous.requests.has(r.id)) toast(format(dict.host.toastRejoin, { name: r.name }));
+      if (!previous.requests.has(r.id)) say("toastRejoin", r.name);
     }
     for (const p of view.players) {
-      if (p.left && !previous.left.has(p.id)) toast(format(dict.host.toastLeft, { name: p.name }));
+      if (p.left && !previous.left.has(p.id)) say("toastLeft", p.name);
     }
-  }, [view, dict]);
+  }, [view]);
 }

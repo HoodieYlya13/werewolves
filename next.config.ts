@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   reactCompiler: true,
+  typedRoutes: true,
   experimental: {
     // The build cache Vercel restores served a stylesheet compiled from the
     // previous commit's globals.css. Builds are quick enough without it.

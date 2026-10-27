@@ -20,7 +20,8 @@ type RoomContextValue = {
 
 const RoomContext = createContext<RoomContextValue | null>(null);
 
-export const RoomProvider = RoomContext.Provider;
+/** React 19 renders a context as its own provider. */
+export const RoomProvider = RoomContext;
 
 export function useRoomContext() {
   const value = use(RoomContext);

@@ -1,3 +1,4 @@
+import "server-only";
 import type { NextRequest, NextResponse } from "next/server";
 import { DEFAULT_ISSUER, discover } from "./account";
 

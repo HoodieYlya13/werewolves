@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useParams, useRouter } from "next/navigation";
 import { Check, Crown, LogIn, LogOut, Moon, Pencil, Skull, Sun, UserPlus, UserRound, Vote } from "lucide-react";
@@ -114,9 +114,10 @@ function PlayerScreen({ code }: { code: string }) {
   // Someone signed in with this player's name: say so once, they can pick another.
   const renamed = !!view?.renamed;
   const myName = me?.name;
+  const sayRenamed = useEffectEvent((name: string) => toast(format(dict.play.renamed, { name }), { duration: 10_000 }));
   useEffect(() => {
-    if (renamed && myName) toast(format(dict.play.renamed, { name: myName }), { duration: 10_000 });
-  }, [renamed, myName, dict]);
+    if (renamed && myName) sayRenamed(myName);
+  }, [renamed, myName]);
 
   // Signed in after joining as a guest: the seat becomes the account's.
   const linked = useRef<string | null>(null);

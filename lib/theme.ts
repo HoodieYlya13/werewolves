@@ -24,8 +24,15 @@ export function readTheme(): Theme {
 let gamePhase: "day" | "night" | null = null;
 
 export function setGamePhase(phase: "day" | "night" | null) {
+  // Nightfall and daybreak cross-fade; arriving on or leaving a game screen doesn't.
+  const turn = gamePhase !== null && phase !== null && gamePhase !== phase;
   gamePhase = phase;
-  applyTheme(readTheme());
+  const theme = readTheme();
+  if (turn && theme === "game" && document.startViewTransition && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    document.startViewTransition(() => applyTheme(theme));
+  } else {
+    applyTheme(theme);
+  }
 }
 
 export function applyTheme(theme: Theme) {

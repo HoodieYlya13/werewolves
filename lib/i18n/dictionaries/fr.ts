@@ -164,6 +164,12 @@ const fr: Dictionary = {
     connecting: "Connexion…",
     reconnecting: "Connexion perdue. Reconnexion…",
   },
+  pages: {
+    notFound: "Il n'y a rien à cette adresse.",
+    crashed: "Un problème est survenu sur cet écran.",
+    crashedBody: "La partie continue. Rechargez pour la retrouver.",
+    retry: "Recharger",
+  },
   errors: {
     "room-not-found": "Cette partie n'existe pas. Vérifiez le code.",
     "room-taken": "Ce code de partie est déjà utilisé.",

@@ -162,6 +162,12 @@ const en = {
     connecting: "Connecting…",
     reconnecting: "Connection lost. Reconnecting…",
   },
+  pages: {
+    notFound: "There's nothing at this address.",
+    crashed: "Something went wrong on this screen.",
+    crashedBody: "The room is still running. Reload to get back to it.",
+    retry: "Reload",
+  },
   errors: {
     "room-not-found": "This room doesn't exist. Check the code.",
     "room-taken": "That room code is already in use.",
