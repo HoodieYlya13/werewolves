@@ -84,6 +84,9 @@ const fr: Dictionary = {
       title: "Vous avez quitté cette partie",
       hint: "Demandez au meneur de vous laisser revenir. Vous pouvez d'abord changer de nom.",
       hintAccount: "Demandez au meneur de vous laisser revenir.",
+      hintSignIn: "Votre place est liée à votre compte : connectez-vous pour revenir. Ou rejoignez la partie comme nouvelle personne, et le meneur continue de jouer votre ancienne place.",
+      signInToReturn: "Se connecter pour revenir",
+      joinAsNew: "Rejoindre comme nouvelle personne",
       ask: "Demander à revenir",
       askAgain: "Redemander",
       pending: "En attente du meneur, {name}…",
@@ -160,6 +163,7 @@ const fr: Dictionary = {
     "room-closed": "Le meneur a fermé la partie.",
     "invalid-account": "Votre connexion a expiré. Reconnectez-vous.",
     "account-in-use": "Ce compte joue déjà dans cette partie.",
+    "wrong-account": "Cette place appartient à un autre compte. Connectez-vous avec celui-ci, ou rejoignez la partie comme nouvelle personne.",
     "signed-in-elsewhere": "Votre compte a rejoint la partie depuis un autre appareil, qui a pris votre place.",
   },
   settings: {

@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useParams, useRouter } from "next/navigation";
-import { Check, Crown, LogIn, LogOut, Moon, Pencil, Skull, Sun, UserRound, Vote } from "lucide-react";
-import { AuthButton } from "@/components/account-button";
+import { Check, Crown, LogIn, LogOut, Moon, Pencil, Skull, Sun, UserPlus, UserRound, Vote } from "lucide-react";
+import { AuthButton, goToAuth } from "@/components/account-button";
 import { ConfirmButton } from "@/components/confirm-button";
 import { useErrorToast } from "@/components/toasts";
 import { useI18n } from "@/components/i18n-provider";
@@ -29,6 +29,8 @@ export function PlayerRoom() {
   return <PlayerScreen key={code} code={code} />;
 }
 
+const rejoinKey = (code: string) => `ww:rejoin:${code}`;
+
 /** Errors about the account, which the screen has no better place to show. */
 const PHONE_TOASTS: ErrorCode[] = ["invalid-account", "account-in-use"];
 
@@ -44,6 +46,23 @@ function PlayerScreen({ code }: { code: string }) {
   const me = view?.me;
 
   useErrorToast(error, PHONE_TOASTS);
+
+  // Left an account's seat, then chose "Join as a new player": show the join form instead.
+  const [joinAsNew, setJoinAsNew] = useState(false);
+
+  // Back from "Sign in to come back": ask the game master straight away.
+  const rejoinAccount = !!view?.rejoin?.account && view.rejoin.status !== "pending";
+  const signedIn = !!account;
+  useEffect(() => {
+    if (!rejoinAccount || !signedIn) return;
+    try {
+      if (!sessionStorage.getItem(rejoinKey(code))) return;
+      sessionStorage.removeItem(rejoinKey(code));
+    } catch {
+      return;
+    }
+    void freshIdToken().then((idToken) => idToken && send({ type: "request-rejoin", name: "", idToken }));
+  }, [rejoinAccount, signedIn, code, send]);
 
   // Signing out while this seat is the account's leaves the room too (after a confirmation).
   const accountSeat = !!me?.account;
@@ -92,6 +111,17 @@ function PlayerScreen({ code }: { code: string }) {
     router.push(`/${locale}`);
   }
 
+  /** An account's seat needs the account's proof; a guest seat only a name. */
+  async function askToComeBack(newName: string) {
+    if (view?.rejoin?.account) {
+      const idToken = await freshIdToken();
+      if (idToken) send({ type: "request-rejoin", name: newName, idToken });
+      return;
+    }
+    identity.setName(newName.trim());
+    send({ type: "request-rejoin", name: newName });
+  }
+
   async function joinWithAccount() {
     const idToken = await freshIdToken();
     // Signed out meanwhile: the session update shows the guest form instead.
@@ -117,18 +147,24 @@ function PlayerScreen({ code }: { code: string }) {
         </p>
       )}
 
-      {view?.rejoin && (
+      {view?.rejoin && !joinAsNew && (
         <RejoinCard
           rejoin={view.rejoin}
           error={error}
-          onAsk={(newName) => {
-            identity.setName(newName.trim());
-            send({ type: "request-rejoin", name: newName });
+          signedIn={!!account}
+          onAsk={(newName) => void askToComeBack(newName)}
+          onSignIn={() => {
+            // Asked once back from signing in (see the effect above).
+            try {
+              sessionStorage.setItem(rejoinKey(code), "1");
+            } catch {}
+            goToAuth("in");
           }}
+          onJoinAsNew={() => setJoinAsNew(true)}
         />
       )}
 
-      {view && !me && !view.rejoin && account && (
+      {view && !me && (!view.rejoin || joinAsNew) && account && (
         <section className="card flex flex-col items-center gap-3 p-6 text-center">
           <Face name={account.name} src={account.picture} className="size-24 text-3xl" />
           <p className="text-muted-foreground">{dict.account.fromAccount}</p>
@@ -149,7 +185,7 @@ function PlayerScreen({ code }: { code: string }) {
         </section>
       )}
 
-      {view && !me && !view.rejoin && !account && (
+      {view && !me && (!view.rejoin || joinAsNew) && !account && (
         <form
           className="card flex flex-col gap-3 p-6"
           onSubmit={(e) => {
@@ -461,15 +497,23 @@ function NameEditor({ name, error, onSave }: { name: string; error: ErrorCode | 
 function RejoinCard({
   rejoin,
   error,
+  signedIn,
   onAsk,
+  onSignIn,
+  onJoinAsNew,
 }: {
   rejoin: NonNullable<PlayerView["rejoin"]>;
   error: ErrorCode | null;
+  signedIn: boolean;
   onAsk: (name: string) => void;
+  onSignIn: () => void;
+  onJoinAsNew: () => void;
 }) {
   const { dict } = useI18n();
   const t = dict.play.rejoin;
   const [name, setName] = useState(rejoin.name);
+  // An account's seat only goes back to that account: sign in first.
+  const needsSignIn = rejoin.account && !signedIn;
 
   if (rejoin.status === "pending") {
     return (
@@ -485,11 +529,14 @@ function RejoinCard({
       className="card flex flex-col gap-3 p-6"
       onSubmit={(e) => {
         e.preventDefault();
-        if (name.trim()) onAsk(name);
+        if (needsSignIn) onSignIn();
+        else if (name.trim()) onAsk(name);
       }}
     >
       <p className="text-xl font-semibold">{t.title}</p>
-      <p className="text-muted-foreground">{rejoin.status === "denied" ? t.denied : rejoin.account ? t.hintAccount : t.hint}</p>
+      <p className="text-muted-foreground">
+        {rejoin.status === "denied" ? t.denied : needsSignIn ? t.hintSignIn : rejoin.account ? t.hintAccount : t.hint}
+      </p>
       {/* An account comes back under its own name. */}
       {!rejoin.account && (
         <>
@@ -506,10 +553,17 @@ function RejoinCard({
           />
         </>
       )}
-      <Button type="submit"  disabled={!name.trim()}>
-        {rejoin.status === "denied" ? t.askAgain : t.ask}
+      <Button type="submit" disabled={!needsSignIn && !name.trim()}>
+        {needsSignIn && <LogIn aria-hidden />}
+        {needsSignIn ? t.signInToReturn : rejoin.status === "denied" ? t.askAgain : t.ask}
       </Button>
-      {(error === "name-taken" || error === "invalid-name") && (
+      {rejoin.account && (
+        <Button type="button" variant="outline" onClick={onJoinAsNew}>
+          <UserPlus aria-hidden />
+          {t.joinAsNew}
+        </Button>
+      )}
+      {(error === "name-taken" || error === "invalid-name" || error === "wrong-account" || error === "invalid-account") && (
         <p role="alert" className="text-sm text-primary">
           {dict.errors[error]}
         </p>

@@ -106,7 +106,9 @@ export type ErrorCode =
   /** That account is already another player in this room. */
   | "account-in-use"
   /** This seat's account joined the room from another device, which took it over. */
-  | "signed-in-elsewhere";
+  | "signed-in-elsewhere"
+  /** Asked to come back to a seat that belongs to a different account. */
+  | "wrong-account";
 
 export type ServerMessage =
   | { type: "view"; view: RoomView }
@@ -133,8 +135,11 @@ export type ClientMessage =
   | { type: "rename-self"; name: string }
   /** Leaves the room. Mid-game the player stays in the game for the game master to play. */
   | { type: "leave" }
-  /** Someone who left asks to come back, possibly under a new name. */
-  | { type: "request-rejoin"; name: string }
+  /**
+   * Someone who left asks to come back, possibly under a new name. An account's
+   * seat needs `idToken` from that same account.
+   */
+  | { type: "request-rejoin"; name: string; idToken?: string }
   /** null = vote for no one. */
   | { type: "cast-vote"; targetId: string | null }
   // Phone (its own photo) or game master (anyone's), except for account players.

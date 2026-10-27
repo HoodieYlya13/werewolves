@@ -27,7 +27,7 @@ import { format } from "@/lib/i18n/config";
 import { getSignOutGuard, signInUrl, signOutUrl, useSession, type SignOutGuard } from "@/lib/session";
 
 /** Full-page redirect to sign in or out through the auth server, then back to `returnTo` (this page by default). */
-function goToAuth(to: "in" | "out", returnTo = window.location.pathname + window.location.search) {
+export function goToAuth(to: "in" | "out", returnTo = window.location.pathname + window.location.search) {
   window.location.assign((to === "in" ? signInUrl : signOutUrl)(returnTo));
 }
 

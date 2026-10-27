@@ -180,11 +180,13 @@ export class RoomServer extends Server<Env> {
 
     switch (msg.type) {
       case "join": {
-        if (sender.state?.kind !== "guest") return;
+        // Someone who left may also join again as a new player, leaving their old seat behind.
+        const canJoin = () => sender.state?.kind === "guest" || sender.state?.kind === "returning";
+        if (!canJoin()) return;
         const account = msg.idToken === undefined ? null : await this.verifyAccount(sender, msg.idToken);
         if (msg.idToken !== undefined && !account) return;
         // Checking the account went to the network: the room may have changed meanwhile.
-        if (!this.state || sender.state?.kind !== "guest") return;
+        if (!this.state || !canJoin()) return;
 
         // Already in this room under that account (another phone, or after leaving).
         const known = account && this.findAccount(account.sub);
@@ -212,7 +214,7 @@ export class RoomServer extends Server<Env> {
         if (this.state.locked) return this.send(sender, { type: "error", code: "room-locked" });
         const name = account ? this.claimName(account.name) : this.validateName(sender, msg.name);
         if (!name) return;
-        const { deviceId, token } = sender.state;
+        const { deviceId, token } = sender.state?.kind === "guest" ? sender.state : {};
         const taken = [...this.state.players, ...(this.state.formerPlayers ?? [])].some((p) => p.id === deviceId);
         const player = this.addPlayer(name, false, deviceId && token && !taken ? { id: deviceId, token } : undefined);
         if (account) {
@@ -277,6 +279,12 @@ export class RoomServer extends Server<Env> {
         if (sender.state?.kind !== "returning") return;
         const playerId = sender.state.playerId;
         const known = [...this.state.players, ...(this.state.formerPlayers ?? [])].find((p) => p.id === playerId);
+        if (known?.sub) {
+          // An account's seat only goes back to that account, signed in on this phone.
+          const account = await this.verifyAccount(sender, msg.idToken);
+          if (!account || !this.state || sender.state?.kind !== "returning") return;
+          if (account.sub !== known.sub) return this.send(sender, { type: "error", code: "wrong-account" });
+        }
         // An account keeps its name; anyone else may come back under a new one.
         const name = known?.sub ? known.name : this.validateName(sender, msg.name, playerId);
         if (!name) return;
