@@ -52,7 +52,7 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
           identity.setPlayer(code, { id: msg.playerId, token: msg.token });
           break;
         case "error":
-          if (msg.code === "removed" || msg.code === "signed-in-elsewhere") identity.setPlayer(code, null);
+          if (msg.code === "removed" || msg.code === "signed-in-elsewhere" || msg.code === "left-elsewhere") identity.setPlayer(code, null);
           if (msg.code === "room-closed") {
             identity.setPlayer(code, null);
             identity.setHost(code, null);

@@ -68,6 +68,9 @@ export const identity = {
   setPhoto: (photo: string | null) => write(PHOTO_KEY, photo),
 };
 
+/** Set before opening a room to take an account's seat over from another device (see SessionGuard). */
+export const takeoverKey = (code: string) => `ww:takeover:${code}`;
+
 export function partyHost() {
   return process.env.NEXT_PUBLIC_PARTYKIT_HOST ?? `${window.location.hostname}:1999`;
 }

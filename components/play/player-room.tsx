@@ -18,7 +18,7 @@ import { ConnectionBanner, FatalError } from "@/components/room-status";
 import { useGameTheme } from "@/hooks/use-game-theme";
 import { useRoom } from "@/hooks/use-room";
 import { format } from "@/lib/i18n/config";
-import { identity } from "@/lib/room";
+import { identity, takeoverKey } from "@/lib/room";
 import { freshIdToken, setSignOutGuard, useSession } from "@/lib/session";
 import { MAX_NAME_LENGTH, type ErrorCode, type PlayerView } from "@/lib/protocol";
 import { Button } from "@/components/ui/button";
@@ -50,9 +50,23 @@ function PlayerScreen({ code }: { code: string }) {
   // Left an account's seat, then chose "Join as a new player": show the join form instead.
   const [joinAsNew, setJoinAsNew] = useState(false);
 
+  const signedIn = !!account;
+
+  // Came here to take this account's seat over from another device: join right away.
+  const canJoin = !!view && !me && !view.rejoin;
+  useEffect(() => {
+    if (!canJoin || !signedIn) return;
+    try {
+      if (!sessionStorage.getItem(takeoverKey(code))) return;
+      sessionStorage.removeItem(takeoverKey(code));
+    } catch {
+      return;
+    }
+    void freshIdToken().then((idToken) => idToken && send({ type: "join", name: "", idToken }));
+  }, [canJoin, signedIn, code, send]);
+
   // Back from "Sign in to come back": ask the game master straight away.
   const rejoinAccount = !!view?.rejoin?.account && view.rejoin.status !== "pending";
-  const signedIn = !!account;
   useEffect(() => {
     if (!rejoinAccount || !signedIn) return;
     try {
@@ -141,7 +155,7 @@ function PlayerScreen({ code }: { code: string }) {
       <ConnectionBanner status={status} />
       <p className="text-center font-mono text-sm tracking-[0.3em] text-muted-foreground">{code}</p>
 
-      {(error === "removed" || error === "signed-in-elsewhere") && (
+      {(error === "removed" || error === "signed-in-elsewhere" || error === "left-elsewhere") && (
         <p role="alert" className="text-center text-primary">
           {dict.errors[error]}
         </p>

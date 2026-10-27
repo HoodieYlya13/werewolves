@@ -105,6 +105,15 @@ const en = {
       body: "Your seat belongs to your account, so you leave the room too. Sign in again to ask to come back.",
       bodyInGame: "Your seat belongs to your account, so you leave the room: the game master plays your part. Sign in again to ask to come back.",
     },
+    inRoom: {
+      titleGame: "You're in a game on another device",
+      titleRoom: "You're in a room on another device",
+      body: "Your account has a seat in room {code} on another device, which will be signed out. Play from this device instead?",
+      bodyNo: "If not, the other device leaves the room: mid-game, the game master plays your part.",
+      playHere: "Play from here",
+      leave: "No, take it out",
+      left: "The other device left room {code}.",
+    },
     signedOutElsewhere: "You signed in on another device, so you're signed out here.",
   },
   photo: {
@@ -161,6 +170,7 @@ const en = {
     "room-closed": "The game master closed the room.",
     "invalid-account": "Your sign-in has expired. Sign in again.",
     "account-in-use": "That account is already playing in this room.",
+    "left-elsewhere": "Your account signed in on another device, which took you out of this room.",
     "wrong-account": "This seat belongs to another account. Sign in with it, or join as a new player.",
     "signed-in-elsewhere": "Your account joined this room from another device, which now has your seat.",
   },

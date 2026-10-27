@@ -107,6 +107,15 @@ const fr: Dictionary = {
       body: "Votre place est liée à votre compte : vous quittez aussi la partie. Reconnectez-vous pour demander à revenir.",
       bodyInGame: "Votre place est liée à votre compte : vous quittez la partie et le meneur joue votre rôle à votre place. Reconnectez-vous pour demander à revenir.",
     },
+    inRoom: {
+      titleGame: "Votre compte joue sur un autre appareil",
+      titleRoom: "Votre compte est dans une partie sur un autre appareil",
+      body: "Votre compte a une place dans la partie {code} sur un autre appareil, qui va être déconnecté. Jouer depuis cet appareil à la place ?",
+      bodyNo: "Sinon, l'autre appareil quitte la partie : si elle est en cours, le meneur joue votre rôle.",
+      playHere: "Jouer d'ici",
+      leave: "Non, le retirer",
+      left: "L'autre appareil a quitté la partie {code}.",
+    },
     signedOutElsewhere: "Votre compte est maintenant utilisé sur un autre appareil : la session est fermée ici.",
   },
   photo: {
@@ -163,6 +172,7 @@ const fr: Dictionary = {
     "room-closed": "Le meneur a fermé la partie.",
     "invalid-account": "Votre connexion a expiré. Reconnectez-vous.",
     "account-in-use": "Ce compte joue déjà dans cette partie.",
+    "left-elsewhere": "Votre compte s'est connecté sur un autre appareil, qui vous a retiré de cette partie.",
     "wrong-account": "Cette place appartient à un autre compte. Connectez-vous avec celui-ci, ou rejoignez la partie comme nouvelle personne.",
     "signed-in-elsewhere": "Votre compte a rejoint la partie depuis un autre appareil, qui a pris votre place.",
   },

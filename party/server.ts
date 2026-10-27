@@ -1,4 +1,4 @@
-import { routePartykitRequest, Server, type Connection, type ConnectionContext } from "partyserver";
+import { getServerByName, routePartykitRequest, Server, type Connection, type ConnectionContext } from "partyserver";
 import {
   applyAction,
   assignRoles,
@@ -206,6 +206,7 @@ export class RoomServer extends Server<Env> {
               }
             }
             sender.setState({ kind: "player", playerId: known.id });
+            await this.tellAccount(known.sub, true);
           }
           this.send(sender, { type: "joined", playerId: known.id, token: known.token! });
           break;
@@ -220,6 +221,7 @@ export class RoomServer extends Server<Env> {
         if (account) {
           player.sub = account.sub;
           player.picture = account.picture;
+          await this.tellAccount(account.sub, true);
         } else if (msg.photo) {
           await this.storePhoto(player, msg.photo);
         }
@@ -241,6 +243,7 @@ export class RoomServer extends Server<Env> {
         player.photo = null;
         await this.ctx.storage.delete(PHOTO_PREFIX + player.id);
         this.applyAccount(player, account);
+        await this.tellAccount(account.sub, true);
         break;
       }
       case "rename-self": {
@@ -259,20 +262,8 @@ export class RoomServer extends Server<Env> {
         const playerId = sender.state.playerId;
         const player = this.state.players.find((p) => p.id === playerId);
         if (!player) return;
-        for (const c of this.getConnections<ConnState>()) {
-          if (c.state?.kind === "player" && c.state.playerId === playerId) c.setState({ kind: "returning", playerId });
-        }
-        player.connected = false;
-        if (this.state.game) {
-          // The game needs everyone it was dealt with: the game master plays their part.
-          player.left = true;
-        } else {
-          // Remembered (photo included) so they can ask to come back.
-          this.state.endedGame = null;
-          this.state.players = this.state.players.filter((p) => p.id !== playerId);
-          this.state.formerPlayers = [...(this.state.formerPlayers ?? []).filter((p) => p.id !== playerId), player];
-          this.reseat();
-        }
+        this.leaveSeat(player);
+        await this.tellAccount(player.sub, false);
         break;
       }
       case "request-rejoin": {
@@ -320,6 +311,7 @@ export class RoomServer extends Server<Env> {
             ? request.name
             : this.uniqueName(request.name, player.id);
         if (player.name !== name) this.renamePlayer(player, name);
+        await this.tellAccount(player.sub, true);
         for (const c of this.getConnections<ConnState>()) {
           if (c.state?.kind === "returning" && c.state.playerId === player.id) {
             c.setState({ kind: "player", playerId: player.id });
@@ -330,6 +322,7 @@ export class RoomServer extends Server<Env> {
       }
       case "close-room": {
         if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
+        await this.releaseAccounts();
         this.state = null;
         this.game = null;
         await this.ctx.storage.deleteAll();
@@ -352,6 +345,7 @@ export class RoomServer extends Server<Env> {
       case "remove-player": {
         if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
         this.state.endedGame = null;
+        await this.tellAccount(this.state.players.find((p) => p.id === msg.playerId)?.sub, false);
         this.state.players = this.state.players.filter((p) => p.id !== msg.playerId);
         this.state.requests = this.state.requests?.filter((r) => r.id !== msg.playerId);
         await this.ctx.storage.delete(PHOTO_PREFIX + msg.playerId);
@@ -548,8 +542,35 @@ export class RoomServer extends Server<Env> {
       await this.ctx.storage.setAlarm(Date.now() + ROOM_TTL_MS);
       return;
     }
+    await this.releaseAccounts();
     await this.ctx.storage.deleteAll();
     this.state = null;
+  }
+
+  // --- called by AccountServer (party/account.ts) ---
+
+  /** Whether this account has a seat here, and whether a game is on. */
+  async accountSeat(sub: string) {
+    const player = this.state?.players.find((p) => p.sub === sub && !p.left);
+    return player ? { inGame: !!this.state!.game } : null;
+  }
+
+  /**
+   * The account signed in on another device and chose not to play from it:
+   * the old device leaves (mid-game the game master plays their part).
+   */
+  async releaseAccount(sub: string) {
+    const player = this.state?.players.find((p) => p.sub === sub && !p.left);
+    if (!player) return;
+    for (const c of this.getConnections<ConnState>()) {
+      if (c.state?.kind === "player" && c.state.playerId === player.id) {
+        this.send(c, { type: "error", code: "left-elsewhere" });
+        c.setState({ kind: "guest" });
+      }
+    }
+    this.leaveSeat(player);
+    await this.persist();
+    this.broadcastViews();
   }
 
   // --- helpers ---
@@ -662,6 +683,41 @@ export class RoomServer extends Server<Env> {
       if (entry) entry.name = name;
     }
     if (this.state!.game) this.game = replay(this.state!.game.setup, this.state!.game.log);
+  }
+
+  /** A player leaves: mid-game they stay in it for the game master to play; in the lobby they're remembered. */
+  private leaveSeat(player: StoredPlayer) {
+    const s = this.state!;
+    for (const c of this.getConnections<ConnState>()) {
+      if (c.state?.kind === "player" && c.state.playerId === player.id) c.setState({ kind: "returning", playerId: player.id });
+    }
+    player.connected = false;
+    if (s.game) {
+      // The game needs everyone it was dealt with: the game master plays their part.
+      player.left = true;
+    } else {
+      // Remembered (photo included) so they can ask to come back.
+      s.endedGame = null;
+      s.players = s.players.filter((p) => p.id !== player.id);
+      s.formerPlayers = [...(s.formerPlayers ?? []).filter((p) => p.id !== player.id), player];
+      this.reseat();
+    }
+  }
+
+  /** Tells an account's server whether it has a seat in this room (see party/account.ts). */
+  private async tellAccount(sub: string | undefined, seated: boolean) {
+    if (!sub) return;
+    try {
+      const account = await getServerByName(this.env.Account, sub);
+      await (seated ? account.addRoom(this.name) : account.removeRoom(this.name));
+    } catch {
+      // Only used to warn a new device; the room works without it.
+    }
+  }
+
+  /** The room is going away: its accounts no longer have a seat here. */
+  private async releaseAccounts() {
+    for (const p of this.state?.players ?? []) await this.tellAccount(p.sub, false);
   }
 
   private reseat() {

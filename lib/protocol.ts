@@ -108,7 +108,9 @@ export type ErrorCode =
   /** This seat's account joined the room from another device, which took it over. */
   | "signed-in-elsewhere"
   /** Asked to come back to a seat that belongs to a different account. */
-  | "wrong-account";
+  | "wrong-account"
+  /** This seat's account signed in on another device and left the room from there. */
+  | "left-elsewhere";
 
 export type ServerMessage =
   | { type: "view"; view: RoomView }
@@ -183,9 +185,18 @@ export const newSessionId = () => `${Date.now().toString(36)}.${crypto.randomUUI
 export const sessionTime = (sessionId: string) => parseInt(sessionId.split(".")[0], 36) || 0;
 
 /** A signed-in page's socket to its account (see party/account.ts). */
-export type AccountClientMessage = { type: "hello"; idToken: string; sessionId: string };
-/** Sent to a device whose account signed in somewhere else since. */
-export type AccountServerMessage = { type: "signed-out" };
+export type AccountClientMessage =
+  | { type: "hello"; idToken: string; sessionId: string }
+  /** The answer to "in-room": play from this device, or have the other one leave the room. */
+  | { type: "resolve"; takeOver: boolean };
+
+export type AccountServerMessage =
+  /** This device was replaced by a newer sign-in. */
+  | { type: "signed-out" }
+  /** This new sign-in's account has a seat in `room` on another device: asks what to do. */
+  | { type: "in-room"; room: string; inGame: boolean }
+  /** Done: the other device is signed out (and out of the room unless `takeOver`). */
+  | { type: "resolved"; takeOver: boolean; room: string };
 
 export const MAX_NAME_LENGTH = 24;
 /** Photos are resized on the device; this caps the data URL sent to the server. */
