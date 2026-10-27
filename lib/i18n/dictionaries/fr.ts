@@ -73,6 +73,13 @@ const fr: Dictionary = {
       dead: "Votre personnage est mort. Ne parlez plus jusqu'à la fin de la partie !",
     },
     changeName: "Changer de nom",
+    otherRoom: {
+      title: "Vous êtes dans une autre partie",
+      body: "Votre compte a une place dans la partie {code}. La quitter pour rejoindre celle-ci ?",
+      bodyInGame: "Votre compte joue dans la partie {code}. La quitter pour rejoindre celle-ci ? Le meneur y jouera votre rôle.",
+      stay: "Y rester",
+      leave: "La quitter et rejoindre",
+    },
     renamed: "Une personne connectée à son compte utilise maintenant votre nom : vous voici {name}. Vous pouvez le changer.",
     leave: "Quitter la partie",
     leaveConfirm: {
@@ -172,6 +179,7 @@ const fr: Dictionary = {
     "room-closed": "Le meneur a fermé la partie.",
     "invalid-account": "Votre connexion a expiré. Reconnectez-vous.",
     "account-in-use": "Ce compte joue déjà dans cette partie.",
+    "moved-room": "Votre compte a rejoint une autre partie : vous avez quitté celle-ci.",
     "left-elsewhere": "Votre compte s'est connecté sur un autre appareil, qui vous a retiré de cette partie.",
     "wrong-account": "Cette place appartient à un autre compte. Connectez-vous avec celui-ci, ou rejoignez la partie comme nouvelle personne.",
     "signed-in-elsewhere": "Votre compte a rejoint la partie depuis un autre appareil, qui a pris votre place.",

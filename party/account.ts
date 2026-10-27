@@ -32,6 +32,22 @@ export class AccountServer extends Server<Env> {
     await this.ctx.storage.put(ROOMS_KEY, (await this.rooms()).filter((r) => r !== code));
   }
 
+  /** The account's seat in a room other than `except`, if any. */
+  async otherSeat(except: string) {
+    return this.liveSeat(except);
+  }
+
+  /** The account joins `except`: it leaves every other room. */
+  async releaseOtherRooms(except: string) {
+    for (const room of await this.rooms()) {
+      if (room === except) continue;
+      try {
+        await (await getServerByName(this.env.Main, room)).releaseAccount(this.name, "moved-room");
+      } catch {}
+      await this.removeRoom(room);
+    }
+  }
+
   // --- devices ---
 
   async onMessage(conn: Device, raw: string | ArrayBuffer) {
@@ -98,9 +114,10 @@ export class AccountServer extends Server<Env> {
   }
 
   /** The first room where the account still has a seat, asking each room (the list may be stale). */
-  private async liveSeat() {
+  private async liveSeat(except?: string) {
     const rooms = await this.rooms();
     for (const room of rooms) {
+      if (room === except) continue;
       try {
         const seat = await (await getServerByName(this.env.Main, room)).accountSeat(this.name);
         if (seat) return { room, inGame: seat.inGame };

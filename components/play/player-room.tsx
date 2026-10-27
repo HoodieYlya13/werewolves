@@ -6,6 +6,16 @@ import { useParams, useRouter } from "next/navigation";
 import { Check, Crown, LogIn, LogOut, Moon, Pencil, Skull, Sun, UserPlus, UserRound, Vote } from "lucide-react";
 import { AuthButton, goToAuth } from "@/components/account-button";
 import { ConfirmButton } from "@/components/confirm-button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useErrorToast } from "@/components/toasts";
 import { useI18n } from "@/components/i18n-provider";
 import { RoleName } from "@/components/host/role-chip";
@@ -20,7 +30,7 @@ import { useRoom } from "@/hooks/use-room";
 import { format } from "@/lib/i18n/config";
 import { identity, takeoverKey } from "@/lib/room";
 import { freshIdToken, setSignOutGuard, useSession } from "@/lib/session";
-import { MAX_NAME_LENGTH, type ErrorCode, type PlayerView } from "@/lib/protocol";
+import { MAX_NAME_LENGTH, type ClientMessage, type ErrorCode, type PlayerView } from "@/lib/protocol";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -37,7 +47,13 @@ const PHONE_TOASTS: ErrorCode[] = ["invalid-account", "account-in-use"];
 function PlayerScreen({ code }: { code: string }) {
   const { dict, locale } = useI18n();
   const router = useRouter();
-  const { view, error, status, send, clockOffset, close, flushed } = useRoom<PlayerView>(code, "player");
+  const { view, error, status, send, clockOffset, close, flushed, otherRoom, clearOtherRoom } = useRoom<PlayerView>(code, "player");
+  // The last join, link or rejoin sent with the account, to send again after "leave the other room".
+  const lastAccountMessage = useRef<Extract<ClientMessage, { idToken?: string }> | null>(null);
+  function sendWithAccount(message: Extract<ClientMessage, { idToken?: string }>) {
+    lastAccountMessage.current = message;
+    send(message);
+  }
   // The name used last time, ready to change.
   const [name, setName] = useState(() => identity.getName());
   const [photo, setPhoto] = useState(() => identity.getPhoto());
@@ -62,7 +78,7 @@ function PlayerScreen({ code }: { code: string }) {
     } catch {
       return;
     }
-    void freshIdToken().then((idToken) => idToken && send({ type: "join", name: "", idToken }));
+    void freshIdToken().then((idToken) => idToken && send((lastAccountMessage.current = { type: "join", name: "", idToken })));
   }, [canJoin, signedIn, code, send]);
 
   // Back from "Sign in to come back": ask the game master straight away.
@@ -75,7 +91,7 @@ function PlayerScreen({ code }: { code: string }) {
     } catch {
       return;
     }
-    void freshIdToken().then((idToken) => idToken && send({ type: "request-rejoin", name: "", idToken }));
+    void freshIdToken().then((idToken) => idToken && send((lastAccountMessage.current = { type: "request-rejoin", name: "", idToken })));
   }, [rejoinAccount, signedIn, code, send]);
 
   // Signing out while this seat is the account's leaves the room too (after a confirmation).
@@ -107,7 +123,7 @@ function PlayerScreen({ code }: { code: string }) {
   useEffect(() => {
     if (!me || me.account || !account || linked.current === me.id) return;
     linked.current = me.id;
-    void freshIdToken().then((idToken) => idToken && send({ type: "link-account", idToken }));
+    void freshIdToken().then((idToken) => idToken && send((lastAccountMessage.current = { type: "link-account", idToken })));
   }, [me, account, send]);
 
   // The photo is remembered on this phone for the next rooms too.
@@ -129,7 +145,7 @@ function PlayerScreen({ code }: { code: string }) {
   async function askToComeBack(newName: string) {
     if (view?.rejoin?.account) {
       const idToken = await freshIdToken();
-      if (idToken) send({ type: "request-rejoin", name: newName, idToken });
+      if (idToken) sendWithAccount({ type: "request-rejoin", name: newName, idToken });
       return;
     }
     identity.setName(newName.trim());
@@ -139,7 +155,15 @@ function PlayerScreen({ code }: { code: string }) {
   async function joinWithAccount() {
     const idToken = await freshIdToken();
     // Signed out meanwhile: the session update shows the guest form instead.
-    if (idToken && account) send({ type: "join", name: account.name, idToken });
+    if (idToken && account) sendWithAccount({ type: "join", name: account.name, idToken });
+  }
+
+  /** Confirmed: leave the other room and send the same request again, with a fresh token. */
+  async function leaveOtherRoom() {
+    clearOtherRoom();
+    const message = lastAccountMessage.current;
+    const idToken = await freshIdToken();
+    if (message && idToken) send({ ...message, idToken, leaveOther: true });
   }
 
   function rename(newName: string) {
@@ -155,7 +179,7 @@ function PlayerScreen({ code }: { code: string }) {
       <ConnectionBanner status={status} />
       <p className="text-center font-mono text-sm tracking-[0.3em] text-muted-foreground">{code}</p>
 
-      {(error === "removed" || error === "signed-in-elsewhere" || error === "left-elsewhere") && (
+      {(error === "removed" || error === "signed-in-elsewhere" || error === "left-elsewhere" || error === "moved-room") && (
         <p role="alert" className="text-center text-primary">
           {dict.errors[error]}
         </p>
@@ -313,6 +337,20 @@ function PlayerScreen({ code }: { code: string }) {
           {dict.play.leave}
         </ConfirmButton>
       )}
+      <AlertDialog open={otherRoom !== null} onOpenChange={(open) => !open && clearOtherRoom()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{dict.play.otherRoom.title}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {format(otherRoom?.inGame ? dict.play.otherRoom.bodyInGame : dict.play.otherRoom.body, { code: otherRoom?.room ?? "" })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{dict.play.otherRoom.stay}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void leaveOtherRoom()}>{dict.play.otherRoom.leave}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
     </RoomProvider>
   );

@@ -71,6 +71,13 @@ const en = {
       dead: "You're dead. Stay silent until the end of the game!",
     },
     changeName: "Change name",
+    otherRoom: {
+      title: "You're in another room",
+      body: "Your account has a seat in room {code}. Leave it to join this one?",
+      bodyInGame: "Your account is in a game in room {code}. Leave it to join this one? The game master plays your part there.",
+      stay: "Stay there",
+      leave: "Leave it and join",
+    },
     renamed: "Someone signed in with the name you used, so you're now {name}. You can change it.",
     leave: "Leave the room",
     leaveConfirm: {
@@ -170,6 +177,7 @@ const en = {
     "room-closed": "The game master closed the room.",
     "invalid-account": "Your sign-in has expired. Sign in again.",
     "account-in-use": "That account is already playing in this room.",
+    "moved-room": "Your account joined another room, so you left this one.",
     "left-elsewhere": "Your account signed in on another device, which took you out of this room.",
     "wrong-account": "This seat belongs to another account. Sign in with it, or join as a new player.",
     "signed-in-elsewhere": "Your account joined this room from another device, which now has your seat.",

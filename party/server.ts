@@ -213,6 +213,10 @@ export class RoomServer extends Server<Env> {
         }
 
         if (this.state.locked) return this.send(sender, { type: "error", code: "room-locked" });
+        if (account) {
+          if (!(await this.checkOtherRoom(sender, account.sub, msg.leaveOther))) return;
+          if (!this.state || !canJoin()) return;
+        }
         const name = account ? this.claimName(account.name) : this.validateName(sender, msg.name);
         if (!name) return;
         const { deviceId, token } = sender.state?.kind === "guest" ? sender.state : {};
@@ -238,6 +242,8 @@ export class RoomServer extends Server<Env> {
         if (!player || player.sub === account.sub) return;
         const other = this.findAccount(account.sub);
         if (player.sub || other) return this.send(sender, { type: "error", code: "account-in-use" });
+        if (!(await this.checkOtherRoom(sender, account.sub, msg.leaveOther))) return;
+        if (!this.state || sender.state?.kind !== "player" || player.sub) return;
         player.sub = account.sub;
         // The account's photo replaces the one set in the room.
         player.photo = null;
@@ -275,6 +281,8 @@ export class RoomServer extends Server<Env> {
           const account = await this.verifyAccount(sender, msg.idToken);
           if (!account || !this.state || sender.state?.kind !== "returning") return;
           if (account.sub !== known.sub) return this.send(sender, { type: "error", code: "wrong-account" });
+          if (!(await this.checkOtherRoom(sender, account.sub, msg.leaveOther))) return;
+          if (!this.state || sender.state?.kind !== "returning") return;
         }
         // An account keeps its name; anyone else may come back under a new one.
         const name = known?.sub ? known.name : this.validateName(sender, msg.name, playerId);
@@ -556,15 +564,16 @@ export class RoomServer extends Server<Env> {
   }
 
   /**
-   * The account signed in on another device and chose not to play from it:
-   * the old device leaves (mid-game the game master plays their part).
+   * The account signed in on another device and chose not to play from it,
+   * or joined another room: it leaves this one (mid-game the game master
+   * plays their part).
    */
-  async releaseAccount(sub: string) {
+  async releaseAccount(sub: string, reason: "left-elsewhere" | "moved-room" = "left-elsewhere") {
     const player = this.state?.players.find((p) => p.sub === sub && !p.left);
     if (!player) return;
     for (const c of this.getConnections<ConnState>()) {
       if (c.state?.kind === "player" && c.state.playerId === player.id) {
-        this.send(c, { type: "error", code: "left-elsewhere" });
+        this.send(c, { type: "error", code: reason });
         c.setState({ kind: "guest" });
       }
     }
@@ -712,6 +721,28 @@ export class RoomServer extends Server<Env> {
       await (seated ? account.addRoom(this.name) : account.removeRoom(this.name));
     } catch {
       // Only used to warn a new device; the room works without it.
+    }
+  }
+
+  /**
+   * One room at a time per account: joining here while seated in another
+   * room asks first (`other-room`), then leaves it once confirmed with
+   * `leaveOther`. Returns false when it asked.
+   */
+  private async checkOtherRoom(conn: Conn, sub: string, leaveOther: boolean | undefined) {
+    try {
+      const account = await getServerByName(this.env.Account, sub);
+      if (leaveOther) {
+        await account.releaseOtherRooms(this.name);
+        return true;
+      }
+      const other = await account.otherSeat(this.name);
+      if (!other) return true;
+      this.send(conn, { type: "other-room", room: other.room, inGame: other.inGame });
+      return false;
+    } catch {
+      // The account's server is unreachable: don't block the game over it.
+      return true;
     }
   }
 

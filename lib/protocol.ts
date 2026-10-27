@@ -110,11 +110,18 @@ export type ErrorCode =
   /** Asked to come back to a seat that belongs to a different account. */
   | "wrong-account"
   /** This seat's account signed in on another device and left the room from there. */
-  | "left-elsewhere";
+  | "left-elsewhere"
+  /** This seat's account joined another room, leaving this one. */
+  | "moved-room";
 
 export type ServerMessage =
   | { type: "view"; view: RoomView }
   | { type: "joined"; playerId: string; token: string }
+  /**
+   * The account has a seat in another room: send the same message again with
+   * `leaveOther` to leave it (one room at a time per account).
+   */
+  | { type: "other-room"; room: string; inGame: boolean }
   /** `detail` carries the engine's explanation for invalid setups and actions. */
   | { type: "error"; code: ErrorCode; detail?: string };
 
@@ -130,9 +137,9 @@ export type ClientMessage =
    * `photo`: the photo this phone used last time, to start with (a JPEG data URL).
    * `idToken`: joins with an account, whose name and photo replace `name` and `photo`.
    */
-  | { type: "join"; name: string; photo?: string | null; idToken?: string }
+  | { type: "join"; name: string; photo?: string | null; idToken?: string; leaveOther?: boolean }
   /** A player who signed in after joining links their seat to the account. */
-  | { type: "link-account"; idToken: string }
+  | { type: "link-account"; idToken: string; leaveOther?: boolean }
   /** A player without an account changes their own name, at any time. */
   | { type: "rename-self"; name: string }
   /** Leaves the room. Mid-game the player stays in the game for the game master to play. */
@@ -141,7 +148,7 @@ export type ClientMessage =
    * Someone who left asks to come back, possibly under a new name. An account's
    * seat needs `idToken` from that same account.
    */
-  | { type: "request-rejoin"; name: string; idToken?: string }
+  | { type: "request-rejoin"; name: string; idToken?: string; leaveOther?: boolean }
   /** null = vote for no one. */
   | { type: "cast-vote"; targetId: string | null }
   // Phone (its own photo) or game master (anyone's), except for account players.

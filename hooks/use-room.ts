@@ -24,6 +24,8 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
   const [error, setError] = useState<ErrorCode | null>(null);
   const [status, setStatus] = useState<RoomStatus>("connecting");
   const [clockOffset, setClockOffset] = useState(0);
+  // The account has a seat in another room; set until the phone answers.
+  const [otherRoom, setOtherRoom] = useState<{ room: string; inGame: boolean } | null>(null);
 
   const socket = usePartySocket({
     host: partyHost(),
@@ -51,8 +53,11 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
         case "joined":
           identity.setPlayer(code, { id: msg.playerId, token: msg.token });
           break;
+        case "other-room":
+          setOtherRoom({ room: msg.room, inGame: msg.inGame });
+          break;
         case "error":
-          if (msg.code === "removed" || msg.code === "signed-in-elsewhere" || msg.code === "left-elsewhere") identity.setPlayer(code, null);
+          if (["removed", "signed-in-elsewhere", "left-elsewhere", "moved-room"].includes(msg.code)) identity.setPlayer(code, null);
           if (msg.code === "room-closed") {
             identity.setPlayer(code, null);
             identity.setHost(code, null);
@@ -83,5 +88,5 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
     });
   }
 
-  return { view, error, status, send, clockOffset, close, flushed };
+  return { view, error, status, send, clockOffset, close, flushed, otherRoom, clearOtherRoom: () => setOtherRoom(null) };
 }
