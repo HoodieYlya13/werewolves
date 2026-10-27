@@ -60,5 +60,16 @@ export async function forgetSession() {
   return loadSession();
 }
 
+/**
+ * Set by a screen where signing out has consequences: a player whose seat
+ * belongs to the account leaves the room first, after confirming.
+ */
+export type SignOutGuard = { inGame: boolean; leave: () => Promise<void> };
+let signOutGuard: SignOutGuard | null = null;
+export function setSignOutGuard(guard: SignOutGuard | null) {
+  signOutGuard = guard;
+}
+export const getSignOutGuard = () => signOutGuard;
+
 export const signInUrl = (returnTo: string) => `/api/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
 export const signOutUrl = (returnTo: string) => `/api/auth/logout?returnTo=${encodeURIComponent(returnTo)}`;

@@ -99,6 +99,11 @@ const fr: Dictionary = {
     orSignIn: "Vous avez un compte ? Connectez-vous pour jouer avec son nom et sa photo.",
     fromAccount: "Votre nom et votre photo viennent de votre compte.",
     notYou: "Ce n'est pas vous ?",
+    signOutLeave: {
+      title: "Se déconnecter et quitter la partie ?",
+      body: "Votre place est liée à votre compte : vous quittez aussi la partie. Reconnectez-vous pour demander à revenir.",
+      bodyInGame: "Votre place est liée à votre compte : vous quittez la partie et le meneur joue votre rôle à votre place. Reconnectez-vous pour demander à revenir.",
+    },
     signedOutElsewhere: "Votre compte est maintenant utilisé sur un autre appareil : la session est fermée ici.",
   },
   photo: {

@@ -1,8 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import { LogIn, LogOut } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { Face } from "@/components/room-context";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -13,12 +24,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { format } from "@/lib/i18n/config";
-import { signInUrl, signOutUrl, useSession } from "@/lib/session";
+import { getSignOutGuard, signInUrl, signOutUrl, useSession, type SignOutGuard } from "@/lib/session";
 
-/** Full-page redirect to sign in or out through the auth server, then back to this page. */
-function goToAuth(to: "in" | "out") {
-  const url = to === "in" ? signInUrl : signOutUrl;
-  window.location.assign(url(window.location.pathname + window.location.search));
+/** Full-page redirect to sign in or out through the auth server, then back to `returnTo` (this page by default). */
+function goToAuth(to: "in" | "out", returnTo = window.location.pathname + window.location.search) {
+  window.location.assign((to === "in" ? signInUrl : signOutUrl)(returnTo));
 }
 
 /** A button that signs in or out. */
@@ -28,8 +38,10 @@ export function AuthButton({ to, ...props }: { to: "in" | "out" } & Omit<React.C
 
 /** Signing in from the header. Hidden when accounts aren't set up (e.g. previews). */
 export function AccountButton() {
-  const { dict } = useI18n();
+  const { dict, locale } = useI18n();
   const session = useSession();
+  // Set while asking a player whose seat is the account's to confirm.
+  const [leaving, setLeaving] = useState<SignOutGuard | null>(null);
   if (!session?.enabled) return null;
 
   if (!session.account) {
@@ -42,22 +54,52 @@ export function AccountButton() {
     );
   }
 
+  function signOut() {
+    const guard = getSignOutGuard();
+    if (guard) setLeaving(guard);
+    else goToAuth("out");
+  }
+
   const { name, picture } = session.account;
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger className="rounded-full" aria-label={format(dict.account.signedInAs, { name })}>
-        <Face name={name} src={picture} className="size-8 text-sm" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel className="truncate font-normal text-muted-foreground">
-          {format(dict.account.signedInAs, { name })}
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => goToAuth("out")}>
-          <LogOut aria-hidden />
-          {dict.account.signOut}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      {/* Not modal, so the confirmation can take over focus once the menu closes. */}
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger className="rounded-full" aria-label={format(dict.account.signedInAs, { name })}>
+          <Face name={name} src={picture} className="size-8 text-sm" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuLabel className="truncate font-normal text-muted-foreground">
+            {format(dict.account.signedInAs, { name })}
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={signOut}>
+            <LogOut aria-hidden />
+            {dict.account.signOut}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <AlertDialog open={leaving !== null} onOpenChange={(open) => !open && setLeaving(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{dict.account.signOutLeave.title}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {leaving?.inGame ? dict.account.signOutLeave.bodyInGame : dict.account.signOutLeave.body}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{dict.host.cancel}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                // Out of the room first, then signed out, back on the home page.
+                void leaving?.leave().then(() => goToAuth("out", `/${locale}`));
+              }}
+            >
+              {dict.account.signOut}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

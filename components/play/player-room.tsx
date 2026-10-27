@@ -19,7 +19,7 @@ import { useGameTheme } from "@/hooks/use-game-theme";
 import { useRoom } from "@/hooks/use-room";
 import { format } from "@/lib/i18n/config";
 import { identity } from "@/lib/room";
-import { freshIdToken, useSession } from "@/lib/session";
+import { freshIdToken, setSignOutGuard, useSession } from "@/lib/session";
 import { MAX_NAME_LENGTH, type ErrorCode, type PlayerView } from "@/lib/protocol";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +35,7 @@ const PHONE_TOASTS: ErrorCode[] = ["invalid-account", "account-in-use"];
 function PlayerScreen({ code }: { code: string }) {
   const { dict, locale } = useI18n();
   const router = useRouter();
-  const { view, error, status, send, clockOffset, close } = useRoom<PlayerView>(code, "player");
+  const { view, error, status, send, clockOffset, close, flushed } = useRoom<PlayerView>(code, "player");
   // The name used last time, ready to change.
   const [name, setName] = useState(() => identity.getName());
   const [photo, setPhoto] = useState(() => identity.getPhoto());
@@ -44,6 +44,23 @@ function PlayerScreen({ code }: { code: string }) {
   const me = view?.me;
 
   useErrorToast(error, PHONE_TOASTS);
+
+  // Signing out while this seat is the account's leaves the room too (after a confirmation).
+  const accountSeat = !!me?.account;
+  const inGame = !!view?.game;
+  useEffect(() => {
+    if (!accountSeat) return;
+    setSignOutGuard({
+      inGame,
+      leave: async () => {
+        send({ type: "leave" });
+        identity.setPlayer(code, null);
+        await flushed();
+        close();
+      },
+    });
+    return () => setSignOutGuard(null);
+  }, [accountSeat, inGame, send, flushed, close, code]);
 
   // Someone signed in with this player's name: say so once, they can pick another.
   const renamed = !!view?.renamed;

@@ -74,5 +74,14 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
     socket.close();
   }
 
-  return { view, error, status, send, clockOffset, close };
+  /** Resolves once sent messages have left the browser, before navigating away. */
+  function flushed() {
+    return new Promise<void>((resolve) => {
+      const started = Date.now();
+      const check = () => (socket.bufferedAmount === 0 || Date.now() - started > 1000 ? resolve() : setTimeout(check, 20));
+      check();
+    });
+  }
+
+  return { view, error, status, send, clockOffset, close, flushed };
 }
