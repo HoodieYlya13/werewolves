@@ -7,12 +7,14 @@ import {
   playerInfo,
   publicGame,
   replay,
+  teamOf,
   type Action,
   type GameSetup,
   type GameState,
 } from "../lib/engine";
 import { DEFAULT_ISSUER, verifyIdToken, type Account } from "../lib/account";
 import type { Ballot, Timer } from "../lib/ballot";
+import { deleteResult, saveResult, type GameResult } from "../lib/stats";
 import {
   MAX_NAME_LENGTH,
   MAX_PHOTO_LENGTH,
@@ -39,6 +41,16 @@ type StoredPlayer = Omit<PublicPlayer, "account" | "picture"> & {
   renamed?: boolean;
 };
 
+type StoredGame = {
+  setup: GameSetup;
+  log: Action[];
+  /** Missing on games started before stats were recorded. */
+  id?: string;
+  startedAt?: number;
+  /** What was last saved to the stats database ("" or missing: nothing). */
+  recorded?: string;
+};
+
 /**
  * Everything the room persists. Secrets (tokens) never leave the server.
  * The game is stored as setup + action log; its state is rebuilt by replaying.
@@ -46,11 +58,13 @@ type StoredPlayer = Omit<PublicPlayer, "account" | "picture"> & {
 type RoomState = {
   code: string;
   hostToken: string;
+  /** The game master's account, when they're signed in. */
+  hostSub?: string;
   locked: boolean;
   players: StoredPlayer[];
-  game: { setup: GameSetup; log: Action[] } | null;
+  game: StoredGame | null;
   /** The game "End game" closed, so a misclick can be taken back. */
-  endedGame?: { setup: GameSetup; log: Action[] } | null;
+  endedGame?: StoredGame | null;
   /** Votes cast on phones; closed by any game action. */
   ballot?: Ballot | null;
   timer?: Timer | null;
@@ -87,6 +101,8 @@ export class RoomServer extends Server<Env> {
   private state: RoomState | null = null;
   /** Cached result of replaying the game log. */
   private game: GameState | null = null;
+  /** Writes to the stats database, one at a time and in order. */
+  private recording: Promise<void> = Promise.resolve();
 
   async onStart() {
     this.state = (await this.ctx.storage.get<RoomState>(STORAGE_KEY)) ?? null;
@@ -214,6 +230,8 @@ export class RoomServer extends Server<Env> {
 
         if (this.state.locked) return this.send(sender, { type: "error", code: "room-locked" });
         if (account) {
+          // The game master's own account can't also play.
+          if (account.sub === this.state.hostSub) return this.send(sender, { type: "error", code: "account-in-use" });
           if (!(await this.checkOtherRoom(sender, account.sub, msg.leaveOther))) return;
           if (!this.state || !canJoin()) return;
         }
@@ -241,7 +259,7 @@ export class RoomServer extends Server<Env> {
         const player = this.state.players.find((p) => p.id === playerId);
         if (!player || player.sub === account.sub) return;
         const other = this.findAccount(account.sub);
-        if (player.sub || other) return this.send(sender, { type: "error", code: "account-in-use" });
+        if (player.sub || other || account.sub === this.state.hostSub) return this.send(sender, { type: "error", code: "account-in-use" });
         if (!(await this.checkOtherRoom(sender, account.sub, msg.leaveOther))) return;
         if (!this.state || sender.state?.kind !== "player" || player.sub) return;
         player.sub = account.sub;
@@ -341,6 +359,21 @@ export class RoomServer extends Server<Env> {
         }
         return;
       }
+      case "host-account": {
+        if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
+        if (msg.idToken === null) {
+          delete this.state.hostSub;
+          break;
+        }
+        const account = await this.verifyAccount(sender, msg.idToken);
+        if (!account || !this.state) return;
+        // Playing in this room already: one role per account.
+        if (this.state.players.some((p) => p.sub === account.sub && !p.left)) {
+          return this.send(sender, { type: "error", code: "account-in-use" });
+        }
+        this.state.hostSub = account.sub;
+        break;
+      }
       case "add-player": {
         if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
         // The ended game no longer matches the table.
@@ -389,7 +422,7 @@ export class RoomServer extends Server<Env> {
         try {
           const setup = this.buildSetup(msg);
           this.game = replay(setup, []);
-          this.state.game = { setup, log: [] };
+          this.state.game = { setup, log: [], id: crypto.randomUUID(), startedAt: Date.now() };
           this.state.endedGame = null;
           this.state.locked = true;
         } catch (e) {
@@ -529,6 +562,7 @@ export class RoomServer extends Server<Env> {
 
     await this.persist();
     this.broadcastViews();
+    this.recordResult();
   }
 
   /** Serves player photos at /parties/main/:room/photo/:playerId. */
@@ -580,6 +614,60 @@ export class RoomServer extends Server<Env> {
     this.leaveSeat(player);
     await this.persist();
     this.broadcastViews();
+  }
+
+  // --- stats ---
+
+  /**
+   * Keeps the stats database in step with the game: saved once it has a
+   * winner, rewritten if the ending is undone and replayed, deleted if it's
+   * undone for good. Runs after every change; most of them write nothing.
+   */
+  private recordResult() {
+    const url = this.env.POSTGRES_URL;
+    if (!url) return;
+    this.recording = this.recording
+      .then(() => this.writeResult(url))
+      .catch((error) => console.error("Saving the game's result failed:", error));
+    this.ctx.waitUntil(this.recording);
+  }
+
+  private async writeResult(url: string) {
+    const stored = this.state?.game;
+    if (!stored || !this.game) return;
+    stored.id ??= crypto.randomUUID();
+    const result = this.game.winner ? this.resultOf(stored) : null;
+    // A game with nobody signed in has no one's stats to count.
+    const worth = result && (result.players.length > 0 || result.masterSub);
+    const signature = worth ? JSON.stringify(result) : "";
+    if (signature === (stored.recorded ?? "")) return;
+    if (worth) await saveResult(url, result);
+    else await deleteResult(url, stored.id);
+    stored.recorded = signature;
+    if (this.state) await this.ctx.storage.put(STORAGE_KEY, this.state);
+  }
+
+  private resultOf(stored: StoredGame): GameResult {
+    const s = this.state!;
+    const game = this.game!;
+    const winners = new Set(game.winner!.playerIds);
+    const seats = [...s.players, ...(s.formerPlayers ?? [])];
+    const players = new Map<string, GameResult["players"][number]>();
+    for (const p of game.players) {
+      const seat = seats.find((x) => x.id === p.id);
+      if (!seat?.sub || seat.sub === s.hostSub) continue;
+      players.set(seat.sub, { sub: seat.sub, role: p.role, team: teamOf(game, p), won: winners.has(p.id), survived: p.alive, left: !!seat.left });
+    }
+    return {
+      id: stored.id!,
+      room: s.code,
+      theme: stored.setup.settings.theme,
+      startedAt: stored.startedAt ?? Date.now(),
+      winnerTeam: game.winner!.team,
+      playerCount: game.players.length,
+      masterSub: s.hostSub ?? null,
+      players: [...players.values()],
+    };
   }
 
   // --- helpers ---

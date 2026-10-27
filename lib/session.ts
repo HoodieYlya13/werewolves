@@ -9,9 +9,13 @@ export type Session = {
   idToken: string | null;
   /** This device's sign-in (see `newSessionId`). */
   sessionId: string | null;
+  /** The auth server, where the account is managed. */
+  issuer: string | null;
+  /** Whether finished games are saved, for the stats page. */
+  stats: boolean;
 };
 
-const signedOut: Session = { enabled: false, account: null, idToken: null, sessionId: null };
+const signedOut: Session = { enabled: false, account: null, idToken: null, sessionId: null, issuer: null, stats: false };
 let session: Session | null = null;
 let pending: Promise<Session> | null = null;
 const listeners = new Set<() => void>();

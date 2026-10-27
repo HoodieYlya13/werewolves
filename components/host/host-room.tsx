@@ -19,11 +19,12 @@ import { MIN_PLAYERS } from "@/lib/engine";
 import { format } from "@/lib/i18n/config";
 import { MAX_NAME_LENGTH, type ErrorCode, type HostView } from "@/lib/protocol";
 import { generateRoomCode, identity } from "@/lib/room";
+import { freshIdToken, useSession } from "@/lib/session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 /** Errors the game master sees as toasts (the others end the session). */
-const HOST_TOASTS: ErrorCode[] = ["name-taken", "invalid-name", "game-in-progress", "invalid-setup", "invalid-action"];
+const HOST_TOASTS: ErrorCode[] = ["name-taken", "invalid-name", "game-in-progress", "invalid-setup", "invalid-action", "invalid-account", "account-in-use"];
 
 export function HostRoom() {
   const { code } = useParams<{ code: string }>();
@@ -71,6 +72,16 @@ function HostContent({
     identity.setHost(next, { token });
     router.replace(`/${locale}/host/${next}`);
   }, [error, code, locale, router]);
+
+  // The games a signed-in game master runs count in their stats.
+  const session = useSession();
+  const sub = session && (session.account?.sub ?? ""); // null while loading
+  const connected = status === "open";
+  useEffect(() => {
+    if (!connected || sub === null) return;
+    if (!sub) send({ type: "host-account", idToken: null });
+    else void freshIdToken().then((idToken) => idToken && send({ type: "host-account", idToken }));
+  }, [connected, sub, send]);
 
   useErrorToast(error, HOST_TOASTS);
   useHostToasts(view);

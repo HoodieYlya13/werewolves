@@ -14,9 +14,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "party:deploy:staging": "wrangler deploy --env staging",
-    "party:types": "wrangler types --strict-vars=false party/worker-configuration.d.ts"
+    "party:types": "wrangler types --strict-vars=false party/worker-configuration.d.ts",
+    "db:migrate": "node --env-file=.env.local scripts/db-migrate.mjs"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "jose": "^6.2.12",

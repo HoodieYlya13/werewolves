@@ -51,6 +51,12 @@ Register a client on the auth server with the redirect URI `<site>/api/auth/call
 
 Every server deploy restarts the rooms: connected players reconnect on their own after a moment and keep their game.
 
+## Stats
+
+Finished games are saved to Postgres (Neon) for signed-in players and game masters: their card, side, whether they won and whether they survived (`db/schema.sql`). Guests aren't saved. The room server writes a game as soon as it has a winner and rewrites or deletes it if the game master undoes the ending (`lib/stats.ts`). The stats page (`/[lang]/stats`, "My stats" in the account menu) shows the win rate, survival, games run as game master, and use and win rate per side and per card.
+
+Each environment has its own database in `POSTGRES_URL` (Vercel's Neon integration sets it). Vercel builds create the tables (`scripts/db-migrate.mjs`, safe to rerun) and hand the URL to the room server as a Worker secret. Locally, `npm run db:migrate` applies the schema to the database in `.env.local`, and `wrangler dev` reads the URL from there too.
+
 ## How rooms work
 
 - The game master's browser creates a 4-letter room code and a secret token, saved in `localStorage`.
@@ -68,4 +74,5 @@ Every server deploy restarts the rooms: connected players reconnect on their own
 | `npm run party:deploy` | Deploy the room server to Cloudflare (`werewolves.<subdomain>.workers.dev`) |
 | `npm run party:deploy:staging` | Deploy a separate staging room server (`werewolves-staging…`) |
 | `npm run party:types` | Regenerate the Worker types after changing `wrangler.jsonc` |
+| `npm run db:migrate` | Create or update the stats tables in the database from `.env.local` |
 | `node scripts/generate-icons.mjs` | Regenerate PNG icons from `public/icons/icon.svg` |

@@ -155,6 +155,8 @@ export type ClientMessage =
   // `data` is a JPEG data URL; null removes it.
   | { type: "set-photo"; playerId?: string; data: string | null }
   // Game master
+  /** The game master's account, for their stats (null: signed out). */
+  | { type: "host-account"; idToken: string | null }
   | { type: "add-player"; name: string }
   | { type: "remove-player"; playerId: string }
   | { type: "move-player"; playerId: string; seat: number }

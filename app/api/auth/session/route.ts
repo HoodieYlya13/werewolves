@@ -45,6 +45,7 @@ export async function GET(request: NextRequest) {
 
 const publicAccount = ({ sub, name, picture }: { sub: string; name: string; picture: string | null }) => ({ sub, name, picture });
 
-function json(session: Session) {
-  return NextResponse.json(session, { headers: { "Cache-Control": "no-store" } });
+function json(session: Omit<Session, "issuer" | "stats">) {
+  const value: Session = { ...session, issuer: authConfig()?.issuer ?? null, stats: session.enabled && !!process.env.POSTGRES_URL };
+  return NextResponse.json(value, { headers: { "Cache-Control": "no-store" } });
 }

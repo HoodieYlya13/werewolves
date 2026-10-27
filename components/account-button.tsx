@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { LogIn, LogOut } from "lucide-react";
+import Link from "next/link";
+import { ChartColumn, LogIn, LogOut, UserCog } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { Face } from "@/components/room-context";
 import {
@@ -61,6 +62,7 @@ export function AccountButton() {
   }
 
   const { name, picture } = session.account;
+  const { issuer } = session;
   return (
     <>
       {/* Not modal, so the confirmation can take over focus once the menu closes. */}
@@ -72,6 +74,24 @@ export function AccountButton() {
           <DropdownMenuLabel className="truncate font-normal text-muted-foreground">
             {format(dict.account.signedInAs, { name })}
           </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {session.stats && (
+            <DropdownMenuItem asChild>
+              <Link href={`/${locale}/stats`}>
+                <ChartColumn aria-hidden />
+                {dict.account.stats}
+              </Link>
+            </DropdownMenuItem>
+          )}
+          {issuer && (
+            <DropdownMenuItem asChild>
+              {/* The auth server speaks the same languages (en, fr). */}
+              <a href={`${issuer}/${locale}/account`} target="_blank" rel="noopener noreferrer">
+                <UserCog aria-hidden />
+                {dict.account.manage}
+              </a>
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={signOut}>
             <LogOut aria-hidden />
