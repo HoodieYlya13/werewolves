@@ -17,7 +17,7 @@ export function authConfig(): AuthConfig | null {
 }
 
 export const SCOPE = "openid profile offline_access";
-export const COOKIES = { flow: "ww_auth_flow", refresh: "ww_refresh", id: "ww_id" } as const;
+export const COOKIES = { flow: "ww_auth_flow", refresh: "ww_refresh", id: "ww_id", session: "ww_session" } as const;
 const REFRESH_MAX_AGE = 30 * 24 * 60 * 60;
 
 /**
@@ -77,8 +77,13 @@ export function saveTokens(request: NextRequest, response: NextResponse, tokens:
   if (tokens.refresh_token) response.cookies.set(COOKIES.refresh, tokens.refresh_token, cookieOptions(request, REFRESH_MAX_AGE));
 }
 
+/** This device's sign-in, so the account can be signed in on one device at a time. */
+export function saveSession(request: NextRequest, response: NextResponse, sessionId: string) {
+  response.cookies.set(COOKIES.session, sessionId, cookieOptions(request, REFRESH_MAX_AGE));
+}
+
 export function clearTokens(request: NextRequest, response: NextResponse) {
-  for (const name of [COOKIES.id, COOKIES.refresh]) response.cookies.set(name, "", cookieOptions(request, 0));
+  for (const name of [COOKIES.id, COOKIES.refresh, COOKIES.session]) response.cookies.set(name, "", cookieOptions(request, 0));
 }
 
 export function randomString(bytes = 32) {

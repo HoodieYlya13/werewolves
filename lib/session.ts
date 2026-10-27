@@ -5,10 +5,13 @@ import { useSyncExternalStore } from "react";
 /** What /api/auth/session returns. `enabled` is false when accounts aren't configured. */
 export type Session = {
   enabled: boolean;
-  account: { name: string; picture: string | null } | null;
+  account: { sub: string; name: string; picture: string | null } | null;
   idToken: string | null;
+  /** This device's sign-in (see `newSessionId`). */
+  sessionId: string | null;
 };
 
+const signedOut: Session = { enabled: false, account: null, idToken: null, sessionId: null };
 let session: Session | null = null;
 let pending: Promise<Session> | null = null;
 const listeners = new Set<() => void>();
@@ -20,8 +23,8 @@ const listeners = new Set<() => void>();
  */
 export function loadSession(): Promise<Session> {
   pending ??= fetch("/api/auth/session", { cache: "no-store" })
-    .then((res) => (res.ok ? (res.json() as Promise<Session>) : { enabled: false, account: null, idToken: null }))
-    .catch(() => ({ enabled: false, account: null, idToken: null }))
+    .then((res) => (res.ok ? (res.json() as Promise<Session>) : signedOut))
+    .catch(() => signedOut)
     .then((value) => {
       session = value;
       listeners.forEach((listener) => listener());
@@ -49,6 +52,12 @@ export function useSession() {
 /** A fresh ID token to prove the account to the room server, or null when signed out. */
 export async function freshIdToken() {
   return (await loadSession()).idToken;
+}
+
+/** Signs out on this device only (the account signed in elsewhere): no trip to the auth server. */
+export async function forgetSession() {
+  await fetch("/api/auth/forget", { method: "POST" }).catch(() => {});
+  return loadSession();
 }
 
 export const signInUrl = (returnTo: string) => `/api/auth/login?returnTo=${encodeURIComponent(returnTo)}`;

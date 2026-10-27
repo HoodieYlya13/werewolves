@@ -104,7 +104,9 @@ export type ErrorCode =
   /** The account couldn't be checked (expired sign-in, accounts off): sign in again. */
   | "invalid-account"
   /** That account is already another player in this room. */
-  | "account-in-use";
+  | "account-in-use"
+  /** This seat's account joined the room from another device, which took it over. */
+  | "signed-in-elsewhere";
 
 export type ServerMessage =
   | { type: "view"; view: RoomView }
@@ -167,6 +169,18 @@ export type ClientMessage =
 export type ConnectQuery =
   | { as: "host"; token: string; create?: "1" }
   | { as: "player"; id?: string; token?: string };
+
+/**
+ * Each sign-in gets an id that starts with its time, so the account server
+ * can tell which device signed in last.
+ */
+export const newSessionId = () => `${Date.now().toString(36)}.${crypto.randomUUID()}`;
+export const sessionTime = (sessionId: string) => parseInt(sessionId.split(".")[0], 36) || 0;
+
+/** A signed-in page's socket to its account (see party/account.ts). */
+export type AccountClientMessage = { type: "hello"; idToken: string; sessionId: string };
+/** Sent to a device whose account signed in somewhere else since. */
+export type AccountServerMessage = { type: "signed-out" };
 
 export const MAX_NAME_LENGTH = 24;
 /** Photos are resized on the device; this caps the data URL sent to the server. */

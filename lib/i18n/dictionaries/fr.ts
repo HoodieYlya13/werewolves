@@ -99,6 +99,7 @@ const fr: Dictionary = {
     orSignIn: "Vous avez un compte ? Connectez-vous pour jouer avec son nom et sa photo.",
     fromAccount: "Votre nom et votre photo viennent de votre compte.",
     notYou: "Ce n'est pas vous ?",
+    signedOutElsewhere: "Votre compte est maintenant utilisé sur un autre appareil : la session est fermée ici.",
   },
   photo: {
     add: "Ajouter une photo",
@@ -154,6 +155,7 @@ const fr: Dictionary = {
     "room-closed": "Le meneur a fermé la partie.",
     "invalid-account": "Votre connexion a expiré. Reconnectez-vous.",
     "account-in-use": "Ce compte joue déjà dans cette partie.",
+    "signed-in-elsewhere": "Votre compte a rejoint la partie depuis un autre appareil, qui a pris votre place.",
   },
   settings: {
     theme: "Thème",

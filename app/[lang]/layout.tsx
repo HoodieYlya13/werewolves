@@ -5,6 +5,7 @@ import { AccountButton } from "@/components/account-button";
 import { I18nProvider } from "@/components/i18n-provider";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeSwitcher } from "@/components/theme-switcher";
+import { SessionGuard } from "@/components/session-guard";
 import { Toaster } from "@/components/ui/sonner";
 import { locales } from "@/lib/i18n/config";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
@@ -70,6 +71,7 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
             </footer>
           </div>
           <Toaster position="top-center" />
+          <SessionGuard />
         </I18nProvider>
       </body>
     </html>

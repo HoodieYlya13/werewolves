@@ -12,7 +12,8 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40",
         outline:
-          "border bg-transparent hover:bg-accent hover:text-accent-foreground",
+          // Filled, so secondary actions read as buttons at a glance during a game.
+          "border border-muted-foreground/25 bg-secondary text-secondary-foreground hover:border-muted-foreground/45 hover:bg-secondary/70",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost:

@@ -97,6 +97,7 @@ const en = {
     orSignIn: "Have an account? Sign in to play with its name and photo.",
     fromAccount: "Your name and photo come from your account.",
     notYou: "Not you?",
+    signedOutElsewhere: "You signed in on another device, so you're signed out here.",
   },
   photo: {
     add: "Add a photo",
@@ -152,6 +153,7 @@ const en = {
     "room-closed": "The game master closed the room.",
     "invalid-account": "Your sign-in has expired. Sign in again.",
     "account-in-use": "That account is already playing in this room.",
+    "signed-in-elsewhere": "Your account joined this room from another device, which now has your seat.",
   },
   settings: {
     theme: "Theme",

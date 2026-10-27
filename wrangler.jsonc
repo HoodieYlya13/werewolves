@@ -7,9 +7,16 @@
   "compatibility_flags": ["nodejs_compat"],
   "durable_objects": {
     // Binding "Main" maps to the default "main" party that partysocket connects to.
-    "bindings": [{ "name": "Main", "class_name": "RoomServer" }]
+    // "Account" is the "account" party: one per signed-in account (party/account.ts).
+    "bindings": [
+      { "name": "Main", "class_name": "RoomServer" },
+      { "name": "Account", "class_name": "AccountServer" }
+    ]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RoomServer"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["RoomServer"] },
+    { "tag": "v2", "new_sqlite_classes": ["AccountServer"] }
+  ],
   // Accounts: the room server checks ID tokens from this issuer. AUTH_CLIENT_ID
   // comes from .env.local in dev and from the Vercel build on deploy (see
   // scripts/deploy-server.mjs); left empty, signing in is off.
@@ -21,7 +28,10 @@
       // Vars aren't inherited by environments.
       "vars": { "AUTH_ISSUER": "https://auth.hy13dev.com", "AUTH_CLIENT_ID": "" },
       "durable_objects": {
-        "bindings": [{ "name": "Main", "class_name": "RoomServer" }]
+        "bindings": [
+          { "name": "Main", "class_name": "RoomServer" },
+          { "name": "Account", "class_name": "AccountServer" }
+        ]
       }
     }
   }

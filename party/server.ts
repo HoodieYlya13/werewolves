@@ -194,6 +194,15 @@ export class RoomServer extends Server<Env> {
           } else {
             this.applyAccount(known, account);
             known.connected = true;
+            // One device per account: the seat moves to this phone, and the
+            // old one loses it (its token no longer works).
+            known.token = crypto.randomUUID();
+            for (const c of this.getConnections<ConnState>()) {
+              if (c.id !== sender.id && c.state?.kind === "player" && c.state.playerId === known.id) {
+                this.send(c, { type: "error", code: "signed-in-elsewhere" });
+                c.setState({ kind: "guest" });
+              }
+            }
             sender.setState({ kind: "player", playerId: known.id });
           }
           this.send(sender, { type: "joined", playerId: known.id, token: known.token! });
@@ -740,7 +749,9 @@ export class RoomServer extends Server<Env> {
   }
 }
 
-/** Routes /parties/main/:room to that room's RoomServer. */
+export { AccountServer } from "./account";
+
+/** Routes /parties/main/:room to that room's RoomServer, /parties/account/:sub to an AccountServer. */
 export default {
   async fetch(request: Request, env: Env) {
     return (await routePartykitRequest(request, env)) ?? new Response("Not found", { status: 404 });

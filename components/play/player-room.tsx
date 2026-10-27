@@ -94,9 +94,9 @@ function PlayerScreen({ code }: { code: string }) {
       <ConnectionBanner status={status} />
       <p className="text-center font-mono text-sm tracking-[0.3em] text-muted-foreground">{code}</p>
 
-      {error === "removed" && (
+      {(error === "removed" || error === "signed-in-elsewhere") && (
         <p role="alert" className="text-center text-primary">
-          {dict.errors.removed}
+          {dict.errors[error]}
         </p>
       )}
 

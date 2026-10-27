@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyIdToken } from "@/lib/account";
-import { authConfig, callbackUrl, cookieOptions, COOKIES, requestTokens, safeReturnTo, saveTokens, sitePath } from "@/lib/auth";
+import { authConfig, callbackUrl, cookieOptions, COOKIES, requestTokens, safeReturnTo, saveSession, saveTokens, sitePath } from "@/lib/auth";
+import { newSessionId } from "@/lib/protocol";
 
 type Flow = { verifier: string; state: string; nonce: string; returnTo: string };
 
@@ -34,5 +35,7 @@ export async function GET(request: NextRequest) {
 
   const response = back();
   saveTokens(request, response, tokens, account.expiresAt);
+  // A new sign-in: other devices on this account get signed out.
+  saveSession(request, response, newSessionId());
   return response;
 }
