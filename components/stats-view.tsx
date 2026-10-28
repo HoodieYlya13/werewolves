@@ -7,7 +7,7 @@ import { useI18n } from "@/components/i18n-provider";
 import { Button } from "@/components/ui/button";
 import type { RoleId, Team } from "@/lib/engine";
 import { format } from "@/lib/i18n/config";
-import { freshIdToken, useSession } from "@/lib/session";
+import { loadSession, useSession } from "@/lib/session";
 import type { AccountStats } from "@/lib/stats";
 
 /** The signed-in account's stats, from the games it played or ran. */
@@ -22,8 +22,9 @@ export function StatsView() {
     if (!sub) return;
     let cancelled = false;
     void (async () => {
-      const idToken = await freshIdToken();
-      const res = idToken ? await fetch("/api/stats", { headers: { Authorization: `Bearer ${idToken}` }, cache: "no-store" }).catch(() => null) : null;
+      // Through the session first, which refreshes the sign-in if needed (one request at a time).
+      await loadSession();
+      const res = await fetch("/api/auth/stats", { cache: "no-store" }).catch(() => null);
       const value: AccountStats | "failed" = res?.ok ? await res.json() : "failed";
       if (!cancelled) setStats({ sub, value });
     })();

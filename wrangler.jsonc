@@ -17,16 +17,14 @@
     { "tag": "v1", "new_sqlite_classes": ["RoomServer"] },
     { "tag": "v2", "new_sqlite_classes": ["AccountServer"] }
   ],
-  // Accounts: the room server checks ID tokens from this issuer. AUTH_CLIENT_ID
-  // comes from .env.local in dev and from the Vercel build on deploy (see
-  // scripts/deploy-server.mjs); left empty, signing in is off.
-  "vars": { "AUTH_ISSUER": "https://auth.hy13dev.com", "AUTH_CLIENT_ID": "" },
+  // Accounts: the room server checks the site's tickets (lib/ticket.ts) with
+  // the TICKET_KEY secret, and saves stats to POSTGRES_URL. Both are set by
+  // the Vercel build (scripts/deploy-server.mjs); `wrangler dev` reads
+  // .env.local. Without a key, signing in is off.
   "env": {
     // npx wrangler deploy --env staging  →  werewolves-staging.<subdomain>.workers.dev
     "staging": {
       "name": "werewolves-staging",
-      // Vars aren't inherited by environments.
-      "vars": { "AUTH_ISSUER": "https://auth.hy13dev.com", "AUTH_CLIENT_ID": "" },
       "durable_objects": {
         "bindings": [
           { "name": "Main", "class_name": "RoomServer" },

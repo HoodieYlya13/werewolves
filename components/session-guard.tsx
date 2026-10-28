@@ -18,7 +18,7 @@ import {
 import { format } from "@/lib/i18n/config";
 import type { AccountClientMessage, AccountServerMessage } from "@/lib/protocol";
 import { partyHost, takeoverKey } from "@/lib/room";
-import { forgetSession, freshIdToken, useSession } from "@/lib/session";
+import { forgetSession, getTicket, useSession } from "@/lib/session";
 
 /**
  * Keeps an account signed in on one device at a time. Mounted on every page;
@@ -28,10 +28,11 @@ export function SessionGuard() {
   const session = useSession();
   const { account, sessionId } = session ?? {};
   if (!account || !sessionId) return null;
-  return <AccountSocket key={`${account.sub}:${sessionId}`} sub={account.sub} sessionId={sessionId} />;
+  // Keyed by the sign-in, so a new one reconnects with a ticket naming it.
+  return <AccountSocket key={`${account.sub}:${sessionId}`} sub={account.sub} />;
 }
 
-function AccountSocket({ sub, sessionId }: { sub: string; sessionId: string }) {
+function AccountSocket({ sub }: { sub: string }) {
   const { dict, locale } = useI18n();
   const router = useRouter();
   const t = dict.account.inRoom;
@@ -42,11 +43,8 @@ function AccountSocket({ sub, sessionId }: { sub: string; sessionId: string }) {
     host: partyHost(),
     party: "account",
     room: sub,
-    // ID tokens are short-lived: each (re)connection proves the account with a fresh one.
-    onOpen: () =>
-      void freshIdToken().then(
-        (idToken) => idToken && send({ type: "hello", idToken, sessionId }),
-      ),
+    // Each (re)connection proves the account with a new ticket, which also names this device's sign-in.
+    onOpen: () => void getTicket("account").then((ticket) => ticket && send({ type: "hello", ticket })),
     onMessage: (event) => {
       const msg = JSON.parse(event.data as string) as AccountServerMessage;
       switch (msg.type) {

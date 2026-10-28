@@ -29,7 +29,7 @@ import { useGameTheme } from "@/hooks/use-game-theme";
 import { useRoom } from "@/hooks/use-room";
 import { format } from "@/lib/i18n/config";
 import { identity, takeoverKey } from "@/lib/room";
-import { freshIdToken, setSignOutGuard, useSession } from "@/lib/session";
+import { getTicket, setSignOutGuard, useSession } from "@/lib/session";
 import { MAX_NAME_LENGTH, type ClientMessage, type ErrorCode, type PlayerView } from "@/lib/protocol";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,8 +49,8 @@ function PlayerScreen({ code }: { code: string }) {
   const router = useRouter();
   const { view, error, status, send, clockOffset, close, flushed, otherRoom, clearOtherRoom } = useRoom<PlayerView>(code, "player");
   // The last join, link or rejoin sent with the account, to send again after "leave the other room".
-  const lastAccountMessage = useRef<Extract<ClientMessage, { idToken?: string }> | null>(null);
-  function sendWithAccount(message: Extract<ClientMessage, { idToken?: string }>) {
+  const lastAccountMessage = useRef<Extract<ClientMessage, { ticket?: string }> | null>(null);
+  function sendWithAccount(message: Extract<ClientMessage, { ticket?: string }>) {
     lastAccountMessage.current = message;
     send(message);
   }
@@ -78,7 +78,7 @@ function PlayerScreen({ code }: { code: string }) {
     } catch {
       return;
     }
-    void freshIdToken().then((idToken) => idToken && send((lastAccountMessage.current = { type: "join", name: "", idToken })));
+    void getTicket({ room: code }).then((ticket) => ticket && send((lastAccountMessage.current = { type: "join", name: "", ticket })));
   }, [canJoin, signedIn, code, send]);
 
   // Back from "Sign in to come back": ask the game master straight away.
@@ -91,7 +91,7 @@ function PlayerScreen({ code }: { code: string }) {
     } catch {
       return;
     }
-    void freshIdToken().then((idToken) => idToken && send((lastAccountMessage.current = { type: "request-rejoin", name: "", idToken })));
+    void getTicket({ room: code }).then((ticket) => ticket && send((lastAccountMessage.current = { type: "request-rejoin", name: "", ticket })));
   }, [rejoinAccount, signedIn, code, send]);
 
   // Signing out while this seat is the account's leaves the room too (after a confirmation).
@@ -124,8 +124,8 @@ function PlayerScreen({ code }: { code: string }) {
   useEffect(() => {
     if (!me || me.account || !account || linked.current === me.id) return;
     linked.current = me.id;
-    void freshIdToken().then((idToken) => idToken && send((lastAccountMessage.current = { type: "link-account", idToken })));
-  }, [me, account, send]);
+    void getTicket({ room: code }).then((ticket) => ticket && send((lastAccountMessage.current = { type: "link-account", ticket })));
+  }, [me, account, send, code]);
 
   // The photo is remembered on this phone for the next rooms too.
   function changePhoto(data: string | null) {
@@ -145,8 +145,8 @@ function PlayerScreen({ code }: { code: string }) {
   /** An account's seat needs the account's proof; a guest seat only a name. */
   async function askToComeBack(newName: string) {
     if (view?.rejoin?.account) {
-      const idToken = await freshIdToken();
-      if (idToken) sendWithAccount({ type: "request-rejoin", name: newName, idToken });
+      const ticket = await getTicket({ room: code });
+      if (ticket) sendWithAccount({ type: "request-rejoin", name: newName, ticket });
       return;
     }
     identity.setName(newName.trim());
@@ -154,17 +154,17 @@ function PlayerScreen({ code }: { code: string }) {
   }
 
   async function joinWithAccount() {
-    const idToken = await freshIdToken();
+    const ticket = await getTicket({ room: code });
     // Signed out meanwhile: the session update shows the guest form instead.
-    if (idToken && account) sendWithAccount({ type: "join", name: account.name, idToken });
+    if (ticket && account) sendWithAccount({ type: "join", name: account.name, ticket });
   }
 
-  /** Confirmed: leave the other room and send the same request again, with a fresh token. */
+  /** Confirmed: leave the other room and send the same request again, with a new ticket. */
   async function leaveOtherRoom() {
     clearOtherRoom();
     const message = lastAccountMessage.current;
-    const idToken = await freshIdToken();
-    if (message && idToken) send({ ...message, idToken, leaveOther: true });
+    const ticket = await getTicket({ room: code });
+    if (message && ticket) send({ ...message, ticket, leaveOther: true });
   }
 
   function rename(newName: string) {

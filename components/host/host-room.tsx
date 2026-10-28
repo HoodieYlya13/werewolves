@@ -19,7 +19,7 @@ import { MIN_PLAYERS } from "@/lib/engine";
 import { format } from "@/lib/i18n/config";
 import { MAX_NAME_LENGTH, type ErrorCode, type HostView } from "@/lib/protocol";
 import { generateRoomCode, identity } from "@/lib/room";
-import { freshIdToken, useSession } from "@/lib/session";
+import { getTicket, useSession } from "@/lib/session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -79,9 +79,9 @@ function HostContent({
   const connected = status === "open";
   useEffect(() => {
     if (!connected || sub === null) return;
-    if (!sub) send({ type: "host-account", idToken: null });
-    else void freshIdToken().then((idToken) => idToken && send({ type: "host-account", idToken }));
-  }, [connected, sub, send]);
+    if (!sub) send({ type: "host-account", ticket: null });
+    else void getTicket({ room: code }).then((ticket) => ticket && send({ type: "host-account", ticket }));
+  }, [connected, sub, send, code]);
 
   useErrorToast(error, HOST_TOASTS);
   useHostToasts(view);

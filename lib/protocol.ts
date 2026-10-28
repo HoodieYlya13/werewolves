@@ -135,20 +135,20 @@ export type ClientMessage =
   // Phone
   /**
    * `photo`: the photo this phone used last time, to start with (a JPEG data URL).
-   * `idToken`: joins with an account, whose name and photo replace `name` and `photo`.
+   * `ticket`: joins with an account (see lib/ticket.ts), whose name and photo replace `name` and `photo`.
    */
-  | { type: "join"; name: string; photo?: string | null; idToken?: string; leaveOther?: boolean }
+  | { type: "join"; name: string; photo?: string | null; ticket?: string; leaveOther?: boolean }
   /** A player who signed in after joining links their seat to the account. */
-  | { type: "link-account"; idToken: string; leaveOther?: boolean }
+  | { type: "link-account"; ticket: string; leaveOther?: boolean }
   /** A player without an account changes their own name, at any time. */
   | { type: "rename-self"; name: string }
   /** Leaves the room. Mid-game the player stays in the game for the game master to play. */
   | { type: "leave" }
   /**
    * Someone who left asks to come back, possibly under a new name. An account's
-   * seat needs `idToken` from that same account.
+   * seat needs a `ticket` from that same account.
    */
-  | { type: "request-rejoin"; name: string; idToken?: string; leaveOther?: boolean }
+  | { type: "request-rejoin"; name: string; ticket?: string; leaveOther?: boolean }
   /** null = vote for no one. */
   | { type: "cast-vote"; targetId: string | null }
   // Phone (its own photo) or game master (anyone's), except for account players.
@@ -156,7 +156,7 @@ export type ClientMessage =
   | { type: "set-photo"; playerId?: string; data: string | null }
   // Game master
   /** The game master's account, for their stats (null: signed out). */
-  | { type: "host-account"; idToken: string | null }
+  | { type: "host-account"; ticket: string | null }
   | { type: "add-player"; name: string }
   | { type: "remove-player"; playerId: string }
   | { type: "move-player"; playerId: string; seat: number }
@@ -195,7 +195,8 @@ export const sessionTime = (sessionId: string) => parseInt(sessionId.split(".")[
 
 /** A signed-in page's socket to its account (see party/account.ts). */
 export type AccountClientMessage =
-  | { type: "hello"; idToken: string; sessionId: string }
+  /** The ticket carries the account and this device's sign-in. */
+  | { type: "hello"; ticket: string }
   /** The answer to "in-room": play from this device, or have the other one leave the room. */
   | { type: "resolve"; takeOver: boolean };
 

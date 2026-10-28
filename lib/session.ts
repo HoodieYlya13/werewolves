@@ -6,7 +6,6 @@ import { useSyncExternalStore } from "react";
 export type Session = {
   enabled: boolean;
   account: { sub: string; name: string; picture: string | null } | null;
-  idToken: string | null;
   /** This device's sign-in (see `newSessionId`). */
   sessionId: string | null;
   /** The auth server, where the account is managed. */
@@ -15,7 +14,7 @@ export type Session = {
   stats: boolean;
 };
 
-const signedOut: Session = { enabled: false, account: null, idToken: null, sessionId: null, issuer: null, stats: false };
+const signedOut: Session = { enabled: false, account: null, sessionId: null, issuer: null, stats: false };
 let session: Session | null = null;
 let pending: Promise<Session> | null = null;
 const listeners = new Set<() => void>();
@@ -53,9 +52,22 @@ export function useSession() {
   );
 }
 
-/** A fresh ID token to prove the account to the room server, or null when signed out. */
-export async function freshIdToken() {
-  return (await loadSession()).idToken;
+/**
+ * A one-minute ticket proving the account to one room (`{ room }`) or to the
+ * account server, or null when signed out. The ID token never reaches the page.
+ */
+export async function getTicket(to: { room: string } | "account"): Promise<string | null> {
+  // Through the session first: it refreshes the ID token if needed, one request
+  // at a time, so the ticket route never spends the rotating refresh token too.
+  if (!(await loadSession()).account) return null;
+  const res = await fetch("/api/auth/ticket", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(to === "account" ? { account: true } : to),
+    cache: "no-store",
+  }).catch(() => null);
+  if (res?.status === 401) void loadSession(); // Signed out meanwhile: the page catches up.
+  return res?.ok ? ((await res.json()) as { ticket: string }).ticket : null;
 }
 
 /** Signs out on this device only (the account signed in elsewhere): no trip to the auth server. */

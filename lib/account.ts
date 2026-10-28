@@ -2,9 +2,9 @@ import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from "jose";
 import { MAX_NAME_LENGTH } from "./protocol";
 
 /**
- * Accounts from the hy13 auth server (OpenID Connect). Shared by the Next.js
- * sign-in routes and the room server, which checks the ID token itself so a
- * phone can't claim someone else's account.
+ * Accounts from the hy13 auth server (OpenID Connect), for the Next.js sign-in
+ * routes. The room server never sees ID tokens: pages show it tickets instead
+ * (lib/ticket.ts).
  */
 
 export const DEFAULT_ISSUER = "https://auth.hy13dev.com";

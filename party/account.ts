@@ -1,5 +1,6 @@
 import { getServerByName, Server, type Connection } from "partyserver";
-import { DEFAULT_ISSUER, verifyIdToken } from "../lib/account";
+import { verifyTicket } from "../lib/ticket";
+import { workerTicketKey } from "./keys";
 import { sessionTime, type AccountClientMessage, type AccountServerMessage } from "../lib/protocol";
 
 const CURRENT_KEY = "session";
@@ -63,26 +64,25 @@ export class AccountServer extends Server<Env> {
   }
 
   private async hello(conn: Device, msg: Extract<AccountClientMessage, { type: "hello" }>) {
-    if (typeof msg.sessionId !== "string" || !sessionTime(msg.sessionId)) return;
-    const clientId = this.env.AUTH_CLIENT_ID;
-    const account = clientId ? await verifyIdToken(msg.idToken, { issuer: this.env.AUTH_ISSUER || DEFAULT_ISSUER, clientId }) : null;
-    // The socket must prove it is this account.
-    if (!account || account.sub !== this.name) return conn.close(4001, "invalid-account");
+    const ticket = await verifyTicket(await workerTicketKey(this.env), msg.ticket, "account");
+    // The socket must prove it is this account, from a known sign-in.
+    if (!ticket || ticket.sub !== this.name || !ticket.sid || !sessionTime(ticket.sid)) return conn.close(4001, "invalid-account");
+    const sessionId = ticket.sid;
 
     const current = await this.ctx.storage.get<string>(CURRENT_KEY);
-    if (current && sessionTime(msg.sessionId) < sessionTime(current)) {
+    if (current && sessionTime(sessionId) < sessionTime(current)) {
       // An older sign-in, from a device that was replaced since.
       return this.signOut(conn);
     }
-    if (current && current !== msg.sessionId) {
+    if (current && current !== sessionId) {
       // A new device while the account has a seat somewhere: ask it first.
       const seat = await this.liveSeat();
       if (seat) {
-        conn.setState({ sessionId: msg.sessionId, pending: { room: seat.room } });
+        conn.setState({ sessionId, pending: { room: seat.room } });
         return this.send(conn, { type: "in-room", room: seat.room, inGame: seat.inGame });
       }
     }
-    conn.setState({ sessionId: msg.sessionId });
+    conn.setState({ sessionId });
     await this.makeCurrent(conn);
   }
 

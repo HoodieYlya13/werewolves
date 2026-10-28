@@ -1,20 +1,28 @@
 import "server-only";
 import type { NextRequest, NextResponse } from "next/server";
-import { DEFAULT_ISSUER, discover } from "./account";
+import { DEFAULT_ISSUER, discover, verifyIdToken, type Account } from "./account";
+import { newSessionId } from "./protocol";
+import { ticketKey } from "./ticket";
 
 /**
- * Server side of signing in (Next.js route handlers only). The browser never
- * sees the refresh token: it lives in an httpOnly cookie, and /api/auth/session
- * hands out short-lived ID tokens that phones pass to the room server.
+ * Server side of signing in (Next.js route handlers only). The browser sees
+ * neither token: both live in httpOnly cookies scoped to /api/auth. Pages get
+ * the account's name and photo from /api/auth/session, and short-lived
+ * tickets (lib/ticket.ts) from /api/auth/ticket to show the room server.
  */
 
-export type AuthConfig = { issuer: string; clientId: string; clientSecret: string | null };
+export type AuthConfig = { issuer: string; clientId: string; clientSecret: string };
 
-/** Null when no client is configured (e.g. Vercel previews): accounts are off. */
+/**
+ * Null when no client is configured (e.g. Vercel previews): accounts are off.
+ * The client secret is required: tickets for the room server are signed with a
+ * key derived from it (see siteTicketKey).
+ */
 export function authConfig(): AuthConfig | null {
   const clientId = process.env.AUTH_CLIENT_ID;
-  if (!clientId) return null;
-  return { issuer: process.env.AUTH_ISSUER ?? DEFAULT_ISSUER, clientId, clientSecret: process.env.AUTH_CLIENT_SECRET ?? null };
+  const clientSecret = process.env.AUTH_CLIENT_SECRET;
+  if (!clientId || !clientSecret) return null;
+  return { issuer: process.env.AUTH_ISSUER ?? DEFAULT_ISSUER, clientId, clientSecret };
 }
 
 export const SCOPE = "openid profile offline_access";
@@ -54,17 +62,64 @@ export function cookieOptions(request: NextRequest, maxAge: number) {
 
 type TokenResponse = { id_token?: string; refresh_token?: string };
 
-/** Calls the token endpoint, authenticating with the client secret when there is one. */
+/** The key tickets are signed with; null without a client secret (tickets need one). */
+export const siteTicketKey = () => ticketKey({ clientSecret: process.env.AUTH_CLIENT_SECRET });
+
+/** A token about to expire is refreshed rather than relied on. */
+const MIN_VALIDITY_MS = 2 * 60 * 1000;
+
+/**
+ * Who is signed in on this device, from the cookies. Refreshes the ID token
+ * with the refresh token when it's about to expire (the auth server rotates
+ * that one). `finish` writes the new or cleared cookies on the route's response.
+ */
+export async function currentAccount(request: NextRequest, config: AuthConfig) {
+  const savedSession = request.cookies.get(COOKIES.session)?.value;
+  // Signed in before sessions existed: start one now.
+  const sessionId = savedSession ?? newSessionId();
+  const keepSession = (response: NextResponse) => {
+    if (!savedSession) saveSession(request, response, sessionId);
+    return response;
+  };
+
+  const idToken = request.cookies.get(COOKIES.id)?.value;
+  const current = await verifyIdToken(idToken, config);
+  if (current && current.expiresAt - Date.now() > MIN_VALIDITY_MS) {
+    return { account: publicAccount(current), sessionId, finish: keepSession };
+  }
+
+  const refreshToken = request.cookies.get(COOKIES.refresh)?.value;
+  const tokens = refreshToken ? await requestTokens(config, { grant_type: "refresh_token", refresh_token: refreshToken }) : null;
+  const account = await verifyIdToken(tokens?.id_token, config);
+  if (!tokens || !account) {
+    return {
+      account: null,
+      sessionId: null,
+      finish: (response: NextResponse) => {
+        if (refreshToken || idToken) clearTokens(request, response);
+        return response;
+      },
+    };
+  }
+  return {
+    account: publicAccount(account),
+    sessionId,
+    finish: (response: NextResponse) => {
+      saveTokens(request, response, tokens, account.expiresAt);
+      return keepSession(response);
+    },
+  };
+}
+
+const publicAccount = ({ sub, name, picture }: Account): Account => ({ sub, name, picture });
+
+/** Calls the token endpoint, authenticating with the client secret. */
 export async function requestTokens(config: AuthConfig, params: Record<string, string>): Promise<TokenResponse | null> {
   const { token_endpoint } = await discover(config.issuer);
   const headers: Record<string, string> = { "Content-Type": "application/x-www-form-urlencoded" };
   const body = new URLSearchParams(params);
-  if (config.clientSecret) {
-    const credentials = `${encodeURIComponent(config.clientId)}:${encodeURIComponent(config.clientSecret)}`;
-    headers.Authorization = `Basic ${Buffer.from(credentials).toString("base64")}`;
-  } else {
-    body.set("client_id", config.clientId);
-  }
+  const credentials = `${encodeURIComponent(config.clientId)}:${encodeURIComponent(config.clientSecret)}`;
+  headers.Authorization = `Basic ${Buffer.from(credentials).toString("base64")}`;
   const res = await fetch(token_endpoint, { method: "POST", headers, body, cache: "no-store" });
   return res.ok ? ((await res.json()) as TokenResponse) : null;
 }

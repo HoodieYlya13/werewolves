@@ -12,7 +12,9 @@ import {
   type GameSetup,
   type GameState,
 } from "../lib/engine";
-import { DEFAULT_ISSUER, verifyIdToken, type Account } from "../lib/account";
+import type { Account } from "../lib/account";
+import { verifyTicket } from "../lib/ticket";
+import { workerTicketKey } from "./keys";
 import type { Ballot, Timer } from "../lib/ballot";
 import { deleteResult, saveResult, type GameResult } from "../lib/stats";
 import {
@@ -101,6 +103,11 @@ export class RoomServer extends Server<Env> {
   private state: RoomState | null = null;
   /** Cached result of replaying the game log. */
   private game: GameState | null = null;
+  /**
+   * Tickets already used here, until they expire. In memory: a room that
+   * hibernates forgets them, and their one-minute expiry still applies.
+   */
+  private usedTickets = new Map<string, number>();
   /** Writes to the stats database, one at a time and in order. */
   private recording: Promise<void> = Promise.resolve();
 
@@ -199,8 +206,8 @@ export class RoomServer extends Server<Env> {
         // Someone who left may also join again as a new player, leaving their old seat behind.
         const canJoin = () => sender.state?.kind === "guest" || sender.state?.kind === "returning";
         if (!canJoin()) return;
-        const account = msg.idToken === undefined ? null : await this.verifyAccount(sender, msg.idToken);
-        if (msg.idToken !== undefined && !account) return;
+        const account = msg.ticket === undefined ? null : await this.verifyAccount(sender, msg.ticket);
+        if (msg.ticket !== undefined && !account) return;
         // Checking the account went to the network: the room may have changed meanwhile.
         if (!this.state || !canJoin()) return;
 
@@ -253,7 +260,7 @@ export class RoomServer extends Server<Env> {
       }
       case "link-account": {
         if (sender.state?.kind !== "player") return;
-        const account = await this.verifyAccount(sender, msg.idToken);
+        const account = await this.verifyAccount(sender, msg.ticket);
         if (!account || !this.state || sender.state?.kind !== "player") return;
         const playerId = sender.state.playerId;
         const player = this.state.players.find((p) => p.id === playerId);
@@ -296,7 +303,7 @@ export class RoomServer extends Server<Env> {
         const known = [...this.state.players, ...(this.state.formerPlayers ?? [])].find((p) => p.id === playerId);
         if (known?.sub) {
           // An account's seat only goes back to that account, signed in on this phone.
-          const account = await this.verifyAccount(sender, msg.idToken);
+          const account = await this.verifyAccount(sender, msg.ticket);
           if (!account || !this.state || sender.state?.kind !== "returning") return;
           if (account.sub !== known.sub) return this.send(sender, { type: "error", code: "wrong-account" });
           if (!(await this.checkOtherRoom(sender, account.sub, msg.leaveOther))) return;
@@ -361,11 +368,11 @@ export class RoomServer extends Server<Env> {
       }
       case "host-account": {
         if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
-        if (msg.idToken === null) {
+        if (msg.ticket === null) {
           delete this.state.hostSub;
           break;
         }
-        const account = await this.verifyAccount(sender, msg.idToken);
+        const account = await this.verifyAccount(sender, msg.ticket);
         if (!account || !this.state) return;
         // Playing in this room already: one role per account.
         if (this.state.players.some((p) => p.sub === account.sub && !p.left)) {
@@ -741,11 +748,17 @@ export class RoomServer extends Server<Env> {
   }
 
   /** Checks an ID token from the auth server. Accounts are off when no client id is set. */
-  private async verifyAccount(conn: Conn, idToken: unknown) {
-    const clientId = this.env.AUTH_CLIENT_ID;
-    const account = clientId ? await verifyIdToken(idToken, { issuer: this.env.AUTH_ISSUER || DEFAULT_ISSUER, clientId }) : null;
-    if (!account) this.send(conn, { type: "error", code: "invalid-account" });
-    return account;
+  /** The account a page's ticket stands for (lib/ticket.ts). Each ticket works once, in this room only. */
+  private async verifyAccount(conn: Conn, token: unknown): Promise<Account | null> {
+    const ticket = await verifyTicket(await workerTicketKey(this.env), token, { room: this.name });
+    const now = Date.now() / 1000;
+    for (const [jti, exp] of this.usedTickets) if (exp < now) this.usedTickets.delete(jti);
+    if (!ticket || this.usedTickets.has(ticket.jti)) {
+      this.send(conn, { type: "error", code: "invalid-account" });
+      return null;
+    }
+    this.usedTickets.set(ticket.jti, ticket.exp);
+    return { sub: ticket.sub, name: ticket.name, picture: ticket.picture };
   }
 
   /** A player (current or former) signed in with this account. */
