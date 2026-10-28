@@ -15,7 +15,13 @@ export async function GET(request: NextRequest) {
   return finish(json({ enabled: true, account, sessionId }));
 }
 
-function json(session: Omit<Session, "issuer" | "stats">) {
-  const value: Session = { ...session, issuer: authConfig()?.issuer ?? null, stats: session.enabled && !!process.env.POSTGRES_URL };
+function json(session: Omit<Session, "issuer" | "clientId" | "stats">) {
+  const config = authConfig();
+  const value: Session = {
+    ...session,
+    issuer: config?.issuer ?? null,
+    clientId: config?.clientId ?? null,
+    stats: session.enabled && !!process.env.POSTGRES_URL,
+  };
   return NextResponse.json(value, { headers: { "Cache-Control": "no-store" } });
 }

@@ -25,7 +25,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { format } from "@/lib/i18n/config";
-import { getSignOutGuard, signInUrl, signOutUrl, useSession, type SignOutGuard } from "@/lib/session";
+import { accountPageUrl, getSignOutGuard, signInUrl, signOutUrl, useSession, type SignOutGuard } from "@/lib/session";
 
 /** Full-page redirect to sign in or out through the auth server, then back to `returnTo` (this page by default). */
 export function goToAuth(to: "in" | "out", returnTo = window.location.pathname + window.location.search) {
@@ -62,7 +62,7 @@ export function AccountButton() {
   }
 
   const { name, picture } = session.account;
-  const { issuer } = session;
+  const accountPage = accountPageUrl(session, locale);
   return (
     <>
       {/* Not modal, so the confirmation can take over focus once the menu closes. */}
@@ -83,10 +83,10 @@ export function AccountButton() {
               </Link>
             </DropdownMenuItem>
           )}
-          {issuer && (
+          {accountPage && (
             <DropdownMenuItem asChild>
-              {/* The auth server speaks the same languages (en, fr). */}
-              <a href={`${issuer}/${locale}/account`} target="_blank" rel="noopener noreferrer">
+              {/* Same tab: the account page links back to the app. */}
+              <a href={accountPage}>
                 <UserCog aria-hidden />
                 {dict.account.manage}
               </a>

@@ -10,11 +10,13 @@ export type Session = {
   sessionId: string | null;
   /** The auth server, where the account is managed. */
   issuer: string | null;
+  /** This app's OIDC client id, so the account page can link back here. */
+  clientId: string | null;
   /** Whether finished games are saved, for the stats page. */
   stats: boolean;
 };
 
-const signedOut: Session = { enabled: false, account: null, sessionId: null, issuer: null, stats: false };
+const signedOut: Session = { enabled: false, account: null, sessionId: null, issuer: null, clientId: null, stats: false };
 let session: Session | null = null;
 let pending: Promise<Session> | null = null;
 const listeners = new Set<() => void>();
@@ -86,6 +88,18 @@ export function setSignOutGuard(guard: SignOutGuard | null) {
   signOutGuard = guard;
 }
 export const getSignOutGuard = () => signOutGuard;
+
+/**
+ * The account page on the auth server, in the page's language. `client_id`
+ * lets it show a link back to this app (it uses the app's registered settings
+ * for where that link goes, so no return URL is passed).
+ */
+export function accountPageUrl(session: Session, locale: string): string | null {
+  if (!session.issuer || !session.clientId) return null;
+  const url = new URL(`/${locale === "fr" ? "fr" : "en"}/account`, session.issuer);
+  url.searchParams.set("client_id", session.clientId);
+  return url.toString();
+}
 
 export const signInUrl = (returnTo: string) => `/api/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
 export const signOutUrl = (returnTo: string) => `/api/auth/logout?returnTo=${encodeURIComponent(returnTo)}`;
