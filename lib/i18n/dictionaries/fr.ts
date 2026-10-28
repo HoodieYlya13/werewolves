@@ -178,6 +178,13 @@ const fr: Dictionary = {
     crashedBody: "La partie continue. Rechargez pour la retrouver.",
     retry: "Recharger",
   },
+  resume: {
+    player: "Vous êtes dans la partie {code} sous le nom de {name}.",
+    playerGame: "Votre partie {code} est en cours, {name}.",
+    host: "Vous menez la partie {code}.",
+    hostGame: "Votre partie {code} est en cours.",
+    back: "Retourner à la partie",
+  },
   stats: {
     title: "Mes statistiques",
     signIn: "Connectez-vous pour voir vos statistiques.",

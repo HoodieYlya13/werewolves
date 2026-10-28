@@ -176,6 +176,13 @@ const en = {
     crashedBody: "The room is still running. Reload to get back to it.",
     retry: "Reload",
   },
+  resume: {
+    player: "You're in room {code} as {name}.",
+    playerGame: "Your game in room {code} is on, {name}.",
+    host: "You're running room {code}.",
+    hostGame: "Your game in room {code} is on.",
+    back: "Back to the room",
+  },
   stats: {
     title: "My stats",
     signIn: "Sign in to see your stats.",

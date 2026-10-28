@@ -26,6 +26,7 @@ import {
   type PublicPlayer,
   type RejoinRequest,
   type RoomView,
+  type SeatStatus,
   type ServerMessage,
   type StartGame,
 } from "../lib/protocol";
@@ -607,6 +608,7 @@ export class RoomServer extends Server<Env> {
 
   /** Serves player photos at /parties/main/:room/photo/:playerId. */
   async onRequest(request: Request) {
+    if (new URL(request.url).pathname.endsWith("/seat")) return this.seatStatus(request);
     const match = new URL(request.url).pathname.match(/\/photo\/([\w-]+)$/);
     const data = match && this.state ? await this.ctx.storage.get<string>(PHOTO_PREFIX + match[1]) : undefined;
     if (!data) return new Response("Not found", { status: 404 });
@@ -616,6 +618,30 @@ export class RoomServer extends Server<Env> {
     return new Response(bytes, {
       headers: { "Content-Type": type, "Cache-Control": "public, max-age=31536000, immutable" },
     });
+  }
+
+  /**
+   * Whether a seat saved on a device is still this room's, so pages outside
+   * the room can offer to go back (POST /parties/main/:room/seat with the
+   * saved identity; plain text, so no CORS preflight).
+   */
+  private async seatStatus(request: Request) {
+    const headers = { "Access-Control-Allow-Origin": "*", "Cache-Control": "no-store" };
+    if (request.method !== "POST") return new Response(null, { status: 405, headers });
+    let body: { as?: unknown; id?: unknown; token?: unknown } | null = null;
+    try {
+      body = JSON.parse(await request.text());
+    } catch {}
+    const s = this.state;
+    const token = typeof body?.token === "string" && body.token ? body.token : null;
+    let seat: SeatStatus = { active: false };
+    if (s && token && body?.as === "host" && token === s.hostToken) {
+      seat = { active: true, role: "host", inGame: !!s.game };
+    } else if (s && token && body?.as === "player") {
+      const player = [...s.players, ...(s.formerPlayers ?? [])].find((p) => p.id === body.id && p.token === token);
+      if (player) seat = { active: true, role: "player", name: player.name, inGame: !!s.game };
+    }
+    return Response.json(seat, { headers });
   }
 
   async onAlarm() {

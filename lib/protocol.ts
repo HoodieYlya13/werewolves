@@ -95,6 +95,12 @@ export type PlayerView = BaseView & {
 
 export type RoomView = HostView | PlayerView;
 
+/** Answer to "is this saved seat still mine?" (pages outside the room, see ResumeRooms). */
+export type SeatStatus =
+  | { active: false }
+  | { active: true; role: "host"; inGame: boolean }
+  | { active: true; role: "player"; name: string; inGame: boolean };
+
 export type ErrorCode =
   | "room-not-found"
   | "room-taken"

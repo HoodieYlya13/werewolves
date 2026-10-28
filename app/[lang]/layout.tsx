@@ -5,6 +5,7 @@ import { AccountButton } from "@/components/account-button";
 import { I18nProvider } from "@/components/i18n-provider";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeSwitcher } from "@/components/theme-switcher";
+import { ResumeRooms } from "@/components/resume-rooms";
 import { SessionGuard } from "@/components/session-guard";
 import { Toaster } from "@/components/ui/sonner";
 import { locales } from "@/lib/i18n/config";
@@ -64,6 +65,7 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
                 <AccountButton />
               </div>
             </header>
+            <ResumeRooms />
             {children}
             {/* Down here, so the header has room for the account on phones. */}
             <footer className="flex justify-center px-4 py-4">

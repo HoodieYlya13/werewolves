@@ -1,3 +1,5 @@
+import type { SeatStatus } from "./protocol";
+
 // No I, O, 0 or 1: easy to read off a screen and type on a phone.
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ";
 export const CODE_LENGTH = 4;
@@ -67,6 +69,41 @@ export const identity = {
   getPhoto: () => read<string>(PHOTO_KEY),
   setPhoto: (photo: string | null) => write(PHOTO_KEY, photo),
 };
+
+/** Every room this device has a saved seat in, as the game master or a player. */
+export function savedSeats(): { code: string; as: "host" | "player"; id?: string; token: string }[] {
+  const seats: ReturnType<typeof savedSeats> = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const match = localStorage.key(i)?.match(/^ww:(host|player):([A-Z]{4})$/);
+      if (!match) continue;
+      const code = match[2];
+      if (match[1] === "host") {
+        const saved = identity.getHost(code);
+        if (saved?.token) seats.push({ code, as: "host", token: saved.token });
+      } else {
+        const saved = identity.getPlayer(code);
+        if (saved?.token) seats.push({ code, as: "player", id: saved.id, token: saved.token });
+      }
+    }
+  } catch {}
+  return seats;
+}
+
+/** Asks a room whether a saved seat is still this device's. Null when the room server can't be reached. */
+export async function seatStatus(seat: ReturnType<typeof savedSeats>[number]): Promise<SeatStatus | null> {
+  try {
+    const res = await fetch(`${partyOrigin()}/parties/main/${seat.code}/seat`, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({ as: seat.as, id: seat.id, token: seat.token }),
+      cache: "no-store",
+    });
+    return res.ok ? ((await res.json()) as SeatStatus) : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Set before opening a room to take an account's seat over from another device (see SessionGuard). */
 export const takeoverKey = (code: string) => `ww:takeover:${code}`;
