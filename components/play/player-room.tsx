@@ -42,7 +42,7 @@ export function PlayerRoom() {
 const rejoinKey = (code: string) => `ww:rejoin:${code}`;
 
 /** Errors about the account, which the screen has no better place to show. */
-const PHONE_TOASTS: ErrorCode[] = ["invalid-account", "account-in-use"];
+const PHONE_TOASTS: ErrorCode[] = ["invalid-account", "account-in-use", "account-is-host"];
 
 function PlayerScreen({ code }: { code: string }) {
   const { dict, locale } = useI18n();

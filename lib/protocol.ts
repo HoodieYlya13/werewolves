@@ -111,6 +111,8 @@ export type ErrorCode =
   | "invalid-account"
   /** That account is already another player in this room. */
   | "account-in-use"
+  /** The game master is signed in with this account here. */
+  | "account-is-host"
   /** This seat's account joined the room from another device, which took it over. */
   | "signed-in-elsewhere"
   /** Asked to come back to a seat that belongs to a different account. */

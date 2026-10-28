@@ -219,6 +219,7 @@ const fr: Dictionary = {
     "room-closed": "Le meneur a fermé la partie.",
     "invalid-account": "Votre connexion a expiré. Reconnectez-vous.",
     "account-in-use": "Ce compte joue déjà dans cette partie.",
+    "account-is-host": "Ce compte est celui du meneur de cette partie. Vous jouerez avec dès qu'il sera déconnecté sur l'écran du meneur.",
     "moved-room": "Votre compte a rejoint une autre partie : vous avez quitté celle-ci.",
     "left-elsewhere": "Votre compte s'est connecté sur un autre appareil, qui vous a retiré de cette partie.",
     "wrong-account": "Cette place appartient à un autre compte. Connectez-vous avec celui-ci, ou rejoignez la partie comme nouvelle personne.",

@@ -217,6 +217,7 @@ const en = {
     "room-closed": "The game master closed the room.",
     "invalid-account": "Your sign-in has expired. Sign in again.",
     "account-in-use": "That account is already playing in this room.",
+    "account-is-host": "This account is the game master's here. You'll play with it as soon as it's signed out on the game master's screen.",
     "moved-room": "Your account joined another room, so you left this one.",
     "left-elsewhere": "Your account signed in on another device, which took you out of this room.",
     "wrong-account": "This seat belongs to another account. Sign in with it, or join as a new player.",

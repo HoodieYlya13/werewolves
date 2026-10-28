@@ -83,7 +83,11 @@ const MAX_TIMER_SECONDS = 60 * 60;
 /** Who a socket belongs to. Kept on the connection so it survives restarts. */
 type ConnState =
   | { kind: "host" }
-  | { kind: "player"; playerId: string }
+  /**
+   * `pendingLink`: signed in with the game master's account, which links to
+   * this seat once the master's screen lets it go (see completePendingLinks).
+   */
+  | { kind: "player"; playerId: string; pendingLink?: Account }
   /** Someone who left: they see the room but need the game master's OK to come back. */
   | { kind: "returning"; playerId: string }
   /** An account's seat, on a phone that hasn't proved the account yet (see `unlock`). */
@@ -246,7 +250,7 @@ export class RoomServer extends Server<Env> {
         if (this.state.locked) return this.send(sender, { type: "error", code: "room-locked" });
         if (account) {
           // The game master's own account can't also play.
-          if (account.sub === this.state.hostSub) return this.send(sender, { type: "error", code: "account-in-use" });
+          if (account.sub === this.state.hostSub) return this.send(sender, { type: "error", code: "account-is-host" });
           if (!(await this.checkOtherRoom(sender, account.sub, msg.leaveOther))) return;
           if (!this.state || !canJoin()) return;
         }
@@ -274,15 +278,16 @@ export class RoomServer extends Server<Env> {
         const player = this.state.players.find((p) => p.id === playerId);
         if (!player || player.sub === account.sub) return;
         const other = this.findAccount(account.sub);
-        if (player.sub || other || account.sub === this.state.hostSub) return this.send(sender, { type: "error", code: "account-in-use" });
+        if (player.sub || other) return this.send(sender, { type: "error", code: "account-in-use" });
         if (!(await this.checkOtherRoom(sender, account.sub, msg.leaveOther))) return;
         if (!this.state || sender.state?.kind !== "player" || player.sub) return;
-        player.sub = account.sub;
-        // The account's photo replaces the one set in the room.
-        player.photo = null;
-        await this.ctx.storage.delete(PHOTO_PREFIX + player.id);
-        this.applyAccount(player, account);
-        await this.tellAccount(account.sub, true);
+        if (account.sub === this.state.hostSub) {
+          // Signing in here signs the account out on the game master's screen
+          // (one device per account); the seat becomes the account's then.
+          sender.setState({ kind: "player", playerId, pendingLink: account });
+          return this.send(sender, { type: "error", code: "account-is-host" });
+        }
+        await this.linkSeat(player, account);
         break;
       }
       case "unlock": {
@@ -396,6 +401,7 @@ export class RoomServer extends Server<Env> {
         if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
         if (msg.ticket === null) {
           delete this.state.hostSub;
+          await this.completePendingLinks();
           break;
         }
         const account = await this.verifyAccount(sender, msg.ticket);
@@ -405,6 +411,7 @@ export class RoomServer extends Server<Env> {
           return this.send(sender, { type: "error", code: "account-in-use" });
         }
         this.state.hostSub = account.sub;
+        await this.completePendingLinks();
         break;
       }
       case "add-player": {
@@ -785,6 +792,29 @@ export class RoomServer extends Server<Env> {
     }
     this.usedTickets.set(ticket.jti, ticket.exp);
     return { sub: ticket.sub, name: ticket.name, picture: ticket.picture };
+  }
+
+  /** A guest's seat becomes an account's: its name and photo from now on. */
+  private async linkSeat(player: StoredPlayer, account: Account) {
+    player.sub = account.sub;
+    // The account's photo replaces the one set in the room.
+    player.photo = null;
+    await this.ctx.storage.delete(PHOTO_PREFIX + player.id);
+    this.applyAccount(player, account);
+    await this.tellAccount(account.sub, true);
+  }
+
+  /** The game master's account changed: seats waiting for it get linked now. */
+  private async completePendingLinks() {
+    for (const conn of this.getConnections<ConnState>()) {
+      const state = conn.state;
+      if (state?.kind !== "player" || !state.pendingLink) continue;
+      const account = state.pendingLink;
+      if (account.sub === this.state!.hostSub) continue;
+      conn.setState({ kind: "player", playerId: state.playerId });
+      const player = this.state!.players.find((p) => p.id === state.playerId);
+      if (player && !player.sub && !this.findAccount(account.sub)) await this.linkSeat(player, account);
+    }
   }
 
   /** A player (current or former) signed in with this account. */
