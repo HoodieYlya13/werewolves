@@ -25,7 +25,8 @@ export function authConfig(): AuthConfig | null {
   return { issuer: process.env.AUTH_ISSUER ?? DEFAULT_ISSUER, clientId, clientSecret };
 }
 
-export const SCOPE = "openid profile offline_access";
+// Only what other players see: username, first name and photo (no last name or birthday).
+export const SCOPE = "openid public_profile offline_access";
 export const COOKIES = { flow: "ww_auth_flow", refresh: "ww_refresh", id: "ww_id", session: "ww_session" } as const;
 const REFRESH_MAX_AGE = 30 * 24 * 60 * 60;
 

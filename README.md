@@ -47,7 +47,7 @@ Players can sign in with the [hy13 auth server](https://auth.hy13dev.com) (OpenI
 
 The site does the sign-in (Authorization Code with PKCE and the client secret, in `app/api/auth`) and keeps both tokens in httpOnly cookies scoped to `/api/auth`: the page's JavaScript never sees them. To prove the account to the room server, which runs on another domain, a page asks `/api/auth/ticket` for a ticket (`lib/ticket.ts`): signed by the site, valid for one minute, for one room (or the account server), usable once, and carrying only the account's id, first name and photo.
 
-Register a confidential client on the auth server with the redirect URI `<site>/api/auth/callback` and the post-logout URI `<site>/api/auth/logged-out` (scopes `openid profile offline_access`), then set `AUTH_CLIENT_ID` and `AUTH_CLIENT_SECRET` in `.env.local` and in Vercel. The build gives the room server a ticket key derived from the client secret (never the secret itself). Leave them unset (for example on Preview, whose URLs change) and the sign-in button is hidden.
+Register a confidential client on the auth server with the redirect URI `<site>/api/auth/callback` and the post-logout URI `<site>/api/auth/logged-out` (scopes `openid public_profile offline_access`), then set `AUTH_CLIENT_ID` and `AUTH_CLIENT_SECRET` in `.env.local` and in Vercel. The build gives the room server a ticket key derived from the client secret (never the secret itself). Leave them unset (for example on Preview, whose URLs change) and the sign-in button is hidden.
 
 Every server deploy restarts the rooms: connected players reconnect on their own after a moment and keep their game.
 
