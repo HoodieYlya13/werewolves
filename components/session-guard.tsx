@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import usePartySocket from "partysocket/react";
 import { toast } from "sonner";
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { format } from "@/lib/i18n/config";
 import type { AccountClientMessage, AccountServerMessage } from "@/lib/protocol";
-import { partyHost, takeoverKey } from "@/lib/room";
+import { identity, partyHost, takeoverKey } from "@/lib/room";
 import { forgetSession, getTicket, useSession } from "@/lib/session";
 
 /**
@@ -38,6 +38,7 @@ function AccountSocket({ sub }: { sub: string }) {
   const t = dict.account.inRoom;
   // The account has a seat in a room on another device: play from here instead?
   const [seat, setSeat] = useState<{ room: string; inGame: boolean } | null>(null);
+  const sameDevice = useRef(false);
 
   const socket = usePartySocket({
     host: partyHost(),
@@ -53,9 +54,16 @@ function AccountSocket({ sub }: { sub: string }) {
           void forgetSession().then(() => toast(dict.account.signedOutElsewhere, { duration: 10_000 }));
           break;
         case "in-room":
+          // Signed in again on the device that holds the seat: nothing to ask.
+          if (identity.getPlayer(msg.room)?.id === msg.playerId) {
+            sameDevice.current = true;
+            send({ type: "resolve", takeOver: true });
+            break;
+          }
           setSeat({ room: msg.room, inGame: msg.inGame });
           break;
         case "resolved":
+          if (sameDevice.current) break;
           if (!msg.takeOver) {
             toast(format(t.left, { code: msg.room }));
             break;

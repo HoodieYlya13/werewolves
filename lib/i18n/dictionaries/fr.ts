@@ -87,6 +87,12 @@ const fr: Dictionary = {
       body: "Vous pourrez demander au meneur de vous laisser revenir.",
       bodyInGame: "Le meneur continuera à jouer votre rôle à votre place. Vous pourrez demander à revenir.",
     },
+    lockedSeat: {
+      title: "Votre place vous attend",
+      hint: "Cette place appartient au compte de {name}. Connectez-vous avec ce compte pour continuer à jouer. Ou rejoignez la partie comme nouvelle personne : le meneur joue cette place.",
+      wrongAccount: "Ce n'est pas le bon compte. Déconnectez-vous, puis connectez-vous en tant que {name}. Ou rejoignez la partie comme nouvelle personne.",
+      signIn: "Se connecter pour continuer",
+    },
     rejoin: {
       title: "Vous avez quitté cette partie",
       hint: "Demandez au meneur de vous laisser revenir. Vous pouvez d'abord changer de nom.",

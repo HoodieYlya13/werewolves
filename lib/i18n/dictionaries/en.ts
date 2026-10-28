@@ -85,6 +85,12 @@ const en = {
       body: "You can ask the game master to let you back in later.",
       bodyInGame: "You stay in the game: the game master plays your part. You can ask to come back later.",
     },
+    lockedSeat: {
+      title: "Your seat is waiting",
+      hint: "This seat belongs to {name}'s account. Sign in with it to keep playing. Or join as a new player, and the game master plays this seat.",
+      wrongAccount: "You're signed in with another account. Sign out, then sign in as {name}. Or join as a new player.",
+      signIn: "Sign in to continue",
+    },
     rejoin: {
       title: "You left this room",
       hint: "Ask the game master to let you back in. You can change your name first.",

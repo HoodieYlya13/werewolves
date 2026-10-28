@@ -79,7 +79,7 @@ export class AccountServer extends Server<Env> {
       const seat = await this.liveSeat();
       if (seat) {
         conn.setState({ sessionId, pending: { room: seat.room } });
-        return this.send(conn, { type: "in-room", room: seat.room, inGame: seat.inGame });
+        return this.send(conn, { type: "in-room", room: seat.room, inGame: seat.inGame, playerId: seat.playerId });
       }
     }
     conn.setState({ sessionId });
@@ -120,7 +120,7 @@ export class AccountServer extends Server<Env> {
       if (room === except) continue;
       try {
         const seat = await (await getServerByName(this.env.Main, room)).accountSeat(this.name);
-        if (seat) return { room, inGame: seat.inGame };
+        if (seat) return { room, ...seat };
       } catch {}
       await this.removeRoom(room);
     }

@@ -85,6 +85,12 @@ export type PlayerView = BaseView & {
   rejoin: { name: string; account: boolean; status: "idle" | "pending" | "denied" } | null;
   /** This player's name was given to someone who signed in with it; they can pick another. */
   renamed: boolean;
+  /**
+   * Set when this phone holds an account's seat but hasn't proved the account
+   * yet (signed out, sign-in expired, cookies cleared): it needs a ticket from
+   * that account to take the seat back (`unlock`).
+   */
+  lockedSeat: { name: string; picture: string | null } | null;
 };
 
 export type RoomView = HostView | PlayerView;
@@ -140,6 +146,8 @@ export type ClientMessage =
   | { type: "join"; name: string; photo?: string | null; ticket?: string; leaveOther?: boolean }
   /** A player who signed in after joining links their seat to the account. */
   | { type: "link-account"; ticket: string; leaveOther?: boolean }
+  /** Takes back this phone's account seat (see PlayerView.lockedSeat) with a ticket from that account. */
+  | { type: "unlock"; ticket: string }
   /** A player without an account changes their own name, at any time. */
   | { type: "rename-self"; name: string }
   /** Leaves the room. Mid-game the player stays in the game for the game master to play. */
@@ -204,7 +212,7 @@ export type AccountServerMessage =
   /** This device was replaced by a newer sign-in. */
   | { type: "signed-out" }
   /** This new sign-in's account has a seat in `room` on another device: asks what to do. */
-  | { type: "in-room"; room: string; inGame: boolean }
+  | { type: "in-room"; room: string; inGame: boolean; playerId: string }
   /** Done: the other device is signed out (and out of the room unless `takeOver`). */
   | { type: "resolved"; takeOver: boolean; room: string };
 

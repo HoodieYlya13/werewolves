@@ -49,8 +49,8 @@ function PlayerScreen({ code }: { code: string }) {
   const router = useRouter();
   const { view, error, status, send, clockOffset, close, flushed, otherRoom, clearOtherRoom } = useRoom<PlayerView>(code, "player");
   // The last join, link or rejoin sent with the account, to send again after "leave the other room".
-  const lastAccountMessage = useRef<Extract<ClientMessage, { ticket?: string }> | null>(null);
-  function sendWithAccount(message: Extract<ClientMessage, { ticket?: string }>) {
+  const lastAccountMessage = useRef<Extract<ClientMessage, { leaveOther?: boolean }> | null>(null);
+  function sendWithAccount(message: Extract<ClientMessage, { leaveOther?: boolean }>) {
     lastAccountMessage.current = message;
     send(message);
   }
@@ -93,6 +93,14 @@ function PlayerScreen({ code }: { code: string }) {
     }
     void getTicket({ room: code }).then((ticket) => ticket && send((lastAccountMessage.current = { type: "request-rejoin", name: "", ticket })));
   }, [rejoinAccount, signedIn, code, send]);
+
+  // This phone's seat is an account's: prove the account to take it back (on
+  // every connection, since the room asks again after each reconnect).
+  const lockedName = view?.lockedSeat?.name;
+  const unlock = useEffectEvent(() => void getTicket({ room: code }).then((ticket) => ticket && send({ type: "unlock", ticket })));
+  useEffect(() => {
+    if (lockedName && signedIn && status === "open") unlock();
+  }, [lockedName, signedIn, status]);
 
   // Signing out while this seat is the account's leaves the room too (after a confirmation).
   const accountSeat = !!me?.account;
@@ -203,7 +211,16 @@ function PlayerScreen({ code }: { code: string }) {
         />
       )}
 
-      {view && !me && (!view.rejoin || joinAsNew) && account && (
+      {view?.lockedSeat && !joinAsNew && (
+        <LockedSeatCard
+          seat={view.lockedSeat}
+          signedIn={signedIn}
+          wrongAccount={error === "wrong-account"}
+          onJoinAsNew={() => setJoinAsNew(true)}
+        />
+      )}
+
+      {view && !me && ((!view.rejoin && !view.lockedSeat) || joinAsNew) && account && (
         <section className="card flex flex-col items-center gap-3 p-6 text-center">
           <Face name={account.name} src={account.picture} className="size-24 text-3xl" />
           <p className="text-muted-foreground">{dict.account.fromAccount}</p>
@@ -224,7 +241,7 @@ function PlayerScreen({ code }: { code: string }) {
         </section>
       )}
 
-      {view && !me && (!view.rejoin || joinAsNew) && !account && (
+      {view && !me && ((!view.rejoin && !view.lockedSeat) || joinAsNew) && !account && (
         <form
           className="card flex flex-col gap-3 p-6"
           onSubmit={(e) => {
@@ -547,6 +564,46 @@ function NameEditor({ name, error, onSave }: { name: string; error: ErrorCode | 
 }
 
 /** Someone who left this room asks the game master to let them back in. */
+/** This phone's seat belongs to an account it isn't signed in to (anymore). */
+function LockedSeatCard({
+  seat,
+  signedIn,
+  wrongAccount,
+  onJoinAsNew,
+}: {
+  seat: NonNullable<PlayerView["lockedSeat"]>;
+  signedIn: boolean;
+  wrongAccount: boolean;
+  onJoinAsNew: () => void;
+}) {
+  const { dict } = useI18n();
+  const t = dict.play.lockedSeat;
+  return (
+    <section className="card flex flex-col items-center gap-3 p-6 text-center">
+      <Face name={seat.name} src={seat.picture} className="size-24 text-3xl" />
+      <p className="text-xl font-semibold">{t.title}</p>
+      <p className="text-muted-foreground">{format(wrongAccount ? t.wrongAccount : t.hint, { name: seat.name })}</p>
+      {/* Signed in with the right account, the seat comes back on its own (see the effect above). */}
+      {!signedIn && (
+        <AuthButton to="in" className="w-full">
+          <LogIn aria-hidden />
+          {t.signIn}
+        </AuthButton>
+      )}
+      {signedIn && wrongAccount && (
+        <AuthButton to="out" variant="outline" className="w-full">
+          <LogOut aria-hidden />
+          {dict.account.signOut}
+        </AuthButton>
+      )}
+      <Button type="button" variant="outline" className="w-full" onClick={onJoinAsNew}>
+        <UserPlus aria-hidden />
+        {dict.play.rejoin.joinAsNew}
+      </Button>
+    </section>
+  );
+}
+
 function RejoinCard({
   rejoin,
   error,

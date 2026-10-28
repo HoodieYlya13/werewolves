@@ -45,7 +45,7 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
       switch (msg.type) {
         case "view":
           // Stored identity that the room no longer knows (removed, room reset).
-          if (msg.view.kind === "player" && !msg.view.me && !msg.view.rejoin) identity.setPlayer(code, null);
+          if (msg.view.kind === "player" && !msg.view.me && !msg.view.rejoin && !msg.view.lockedSeat) identity.setPlayer(code, null);
           setView(msg.view as V);
           setClockOffset(offsetFrom(msg.view.serverNow));
           setError(null);
