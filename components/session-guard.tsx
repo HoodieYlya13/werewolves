@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { format } from "@/lib/i18n/config";
 import type { AccountClientMessage, AccountServerMessage } from "@/lib/protocol";
-import { identity, partyHost, takeoverKey } from "@/lib/room";
+import { hostTakeoverKey, identity, partyHost, takeoverKey } from "@/lib/room";
 import { forgetSession, getTicket, useSession } from "@/lib/session";
 
 /**
@@ -37,7 +37,7 @@ function AccountSocket({ sub }: { sub: string }) {
   const router = useRouter();
   const t = dict.account.inRoom;
   // The account has a seat in a room on another device: play from here instead?
-  const [seat, setSeat] = useState<{ room: string; inGame: boolean } | null>(null);
+  const [seat, setSeat] = useState<{ room: string; inGame: boolean; role: "player" | "host" } | null>(null);
   const sameDevice = useRef(false);
 
   const socket = usePartySocket({
@@ -55,17 +55,25 @@ function AccountSocket({ sub }: { sub: string }) {
           break;
         case "in-room":
           // Signed in again on the device that holds the seat: nothing to ask.
-          if (identity.getPlayer(msg.room)?.id === msg.playerId) {
+          if (msg.role === "host" ? !!identity.getHost(msg.room) : identity.getPlayer(msg.room)?.id === msg.playerId) {
             sameDevice.current = true;
-            send({ type: "resolve", takeOver: true });
+            send({ type: "resolve", takeOver: true, here: true });
             break;
           }
-          setSeat({ room: msg.room, inGame: msg.inGame });
+          setSeat({ room: msg.room, inGame: msg.inGame, role: msg.role });
           break;
         case "resolved":
           if (sameDevice.current) break;
           if (!msg.takeOver) {
-            toast(format(t.left, { code: msg.room }));
+            toast(format(msg.role === "host" ? t.leftHost : t.left, { code: msg.room }));
+            break;
+          }
+          if (msg.role === "host") {
+            // The host page opens the room with a ticket, which makes this device the master.
+            try {
+              sessionStorage.setItem(hostTakeoverKey(msg.room), "1");
+            } catch {}
+            router.push(`/${locale}/host/${msg.room}`);
             break;
           }
           // The room page joins with the account as soon as it opens, which moves the seat here.
@@ -87,19 +95,22 @@ function AccountSocket({ sub }: { sub: string }) {
     setSeat(null);
   }
 
+  const host = seat?.role === "host";
   return (
     <AlertDialog open={seat !== null}>
       {/* An answer is needed: the other device waits for it. */}
       <AlertDialogContent onEscapeKeyDown={(e) => e.preventDefault()}>
         <AlertDialogHeader>
-          <AlertDialogTitle>{seat?.inGame ? t.titleGame : t.titleRoom}</AlertDialogTitle>
+          <AlertDialogTitle>
+            {format(host ? t.titleHost : seat?.inGame ? t.titleGame : t.titleRoom, { code: seat?.room ?? "" })}
+          </AlertDialogTitle>
           <AlertDialogDescription>
-            {format(t.body, { code: seat?.room ?? "" })} {t.bodyNo}
+            {format(host ? t.bodyHost : t.body, { code: seat?.room ?? "" })} {host ? t.bodyNoHost : t.bodyNo}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => answer(false)}>{t.leave}</AlertDialogCancel>
-          <AlertDialogAction onClick={() => answer(true)}>{t.playHere}</AlertDialogAction>
+          <AlertDialogCancel onClick={() => answer(false)}>{host ? t.leaveHost : t.leave}</AlertDialogCancel>
+          <AlertDialogAction onClick={() => answer(true)}>{host ? t.runHere : t.playHere}</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

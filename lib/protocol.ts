@@ -119,6 +119,8 @@ export type ErrorCode =
   | "account-in-use"
   /** The game master is signed in with this account here. */
   | "account-is-host"
+  /** The game master's account opened this room on another device, which runs it now. */
+  | "host-moved"
   /** This seat's account joined the room from another device, which took it over. */
   | "signed-in-elsewhere"
   /** Asked to come back to a seat that belongs to a different account. */
@@ -136,6 +138,8 @@ export type ServerMessage =
    * `leaveOther` to leave it (one room at a time per account).
    */
   | { type: "other-room"; room: string; inGame: boolean }
+  /** This device is now the game master (it took the room over from another device): its key from now on. */
+  | { type: "host-token"; token: string }
   /** `detail` carries the engine's explanation for invalid setups and actions. */
   | { type: "error"; code: ErrorCode; detail?: string };
 
@@ -200,6 +204,8 @@ export type ClientMessage =
 /** Query params sent when opening the socket. */
 export type ConnectQuery =
   | { as: "host"; token: string; create?: "1" }
+  /** Taking the master's role over from another device, with a ticket from the master's account. */
+  | { as: "host"; ticket: string }
   | { as: "player"; id?: string; token?: string };
 
 /**
@@ -213,16 +219,24 @@ export const sessionTime = (sessionId: string) => parseInt(sessionId.split(".")[
 export type AccountClientMessage =
   /** The ticket carries the account and this device's sign-in. */
   | { type: "hello"; ticket: string }
-  /** The answer to "in-room": play from this device, or have the other one leave the room. */
-  | { type: "resolve"; takeOver: boolean };
+  /**
+   * The answer to "in-room": take the seat to this device, or have the other
+   * one let go of it. `here`: this device already holds that seat (signed in
+   * again on it), so nothing moves.
+   */
+  | { type: "resolve"; takeOver: boolean; here?: boolean };
 
 export type AccountServerMessage =
   /** This device was replaced by a newer sign-in. */
   | { type: "signed-out" }
-  /** This new sign-in's account has a seat in `room` on another device: asks what to do. */
-  | { type: "in-room"; room: string; inGame: boolean; playerId: string }
+  /**
+   * This new sign-in's account has a seat in `room` on another device, as a
+   * player (`playerId`) or as the game master: asks what to do.
+   */
+  | { type: "in-room"; room: string; inGame: boolean; role: "player"; playerId: string }
+  | { type: "in-room"; room: string; inGame: boolean; role: "host" }
   /** Done: the other device is signed out (and out of the room unless `takeOver`). */
-  | { type: "resolved"; takeOver: boolean; room: string };
+  | { type: "resolved"; takeOver: boolean; room: string; role: "player" | "host" };
 
 export const MAX_NAME_LENGTH = 24;
 /** Photos are resized on the device; this caps the data URL sent to the server. */

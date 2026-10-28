@@ -129,6 +129,8 @@ export class RoomServer extends Server<Env> {
     const token = params.get("token");
 
     if (as === "host") {
+      const ticket = params.get("ticket");
+      if (ticket && this.state) return this.takeHost(conn, ticket);
       if (!token) return this.reject(conn, "not-host");
       if (!this.state) {
         if (params.get("create") !== "1") return this.reject(conn, "room-not-found");
@@ -400,8 +402,10 @@ export class RoomServer extends Server<Env> {
       }
       case "host-account": {
         if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
+        const previous = this.state.hostSub;
         if (msg.ticket === null) {
           delete this.state.hostSub;
+          await this.tellAccount(previous, false);
           await this.completePendingLinks();
           break;
         }
@@ -412,6 +416,9 @@ export class RoomServer extends Server<Env> {
           return this.send(sender, { type: "error", code: "account-in-use" });
         }
         this.state.hostSub = account.sub;
+        if (previous !== account.sub) await this.tellAccount(previous, false);
+        // The account server knows the master's room too, to ask a new device about it.
+        await this.tellAccount(account.sub, true);
         await this.completePendingLinks();
         break;
       }
@@ -659,8 +666,26 @@ export class RoomServer extends Server<Env> {
 
   /** Whether this account has a seat here, and whether a game is on. */
   async accountSeat(sub: string) {
-    const player = this.state?.players.find((p) => p.sub === sub && !p.left);
-    return player ? { inGame: !!this.state!.game, playerId: player.id } : null;
+    const s = this.state;
+    const player = s?.players.find((p) => p.sub === sub && !p.left);
+    if (player) return { inGame: !!s!.game, role: "player" as const, playerId: player.id };
+    if (s && s.hostSub === sub) return { inGame: !!s.game, role: "host" as const };
+    return null;
+  }
+
+  /**
+   * The master's account chose to run this room from a new device: the
+   * current master screen stops now (its key no longer works), before signing
+   * it out could drop the account from the room. The new device opens the
+   * room with a ticket from that account (see takeHost).
+   */
+  async moveHost(sub: string) {
+    const s = this.state;
+    if (!s || s.hostSub !== sub) return false;
+    s.hostToken = crypto.randomUUID();
+    this.closeHosts("host-moved");
+    await this.persist();
+    return true;
   }
 
   /**
@@ -670,7 +695,17 @@ export class RoomServer extends Server<Env> {
    */
   async releaseAccount(sub: string, reason: "left-elsewhere" | "moved-room" = "left-elsewhere") {
     const player = this.state?.players.find((p) => p.sub === sub && !p.left);
-    if (!player) return;
+    if (!player) {
+      // The master's device keeps running the room either way. "Leave it there"
+      // means it does so signed out; joining another room as a player doesn't
+      // change who runs this one.
+      if (this.state?.hostSub !== sub) return false;
+      if (reason === "moved-room") return true;
+      delete this.state.hostSub;
+      await this.persist();
+      this.broadcastViews();
+      return false;
+    }
     for (const c of this.getConnections<ConnState>()) {
       if (c.state?.kind === "player" && c.state.playerId === player.id) {
         this.send(c, { type: "error", code: reason });
@@ -680,6 +715,7 @@ export class RoomServer extends Server<Env> {
     this.leaveSeat(player);
     await this.persist();
     this.broadcastViews();
+    return false;
   }
 
   // --- stats ---
@@ -820,6 +856,30 @@ export class RoomServer extends Server<Env> {
     return { sub: ticket.sub, name: ticket.name, picture: ticket.picture };
   }
 
+  /**
+   * A device opens the room as its game master with a ticket from the
+   * master's account (after "Run it from here" on that device). It gets a new
+   * master key; any other master screen stops.
+   */
+  private async takeHost(conn: Conn, ticket: string) {
+    const account = await this.verifyAccount(conn, ticket);
+    const s = this.state;
+    if (!account || !s || s.hostSub !== account.sub) return this.reject(conn, "not-host");
+    s.hostToken = crypto.randomUUID();
+    this.closeHosts("host-moved", conn);
+    conn.setState({ kind: "host" });
+    await this.persist();
+    this.send(conn, { type: "host-token", token: s.hostToken });
+    this.send(conn, { type: "view", view: this.viewFor(conn) });
+  }
+
+  /** Ends every master connection but `except`. */
+  private closeHosts(code: ErrorCode, except?: Conn) {
+    for (const c of this.getConnections<ConnState>()) {
+      if (c.state?.kind === "host" && c.id !== except?.id) this.reject(c, code);
+    }
+  }
+
   /** A guest's seat becomes an account's: its name and photo from now on. */
   private async linkSeat(player: StoredPlayer, account: Account) {
     player.sub = account.sub;
@@ -932,6 +992,7 @@ export class RoomServer extends Server<Env> {
   /** The room is going away: its accounts no longer have a seat here. */
   private async releaseAccounts() {
     for (const p of this.state?.players ?? []) await this.tellAccount(p.sub, false);
+    await this.tellAccount(this.state?.hostSub, false);
   }
 
   private reseat() {

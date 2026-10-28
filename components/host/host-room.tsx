@@ -86,7 +86,8 @@ function HostContent({
   useErrorToast(error, HOST_TOASTS);
   useHostToasts(view);
 
-  if (error === "room-not-found" || error === "not-host" || error === "room-closed") return <FatalError code={error} />;
+  if (error === "room-not-found" || error === "not-host" || error === "room-closed" || error === "host-moved")
+    return <FatalError code={error} />;
 
   if (view?.game) {
     return (

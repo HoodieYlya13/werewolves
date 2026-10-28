@@ -70,6 +70,23 @@ export const identity = {
   setPhoto: (photo: string | null) => write(PHOTO_KEY, photo),
 };
 
+function hasFlag(key: string) {
+  try {
+    return sessionStorage.getItem(key) !== null;
+  } catch {
+    return false;
+  }
+}
+
+/** Whether this tab came to take the game master's role over (see hostTakeoverKey). */
+export const isTakingHostOver = (code: string) => hasFlag(hostTakeoverKey(code));
+
+export function clearHostTakeover(code: string) {
+  try {
+    sessionStorage.removeItem(hostTakeoverKey(code));
+  } catch {}
+}
+
 /** Every room this device has a saved seat in, as the game master or a player. */
 export function savedSeats(): { code: string; as: "host" | "player"; id?: string; token: string }[] {
   const seats: ReturnType<typeof savedSeats> = [];
@@ -107,6 +124,8 @@ export async function seatStatus(seat: ReturnType<typeof savedSeats>[number]): P
 
 /** Set before opening a room to take an account's seat over from another device (see SessionGuard). */
 export const takeoverKey = (code: string) => `ww:takeover:${code}`;
+/** The same, for the game master's role: the host page opens the room with a ticket instead of a key. */
+export const hostTakeoverKey = (code: string) => `ww:host-takeover:${code}`;
 
 export function partyHost() {
   return process.env.NEXT_PUBLIC_PARTYKIT_HOST ?? `${window.location.hostname}:1999`;

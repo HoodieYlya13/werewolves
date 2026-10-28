@@ -3,10 +3,11 @@
 import { useState } from "react";
 import usePartySocket from "partysocket/react";
 import type { ClientMessage, ConnectQuery, ErrorCode, RoomView, ServerMessage } from "@/lib/protocol";
-import { identity, partyHost } from "@/lib/room";
+import { clearHostTakeover, identity, isTakingHostOver, partyHost } from "@/lib/room";
+import { getTicket } from "@/lib/session";
 
 /** Errors after which reconnecting is pointless. */
-const FATAL: ErrorCode[] = ["room-not-found", "room-taken", "not-host", "room-closed"];
+const FATAL: ErrorCode[] = ["room-not-found", "room-taken", "not-host", "room-closed", "host-moved"];
 
 export type RoomStatus = "connecting" | "open" | "reconnecting";
 
@@ -31,8 +32,13 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
     host: partyHost(),
     room: code,
     // A function, so each reconnect picks up an identity saved since the last one.
-    query: (): ConnectQuery => {
-      if (as === "host") return { as, token: identity.getHost(code)?.token ?? "", create: "1" };
+    query: async (): Promise<ConnectQuery> => {
+      if (as === "host") {
+        // Came to run this room from here (see SessionGuard): a ticket from the
+        // master's account instead of a key (any saved here is an old one).
+        if (isTakingHostOver(code)) return { as, ticket: (await getTicket({ room: code })) ?? "" };
+        return { as, token: identity.getHost(code)?.token ?? "", create: "1" };
+      }
       // A seat saved for this room, or else this device's id so a player who
       // left is recognised when they come back.
       const player = identity.getPlayer(code) ?? identity.device();
@@ -53,11 +59,17 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
         case "joined":
           identity.setPlayer(code, { id: msg.playerId, token: msg.token });
           break;
+        case "host-token":
+          identity.setHost(code, { token: msg.token });
+          clearHostTakeover(code);
+          break;
         case "other-room":
           setOtherRoom({ room: msg.room, inGame: msg.inGame });
           break;
         case "error":
           if (["removed", "signed-in-elsewhere", "left-elsewhere", "moved-room"].includes(msg.code)) identity.setPlayer(code, null);
+          if (msg.code === "host-moved") identity.setHost(code, null);
+          if (msg.code === "not-host") clearHostTakeover(code);
           if (msg.code === "room-closed") {
             identity.setPlayer(code, null);
             identity.setHost(code, null);
