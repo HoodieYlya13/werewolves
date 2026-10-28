@@ -91,15 +91,19 @@ export const getSignOutGuard = () => signOutGuard;
 
 /**
  * The account page on the auth server, in the page's language. `client_id`
- * lets it show a link back to this app (it uses the app's registered settings
- * for where that link goes, so no return URL is passed).
+ * lets it show a link back to this app, and `return_path` (a path on this
+ * site, never a full URL) the page to come back to.
  */
-export function accountPageUrl(session: Session, locale: string): string | null {
+export function accountPageUrl(session: Session, locale: string, returnPath?: string): string | null {
   if (!session.issuer || !session.clientId) return null;
   const url = new URL(`/${locale === "fr" ? "fr" : "en"}/account`, session.issuer);
   url.searchParams.set("client_id", session.clientId);
+  if (returnPath?.startsWith("/") && !returnPath.startsWith("//")) url.searchParams.set("return_path", returnPath);
   return url.toString();
 }
+
+/** This page as a path on the site, with its query string and hash. */
+export const currentPath = () => window.location.pathname + window.location.search + window.location.hash;
 
 export const signInUrl = (returnTo: string) => `/api/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
 export const signOutUrl = (returnTo: string) => `/api/auth/logout?returnTo=${encodeURIComponent(returnTo)}`;

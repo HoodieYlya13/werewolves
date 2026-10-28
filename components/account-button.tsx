@@ -25,7 +25,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { format } from "@/lib/i18n/config";
-import { accountPageUrl, getSignOutGuard, signInUrl, signOutUrl, useSession, type SignOutGuard } from "@/lib/session";
+import {
+  accountPageUrl,
+  currentPath,
+  getSignOutGuard,
+  signInUrl,
+  signOutUrl,
+  useSession,
+  type SignOutGuard,
+} from "@/lib/session";
 
 /** Full-page redirect to sign in or out through the auth server, then back to `returnTo` (this page by default). */
 export function goToAuth(to: "in" | "out", returnTo = window.location.pathname + window.location.search) {
@@ -43,6 +51,8 @@ export function AccountButton() {
   const session = useSession();
   // Set while asking a player whose seat is the account's to confirm.
   const [leaving, setLeaving] = useState<SignOutGuard | null>(null);
+  // The page the account page links back to, read when the menu opens (it can change without remounting).
+  const [returnPath, setReturnPath] = useState("/");
   if (!session?.enabled) return null;
 
   if (!session.account) {
@@ -62,11 +72,11 @@ export function AccountButton() {
   }
 
   const { name, picture } = session.account;
-  const accountPage = accountPageUrl(session, locale);
+  const accountPage = accountPageUrl(session, locale, returnPath);
   return (
     <>
       {/* Not modal, so the confirmation can take over focus once the menu closes. */}
-      <DropdownMenu modal={false}>
+      <DropdownMenu modal={false} onOpenChange={(open) => open && setReturnPath(currentPath())}>
         <DropdownMenuTrigger className="rounded-full" aria-label={format(dict.account.signedInAs, { name })}>
           <Face name={name} src={picture} className="size-8 text-sm" />
         </DropdownMenuTrigger>
