@@ -128,7 +128,7 @@ export function SetupScreen({
   }
 
   const toggles: { key: BooleanSetting; hint?: string }[] = [
-    { key: "sheriff", hint: dict.setup.sheriffHint },
+    { key: "mayor", hint: dict.setup.mayorHint },
     { key: "revealRoleOnDeath" },
     { key: "witchCanSelfHeal" },
     { key: "wolvesWinAtParity", hint: dict.setup.wolvesWinAtParityHint },

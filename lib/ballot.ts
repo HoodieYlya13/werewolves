@@ -27,7 +27,7 @@ export type BallotOutcome =
   | { kind: "nobody" };
 
 export type BallotTally = {
-  /** Votes against each candidate, Sheriff and Raven included. */
+  /** Votes against each candidate, Mayor and Raven included. */
   counts: Record<string, number>;
   /** Votes for "no one". */
   nobody: number;
@@ -37,7 +37,7 @@ export type BallotTally = {
 };
 
 /**
- * Counts a ballot with the game's rules: the Sheriff's vote counts double and
+ * Counts a ballot with the game's rules: the Mayor's vote counts double and
  * the Raven's mark adds 2 votes. "No one" is a choice like any other: when it
  * gets at least as many votes as the leading player, nobody is eliminated.
  * Otherwise the player with the most votes goes, and a tie between players is
@@ -45,7 +45,7 @@ export type BallotTally = {
  */
 export function tallyBallot(
   ballot: Ballot,
-  { sheriffId, ravenTargetId }: { sheriffId: string | null; ravenTargetId: string | null },
+  { mayorId, ravenTargetId }: { mayorId: string | null; ravenTargetId: string | null },
 ): BallotTally {
   const counts: Record<string, number> = Object.fromEntries(ballot.candidateIds.map((id) => [id, 0]));
   let nobody = 0;
@@ -54,7 +54,7 @@ export function tallyBallot(
   for (const voterId of ballot.voterIds) {
     if (!(voterId in ballot.votes)) continue;
     answered += 1;
-    const weight = voterId === sheriffId ? 2 : 1;
+    const weight = voterId === mayorId ? 2 : 1;
     const targetId = ballot.votes[voterId];
     if (targetId === null) nobody += weight;
     else if (targetId in counts) counts[targetId] += weight;

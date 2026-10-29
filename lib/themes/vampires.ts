@@ -109,7 +109,18 @@ export const vampires: Theme = {
           power: "If the vampires bite the Silver Knight, the first vampire to the Knight's left dies of silver the next night.",
         },
       },
-      game: { causes: { rust: "burnt by the silver sword" } },
+      game: {
+        story: {
+          prologue: {
+            say: [
+              "Welcome to a lonely village in the Carpathian mountains, where the nights are long and the garlic sells out fast.",
+              "Last night, the vampires fed for the first time. Their first meal was me, your game master. This morning, you found me pale as a sheet, with two small holes in my neck.",
+              "My spirit lingers to guide you. By day, the vampires walk among you, looking just like you. Find them before the whole village is drained dry.",
+            ],
+          },
+        },
+        causes: { rust: "burnt by the silver sword" },
+      },
     },
     fr: {
       roles: {
@@ -117,7 +128,18 @@ export const vampires: Theme = {
           power: "Si les vampires mordent le Chevalier d'argent, le premier vampire à sa gauche meurt brûlé par l'argent la nuit suivante.",
         },
       },
-      game: { causes: { rust: "brûlé par l'épée d'argent" } },
+      game: {
+        story: {
+          prologue: {
+            say: [
+              "Bienvenue dans un village isolé des Carpates, où les nuits sont longues et où l'ail se vend très vite.",
+              "La nuit dernière, les vampires se sont nourris pour la première fois. Leur premier repas, c'était moi, le meneur de jeu. Ce matin, on a découvert mon corps, pâle comme un linge, deux petits trous dans le cou.",
+              "Mon esprit s'attarde pour vous guider. Le jour, les vampires marchent parmi vous et vous ressemblent trait pour trait. Trouvez-les avant que tout le village ne soit vidé de son sang.",
+            ],
+          },
+        },
+        causes: { rust: "brûlé par l'épée d'argent" },
+      },
     },
   },
 };

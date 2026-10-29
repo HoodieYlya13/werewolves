@@ -42,7 +42,7 @@ export const spaceship: Theme = {
       Cupid: "Bonding Bot",
       "Little Girl": "Spy Drone",
       Thief: "Smuggler",
-      Sheriff: "Commander",
+      Mayor: "Commander",
       Elder: "Android",
       Scapegoat: "Redshirt",
       "Pied Piper": "Hacker",
@@ -152,7 +152,40 @@ export const spaceship: Theme = {
           power: "If the impostors kill the Electrician, the first impostor to the Electrician's left is electrocuted the next night.",
         },
       },
-      game: { causes: { rust: "electrocuted by the Electrician's trap" } },
+      game: {
+        story: {
+          prologue: {
+            say: [
+              "Welcome aboard, crew. Three years from home, lost in the void, with nothing outside but stars.",
+              "Last night, the impostors struck for the first time. Their first victim was me, your game master. This morning, you found me floating in the airlock.",
+              "My voice still echoes through the ship's speakers. The impostors wear your crewmates' faces. Find them before nobody is left to fly home.",
+            ],
+          },
+          nightEnds: [
+            "The ship's lights slowly come back on…",
+            "The night cycle draws to an end…",
+          ],
+          dayEnds: [
+            "Another shift ends, and my killers are still on board. Do you miss me so little?",
+            "The corridors go dark. Somewhere in the vents, a ghost sighs: still no justice for your poor game master.",
+            "Lock your cabin doors tonight… not that it helped me.",
+            "Another day of arguing, and the impostors still sleep soundly. The ship's computer has sharper instincts than you.",
+            "The night cycle begins. Take your time, I have all of eternity.",
+          ],
+        },
+        steps: {
+          deaths: {
+            found: [
+              "At the start of the shift, {name} is found lifeless.",
+              "The crew wakes up, but {name} doesn't.",
+              "{name}'s cabin stays sealed this morning. Inside, no life signs.",
+              "An alarm blares: {name} has been found dead.",
+              "{name}'s heart monitor shows a flat line.",
+            ],
+          },
+        },
+        causes: { rust: "electrocuted by the Electrician's trap" },
+      },
     },
     fr: {
       roles: {
@@ -166,6 +199,37 @@ export const spaceship: Theme = {
         "wolf-hound": { power: "La première nuit, choisit d'être équipier ou imposteur." },
       },
       game: {
+        story: {
+          prologue: {
+            say: [
+              "Bienvenue à bord, équipage. À trois ans de la Terre, perdus dans le vide, avec pour seul paysage les étoiles.",
+              "La nuit dernière, les imposteurs ont frappé pour la première fois. Leur première victime, c'était moi, le meneur de jeu. Ce matin, vous avez retrouvé mon corps flottant dans le sas.",
+              "Ma voix résonne encore dans les haut-parleurs du vaisseau. Les imposteurs portent le visage de vos coéquipiers. Trouvez-les avant qu'il ne reste plus personne pour rentrer.",
+            ],
+          },
+          nightEnds: [
+            "Les lumières du vaisseau se rallument doucement…",
+            "Le cycle de nuit touche à sa fin…",
+          ],
+          dayEnds: [
+            "Un nouveau service se termine, et mes assassins sont toujours à bord. Je vous manque si peu ?",
+            "Les coursives s'éteignent. Quelque part dans les conduits, un fantôme soupire : toujours pas de justice pour votre pauvre meneur de jeu.",
+            "Verrouillez bien vos cabines cette nuit… même si ça ne m'a servi à rien.",
+            "Encore une journée de disputes, et les imposteurs dorment sur leurs deux oreilles. L'ordinateur de bord a plus de flair que vous.",
+            "Le cycle de nuit commence. Prenez votre temps, j'ai toute l'éternité.",
+          ],
+        },
+        steps: {
+          deaths: {
+            found: [
+              "Au début du service, on retrouve {name} sans vie.",
+              "L'équipage se réveille, mais pas {name}.",
+              "La cabine de {name} reste scellée ce matin. À l'intérieur, plus aucun signe de vie.",
+              "Une alarme retentit : on vient de découvrir le corps de {name}.",
+              "Le moniteur cardiaque de {name} n'affiche plus qu'une ligne plate.",
+            ],
+          },
+        },
         powersLost: "L'Androïde a été éliminé par l'équipage : les équipiers ont perdu leurs pouvoirs.",
         causes: { rust: "électrocuté par le piège de l'Électricien" },
         events: { "powers-lost": "Les équipiers ont perdu leurs pouvoirs" },

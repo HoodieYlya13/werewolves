@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FlaskConical, Skull, Trophy } from "lucide-react";
+import { FlaskConical, Moon, Skull, Sun, Trophy } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { BallotPanel } from "@/components/host/ballot-panel";
 import { PlayerGrid, toggle } from "@/components/host/player-grid";
@@ -9,7 +9,7 @@ import { Reveal } from "@/components/host/reveal";
 import { RoleName } from "@/components/host/role-chip";
 import { TimerControls } from "@/components/vote-timer";
 import { format } from "@/lib/i18n/config";
-import { isWolf, type Action, type GameState, type Player, type Step } from "@/lib/engine";
+import { isWolf, type Action, type Death, type GameState, type PhaseRef, type Player, type Step } from "@/lib/engine";
 import { Button } from "@/components/ui/button";
 
 type Props<K extends Step["kind"]> = {
@@ -25,7 +25,8 @@ type Props<K extends Step["kind"]> = {
 export function StepPanel({ game, act }: { game: GameState; act: (action: Action) => void }) {
   const { dict } = useI18n();
   // Every night opens with the whole village closing their eyes.
-  const nightFalls = game.phase.kind === "night" && game.phaseStep === 0;
+  const nightFalls =
+    game.phase.kind === "night" && game.phaseStep === 0 && game.step.kind !== "prologue" && game.step.kind !== "phase-end";
   return (
     <>
       {nightFalls && <Say>{dict.game.nightFalls}</Say>}
@@ -37,6 +38,10 @@ export function StepPanel({ game, act }: { game: GameState; act: (action: Action
 function StepContent({ game, act }: { game: GameState; act: (action: Action) => void }) {
   const step = game.step;
   switch (step.kind) {
+    case "prologue":
+      return <PrologueStep game={game} step={step} act={act} />;
+    case "phase-end":
+      return <PhaseEndStep game={game} step={step} act={act} />;
     case "actor":
       return <ActorStep game={game} step={step} act={act} />;
     case "wolf-hound":
@@ -91,9 +96,9 @@ function StepContent({ game, act }: { game: GameState; act: (action: Action) => 
       return <DeathsStep game={game} step={step} act={act} />;
     case "hunter":
       return <HunterStep game={game} step={step} act={act} />;
-    case "sheriff-election":
-    case "sheriff-succession":
-      return <SheriffStep game={game} step={step} act={act} />;
+    case "mayor-election":
+    case "mayor-succession":
+      return <MayorStep game={game} step={step} act={act} />;
     case "vote":
       return <VoteStep game={game} step={step} act={act} />;
     case "bluff":
@@ -135,6 +140,28 @@ function ConfirmButton({ disabled, onClick }: { disabled: boolean; onClick: () =
       {dict.game.confirm}
     </Button>
   );
+}
+
+/** Starts the next night or day: the step that turns the screen dark or light. */
+function StartPhaseButton({ act, next }: { act: Props<"prologue">["act"]; next: PhaseRef }) {
+  const { dict } = useI18n();
+  const Icon = next.kind === "night" ? Moon : Sun;
+  return (
+    <Button type="button" className="h-12 self-start px-8 text-base" onClick={() => act({ type: "continue" })}>
+      <Icon aria-hidden className="size-5" />
+      {format(dict.game.story.start[next.kind], { n: next.number })}
+    </Button>
+  );
+}
+
+/**
+ * One of a few narration lines, so the story doesn't repeat itself word for
+ * word. The same moment always gets the same line (undo, reload, other device).
+ */
+function line(lines: string[], seed: string, offset = 0) {
+  let hash = 0;
+  for (const c of seed) hash = (hash * 31 + c.charCodeAt(0)) | 0;
+  return lines[(Math.abs(hash) + offset) % lines.length];
 }
 
 const living = (game: GameState) => game.players.filter((p) => p.alive);
@@ -204,6 +231,38 @@ function ChoiceButtons({ options }: { options: { label: React.ReactNode; onClick
 }
 
 // --- steps ---
+
+function PrologueStep({ game, act }: Props<"prologue">) {
+  const { dict } = useI18n();
+  const t = dict.game.story.prologue;
+  return (
+    <>
+      <Say>
+        {t.say.map((paragraph, i) => (
+          <span key={i} className="block not-first:mt-3">
+            {paragraph}
+          </span>
+        ))}
+      </Say>
+      <Do>{t.do}</Do>
+      <StartPhaseButton act={act} next={game.phase} />
+    </>
+  );
+}
+
+/** The end of a night or day: a pause, a line of story, then the game master moves on. */
+function PhaseEndStep({ game, step, act }: Props<"phase-end">) {
+  const { dict } = useI18n();
+  const t = dict.game.story;
+  const toDay = step.next.kind === "day";
+  return (
+    <>
+      <Say>{line(toDay ? t.nightEnds : t.dayEnds, `${game.phase.kind}${game.phase.number}`)}</Say>
+      <Do>{toDay ? t.nightEndsDo : t.dayEndsDo}</Do>
+      <StartPhaseButton act={act} next={step.next} />
+    </>
+  );
+}
 
 function ThiefStep({ game, step, act }: Props<"thief">) {
   const { dict } = useI18n();
@@ -369,6 +428,8 @@ function WitchStep({ game, step, act }: Props<"witch">) {
             players={living(game)}
             selected={poison}
             onToggle={(id) => setPoison((s) => toggle(s, id, 1))}
+            // Already dying: the poison would only tell the village who used it.
+            isDisabled={(p) => p.id === step.victimId}
           />
         )}
       </div>
@@ -390,20 +451,32 @@ function DeathsStep({ game, step, act }: Props<"deaths">) {
   const { dict } = useI18n();
   const t = dict.game.steps.deaths;
   const reveal = game.setup.settings.revealRoleOnDeath;
+  const dawn = step.context === "dawn";
+  const seed = `${game.phase.kind}${game.phase.number}`;
+  // At dawn, the order would hint at who killed whom: by seat, grief last.
+  const seat = (d: Death) => game.players.findIndex((p) => p.id === d.playerId) + (d.cause === "grief" ? game.players.length : 0);
+  const deaths = dawn ? [...step.deaths].sort((a, b) => seat(a) - seat(b)) : step.deaths;
+
+  /** Dawn tells who died, never how, except a lover's grief. By day, everyone saw it. */
+  const announce = (d: Death, i: number) => {
+    const name = nameOf(game, d.playerId);
+    if (d.cause === "grief") return format(t.grief, { name });
+    if (dawn) return format(line(t.found, seed, i), { name });
+    return format(t.died, { name, cause: dict.game.causes[d.cause] });
+  };
+
   return (
     <>
       <Say>{t[step.context]}</Say>
-      {step.deaths.length === 0 ? (
-        <p className="text-xl">{t.nobody}</p>
+      {deaths.length === 0 ? (
+        <Say>{line(t.nobody, seed)}</Say>
       ) : (
         <ul className="flex flex-col gap-3">
-          {step.deaths.map((d) => {
+          {deaths.map((d, i) => {
             const player = game.players.find((p) => p.id === d.playerId)!;
             return (
               <li key={d.playerId} className="card flex flex-col gap-1 px-5 py-4">
-                <p className="text-xl">
-                  {format(t.died, { name: player.name, cause: dict.game.causes[d.cause] })}
-                </p>
+                <p className="text-xl text-balance">{announce(d, i)}</p>
                 <p className="text-muted-foreground">
                   {reveal ? (
                     <>
@@ -414,6 +487,11 @@ function DeathsStep({ game, step, act }: Props<"deaths">) {
                     t.hidden
                   )}
                 </p>
+                {dawn && d.cause !== "grief" && (
+                  <p className="secret-role text-sm text-muted-foreground">
+                    {format(t.secret, { cause: dict.game.causes[d.cause] })}
+                  </p>
+                )}
               </li>
             );
           })}
@@ -437,15 +515,15 @@ function HunterStep({ game, step, act }: Props<"hunter">) {
   );
 }
 
-function SheriffStep({ game, step, act }: Props<"sheriff-election" | "sheriff-succession">) {
+function MayorStep({ game, step, act }: Props<"mayor-election" | "mayor-succession">) {
   const { dict } = useI18n();
   const t = dict.game.steps[step.kind];
-  const name = step.kind === "sheriff-succession" ? nameOf(game, step.playerId) : "";
+  const name = step.kind === "mayor-succession" ? nameOf(game, step.playerId) : "";
   return (
     <>
       <Say>{format(t.say, { name })}</Say>
       <Do>{t.do}</Do>
-      <PickPlayers game={game} count={1} onConfirm={([targetId]) => act({ type: "sheriff", targetId })} />
+      <PickPlayers game={game} count={1} onConfirm={([targetId]) => act({ type: "mayor", targetId })} />
     </>
   );
 }
@@ -459,7 +537,7 @@ function VoteStep({ game, step, act }: Props<"vote">) {
       <Say>{t.say}</Say>
       <Do>
         {t.do}
-        {step.sheriffId && <> {format(t.sheriff, { name: nameOf(game, step.sheriffId) })}</>}
+        {step.mayorId && <> {format(t.mayor, { name: nameOf(game, step.mayorId) })}</>}
       </Do>
       {step.ravenTargetId && (
         <p className="rounded-xl bg-surface-2 px-4 py-2">{format(t.raven, { name: nameOf(game, step.ravenTargetId) })}</p>
@@ -496,8 +574,9 @@ function VoteStep({ game, step, act }: Props<"vote">) {
 function BluffStep({ game, step, act }: Props<"bluff">) {
   const { dict } = useI18n();
   const turns = dict.game.steps as Record<string, { say?: string }>;
+  const siblings = dict.game.steps.siblings as Record<string, string>;
   const piper = game.setup.settings.piperCharms;
-  const say = format(turns[step.turn]?.say ?? "", { count: piper === "choice" ? 2 : piper });
+  const say = format(turns[step.turn]?.say ?? siblings[step.turn] ?? "", { count: piper === "choice" ? 2 : piper });
   return (
     <>
       <Say>{say}</Say>
@@ -804,24 +883,27 @@ function GameOverStep({ game, step }: Props<"game-over">) {
   const t = dict.game.steps["game-over"];
   const { team, playerIds } = step.winner;
   return (
-    <div className="card flex flex-col items-center gap-5 px-6 py-10 text-center">
-      <Trophy aria-hidden className="size-12 text-moon" />
-      <p className="font-display text-3xl font-bold sm:text-4xl">{team ? t.wins[team] : t.draw}</p>
-      {playerIds.length > 0 && (
-        <div>
-          <p className="mb-2 text-sm font-medium tracking-wide text-muted-foreground uppercase">{t.winners}</p>
-          <ul className="flex flex-wrap justify-center gap-2">
-            {playerIds.map((id) => {
-              const p = game.players.find((pl) => pl.id === id)!;
-              return (
-                <li key={id} className="rounded-full bg-surface-2 px-3 py-1">
-                  {p.name} · <RoleName role={p.role} className="text-sm" />
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-    </div>
+    <>
+      <Say>{dict.game.story.epilogue[team ?? "draw"]}</Say>
+      <div className="card flex flex-col items-center gap-5 px-6 py-10 text-center">
+        <Trophy aria-hidden className="size-12 text-moon" />
+        <p className="font-display text-3xl font-bold sm:text-4xl">{team ? t.wins[team] : t.draw}</p>
+        {playerIds.length > 0 && (
+          <div>
+            <p className="mb-2 text-sm font-medium tracking-wide text-muted-foreground uppercase">{t.winners}</p>
+            <ul className="flex flex-wrap justify-center gap-2">
+              {playerIds.map((id) => {
+                const p = game.players.find((pl) => pl.id === id)!;
+                return (
+                  <li key={id} className="rounded-full bg-surface-2 px-3 py-1">
+                    {p.name} · <RoleName role={p.role} className="text-sm" />
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+      </div>
+    </>
   );
 }

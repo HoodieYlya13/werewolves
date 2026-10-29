@@ -43,8 +43,8 @@ export type RoleId =
 export type Team = "village" | "wolves" | "lovers" | "piper" | "white-werewolf" | "sectarian" | "angel";
 
 export type Settings = {
-  /** Elect a Sheriff on day 1: double vote, names a successor on death. */
-  sheriff: boolean;
+  /** Elect a Mayor on day 1: double vote, names a successor on death. */
+  mayor: boolean;
   /** Show the dead player's role when they die. */
   revealRoleOnDeath: boolean;
   witchCanSelfHeal: boolean;
@@ -67,7 +67,7 @@ export type Settings = {
 };
 
 export const defaultSettings: Settings = {
-  sheriff: true,
+  mayor: true,
   revealRoleOnDeath: true,
   witchCanSelfHeal: true,
   wolvesWinAtParity: false,
@@ -131,6 +131,10 @@ export type UseKey = "heal" | "poison" | "lives" | "infect" | "second-vote";
 
 /** What the game master has to do next. One step at a time. */
 export type Step =
+  /** The story that opens the game: the narrator was the wolves' first victim. */
+  | { kind: "prologue" }
+  /** The game master starts the next night or day when the table is ready. */
+  | { kind: "phase-end"; next: PhaseRef }
   | { kind: "actor"; playerId: string; cards: RoleId[] }
   | { kind: "thief"; playerId: string; cards: RoleId[]; mustTakeWolf: boolean }
   | { kind: "wolf-hound"; playerId: string }
@@ -153,18 +157,18 @@ export type Step =
   | { kind: "charmed"; playerIds: string[]; newIds: string[] }
   | { kind: "raven"; playerId: string }
   /**
-   * A night turn nobody can play any more (dead, or out of power). With roles
-   * hidden, the narrator still calls it so the village can't tell.
+   * A night turn nobody can play (dead, out of power, card left over). The
+   * narrator still calls it unless the village knows it's gone, so nobody can tell.
    */
   | { kind: "bluff"; turn: string; role: RoleId }
   | { kind: "deaths"; context: "dawn" | "vote" | "hunter"; deaths: Death[] }
   | { kind: "hunter"; playerId: string }
   | { kind: "bear"; playerId: string; growls: boolean }
-  | { kind: "sheriff-election" }
-  | { kind: "sheriff-succession"; playerId: string }
+  | { kind: "mayor-election" }
+  | { kind: "mayor-succession"; playerId: string }
   | {
       kind: "vote";
-      sheriffId: string | null;
+      mayorId: string | null;
       /** Starts with 2 votes against them (the Raven's mark). */
       ravenTargetId: string | null;
       /** Players who may not vote today (revealed Idiot, Scapegoat's choice). */
@@ -191,7 +195,7 @@ export type Action =
   | { type: "wolves"; targetId: string }
   | { type: "witch"; heal: boolean; poisonId: string | null }
   | { type: "hunter"; targetId: string }
-  | { type: "sheriff"; targetId: string }
+  | { type: "mayor"; targetId: string }
   /** `tie: true` = no majority (kills the Scapegoat if there is one). */
   | { type: "vote"; targetId: string | null; tie?: boolean }
   /** Players picked on steps added after the base game. Empty = skip. */
@@ -215,7 +219,7 @@ export type GameEvent =
   | { type: "witch-heal"; targetId: string }
   | { type: "witch-poison"; targetId: string }
   | { type: "death"; playerId: string; cause: DeathCause }
-  | { type: "sheriff"; playerId: string; previousId: string | null }
+  | { type: "mayor"; playerId: string; previousId: string | null }
   | { type: "vote"; targetId: string | null }
   | { type: "actor"; playerId: string; role: RoleId }
   | { type: "wolf-hound"; playerId: string; side: "village" | "wolves" }
@@ -250,8 +254,8 @@ export type GameState = {
   extraCards: RoleId[];
   actorCards: RoleId[];
   lovers: [string, string] | null;
-  sheriffId: string | null;
-  sheriffElected: boolean;
+  mayorId: string | null;
+  mayorElected: boolean;
   /** The Elder was killed by the village: villagers lose their powers. */
   villagePowersLost: boolean;
   /** A wolf has died: the Big Bad Wolf no longer kills twice. */

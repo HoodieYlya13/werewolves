@@ -24,21 +24,39 @@ export function readTheme(): Theme {
 let gamePhase: "day" | "night" | null = null;
 
 export function setGamePhase(phase: "day" | "night" | null) {
-  // Nightfall and daybreak cross-fade; arriving on or leaving a game screen doesn't.
-  const turn = gamePhase !== null && phase !== null && gamePhase !== phase;
   gamePhase = phase;
-  const theme = readTheme();
-  if (turn && theme === "game" && document.startViewTransition && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    document.startViewTransition(() => applyTheme(theme));
-  } else {
-    applyTheme(theme);
-  }
+  applyTheme(readTheme());
+}
+
+const systemScheme = () => (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+
+/**
+ * A slow cross-fade (see globals.css), like the light changing: nightfall,
+ * daybreak, or picking another theme. Not while the page is still loading,
+ * where it would only delay the first look.
+ */
+function canFade() {
+  return (
+    !!document.startViewTransition &&
+    !matchMedia("(prefers-reduced-motion: reduce)").matches &&
+    document.visibilityState === "visible" &&
+    performance.now() > 1500
+  );
 }
 
 export function applyTheme(theme: Theme) {
   const root = document.documentElement;
-  root.setAttribute("data-theme-choice", theme);
   const forced = theme === "game" ? (gamePhase && (gamePhase === "night" ? "dark" : "light")) : theme === "auto" ? null : theme;
-  if (forced) root.setAttribute("data-theme", forced);
-  else root.removeAttribute("data-theme");
+  const before = root.getAttribute("data-theme") ?? systemScheme();
+  const apply = () => {
+    root.setAttribute("data-theme-choice", theme);
+    if (forced) root.setAttribute("data-theme", forced);
+    else root.removeAttribute("data-theme");
+  };
+  if (before !== (forced ?? systemScheme()) && canFade()) {
+    // A newer change skips this fade: the theme still applies, there's just nothing to animate.
+    document.startViewTransition(apply).ready.catch(() => {});
+  } else {
+    apply();
+  }
 }

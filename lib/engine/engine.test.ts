@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  applyAction,
   assignRoles,
-  createGame,
   dealRoles,
   deckProblems,
   defaultSettings,
@@ -10,22 +8,23 @@ import {
   remainingTeams,
   playerInfo,
   publicGame,
-  replay,
   suggestedDeck,
   type Action,
   type GameSetup,
   type RoleId,
   type Settings,
 } from ".";
+import * as engine from ".";
+import { applyAction, createGame, replay } from "./testing";
 
-/** Players p0, p1… get the roles in order. Sheriff off unless asked, to keep flows short. */
+/** Players p0, p1… get the roles in order. Mayor off unless asked, to keep flows short. */
 function setup(roleList: RoleId[], opts: { extra?: RoleId[]; settings?: Partial<Settings> } = {}): GameSetup {
   const players = roleList.map((_, i) => ({ id: `p${i}`, name: `P${i}`, seat: i }));
   return assignRoles(
     players,
     Object.fromEntries(players.map((p, i) => [p.id, roleList[i]])),
     opts.extra ?? [],
-    { ...defaultSettings, sheriff: false, ...opts.settings },
+    { ...defaultSettings, mayor: false, ...opts.settings },
   );
 }
 
@@ -158,6 +157,26 @@ describe("witch", () => {
     expectError(() => applyAction(state, { type: "witch", heal: true, poisonId: null }), "invalid-action");
   });
 
+  it("is called every night, even with both potions used, roles revealed or not", () => {
+    for (const revealRoleOnDeath of [true, false]) {
+      const s = setup(["werewolf", "witch", "villager", "villager", "villager", "villager"], { settings: { revealRoleOnDeath } });
+      const state = play(s, [
+        { type: "wolves", targetId: "p2" },
+        { type: "witch", heal: true, poisonId: "p3" },
+        go,
+        { type: "vote", targetId: null },
+        { type: "wolves", targetId: "p4" },
+      ]);
+      expect(state.step).toEqual({ kind: "witch", playerId: "p1", victimId: "p4", canHeal: false, canPoison: false });
+      expect(applyAction(state, { type: "witch", heal: false, poisonId: null }).step).toMatchObject({ kind: "deaths" });
+    }
+  });
+
+  it("can't poison the wolves' victim", () => {
+    const state = play(setup(["werewolf", "witch", "villager", "villager"]), [{ type: "wolves", targetId: "p2" }]);
+    expectError(() => applyAction(state, { type: "witch", heal: false, poisonId: "p2" }), "invalid-target");
+  });
+
   it("respects the self-heal setting", () => {
     const state = play(setup(["werewolf", "witch", "villager"], { settings: { witchCanSelfHeal: false } }), [
       { type: "wolves", targetId: "p1" },
@@ -194,36 +213,37 @@ describe("thief", () => {
 });
 
 describe("day", () => {
-  it("elects a Sheriff on day 1 who names a successor on death", () => {
-    const s = setup(["werewolf", "hunter", "villager", "villager", "villager"], { settings: { sheriff: true } });
+  it("elects a Mayor on day 1 who names a successor on death", () => {
+    const s = setup(["werewolf", "hunter", "villager", "villager", "villager"], { settings: { mayor: true } });
     let state = play(s, [{ type: "wolves", targetId: "p2" }, go]);
-    expect(state.step.kind).toBe("sheriff-election");
-    state = applyAction(state, { type: "sheriff", targetId: "p1" });
-    expect(state.step).toMatchObject({ kind: "vote", sheriffId: "p1" });
+    expect(state.step.kind).toBe("mayor-election");
+    state = applyAction(state, { type: "mayor", targetId: "p1" });
+    expect(state.step).toMatchObject({ kind: "vote", mayorId: "p1" });
 
-    // The village votes out its Hunter-Sheriff: he shoots, then names a successor.
+    // The village votes out its Hunter-Mayor: he shoots, then names a successor.
     state = applyAction(state, { type: "vote", targetId: "p1" });
     state = applyAction(state, go);
     expect(state.step).toEqual({ kind: "hunter", playerId: "p1" });
-    state = applyAction(state, { type: "hunter", targetId: "p0" });
-    state = applyAction(state, go);
-    expect(state.step).toEqual({ kind: "sheriff-succession", playerId: "p1" });
-    state = applyAction(state, { type: "sheriff", targetId: "p3" });
-    expect(state.sheriffId).toBe("p3");
-    expect(state.winner?.team).toBe("village");
+    const shot = applyAction(state, { type: "hunter", targetId: "p3" });
+    expect(applyAction(shot, go).step).toEqual({ kind: "mayor-succession", playerId: "p1" });
+    expect(applyAction(applyAction(shot, go), { type: "mayor", targetId: "p4" }).mayorId).toBe("p4");
+
+    // Shooting the last wolf ends the game: no successor to name.
+    const last = applyAction(applyAction(state, { type: "hunter", targetId: "p0" }), go);
+    expect(last.step).toMatchObject({ kind: "game-over", winner: { team: "village" } });
   });
 
   it("only elects once", () => {
-    const s = setup(["werewolf", "villager", "villager", "villager", "villager"], { settings: { sheriff: true } });
+    const s = setup(["werewolf", "villager", "villager", "villager", "villager"], { settings: { mayor: true } });
     const state = play(s, [
       { type: "wolves", targetId: "p1" },
       go,
-      { type: "sheriff", targetId: "p2" },
+      { type: "mayor", targetId: "p2" },
       { type: "vote", targetId: null },
       { type: "wolves", targetId: "p3" },
       go,
     ]);
-    expect(state.step).toMatchObject({ kind: "vote", sheriffId: "p2" });
+    expect(state.step).toMatchObject({ kind: "vote", mayorId: "p2" });
   });
 });
 
@@ -394,5 +414,86 @@ describe("phone views", () => {
       go,
     ]);
     expect(publicGame(over).roles).toEqual({ p0: "werewolf", p1: "villager", p2: "villager" });
+  });
+});
+
+describe("narration", () => {
+  const s = () => setup(["werewolf", "seer", "villager", "villager", "villager"]);
+
+  it("opens with the prologue, then the first night", () => {
+    let state = engine.createGame(s());
+    expect(state.step).toEqual({ kind: "prologue" });
+    state = engine.applyAction(state, go);
+    // The first call of the night opens it ("Night falls…").
+    expect(state).toMatchObject({ phase: { kind: "night", number: 1 }, phaseStep: 0, step: { kind: "seer" } });
+  });
+
+  it("waits for the game master between night and day, and only then kills", () => {
+    let state = engine.replay(s(), [go, { type: "seer", targetId: "p0" }, go, { type: "wolves", targetId: "p2" }]);
+    expect(state.step).toEqual({ kind: "phase-end", next: { kind: "day", number: 1 } });
+    expect(state.phase.kind).toBe("night");
+    expect(state.players[2].alive).toBe(true);
+    state = engine.applyAction(state, go);
+    expect(state.step).toMatchObject({ kind: "deaths", context: "dawn" });
+    expect(state.players[2].alive).toBe(false);
+
+    state = engine.replay(s(), [go, { type: "seer", targetId: "p0" }, go, { type: "wolves", targetId: "p2" }, go, go]);
+    state = engine.applyAction(state, { type: "vote", targetId: null });
+    expect(state.step).toEqual({ kind: "phase-end", next: { kind: "night", number: 2 } });
+    state = engine.applyAction(state, go);
+    expect(state).toMatchObject({ phase: { kind: "night", number: 2 }, phaseStep: 0 });
+  });
+
+  it("goes straight to the end when a death ends the game", () => {
+    const state = play(setup(["werewolf", "villager", "villager"]), [{ type: "wolves", targetId: "p1" }, go]);
+    const over = applyAction(state, { type: "vote", targetId: "p0" });
+    expect(applyAction(over, go).step.kind).toBe("game-over");
+  });
+
+  it("calls a card the Thief left over, and the lovers after a bluffed Cupid", () => {
+    const state = createGame(setup(["thief", "werewolf", "villager", "villager"], { extra: ["cupid", "seer"] }));
+    const after = applyAction(state, { type: "thief", pick: null });
+    expect(after.step).toEqual({ kind: "bluff", turn: "cupid", role: "cupid" });
+    const lovers = applyAction(after, go);
+    expect(lovers.step).toEqual({ kind: "bluff", turn: "lovers", role: "cupid" });
+    expect(applyAction(lovers, go).step).toEqual({ kind: "bluff", turn: "seer", role: "seer" });
+  });
+});
+
+describe("logs from older engines", () => {
+  it("fill in the steps they didn't have", () => {
+    const s = setup(["werewolf", "witch", "villager", "villager", "villager", "villager"]);
+    // Night 1: both potions. Night 2: the old engine skipped the Witch.
+    const old: Action[] = [
+      { type: "wolves", targetId: "p2" },
+      { type: "witch", heal: true, poisonId: "p3" },
+      go,
+      { type: "vote", targetId: null },
+      { type: "wolves", targetId: "p4" },
+      go,
+    ];
+    const log = engine.upgradeLog(s, old)!;
+    const state = engine.replay(s, log);
+    expect(state.step).toMatchObject({ kind: "vote" });
+    expect(state.players.filter((p) => !p.alive).map((p) => p.id)).toEqual(["p3", "p4"]);
+    expect(log.filter((a) => a.type === "witch")).toHaveLength(2);
+  });
+
+  it("keep a game that ended on a Mayor's succession", () => {
+    const s = setup(["werewolf", "villager", "villager", "villager"], { settings: { mayor: true } });
+    const old: Action[] = [
+      { type: "wolves", targetId: "p1" },
+      go,
+      { type: "mayor", targetId: "p2" },
+      { type: "vote", targetId: "p0" },
+      go,
+      { type: "mayor", targetId: "p3" },
+    ];
+    const log = engine.upgradeLog(s, old)!;
+    expect(engine.replay(s, log).step).toMatchObject({ kind: "game-over", winner: { team: "village" } });
+  });
+
+  it("are dropped when they no longer fit", () => {
+    expect(engine.upgradeLog(setup(["werewolf", "villager", "villager"]), [{ type: "seer", targetId: "p1" }])).toBeNull();
   });
 });

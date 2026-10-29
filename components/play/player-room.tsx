@@ -382,7 +382,7 @@ function InGame({ view, onVote }: { view: PlayerView; onVote: (targetId: string 
   const me = view.me!;
   const nameOf = (id: string) => view.players.find((p) => p.id === id)?.name ?? "?";
   const dead = new Map(game.dead.map((d) => [d.playerId, d.role]));
-  const isNight = game.phase.kind === "night";
+  const isNight = game.phase.kind === "night" && !game.prologue;
   useGameTheme(isNight);
   const t = dict.play;
 
@@ -400,7 +400,9 @@ function InGame({ view, onVote }: { view: PlayerView; onVote: (targetId: string 
       ) : (
         <p className="flex items-center justify-center gap-2 text-muted-foreground">
           {isNight ? <Moon aria-hidden className="size-4" /> : <Sun aria-hidden className="size-4" />}
-          {format(isNight ? dict.game.night : dict.game.day, { n: game.phase.number })}
+          {game.prologue
+            ? dict.game.story.prologue.title
+            : format(isNight ? dict.game.night : dict.game.day, { n: game.phase.number })}
         </p>
       )}
 
@@ -429,7 +431,7 @@ function InGame({ view, onVote }: { view: PlayerView; onVote: (targetId: string 
               >
                 <Avatar playerId={p.id} name={p.name} className="size-7" />
                 <span className={`min-w-0 flex-1 truncate ${isDead ? "line-through" : ""}`}>{p.name}</span>
-                {game.sheriffId === p.id && <Crown aria-label={dict.game.sheriff} className="size-4 text-moon" />}
+                {game.mayorId === p.id && <Crown aria-label={dict.game.mayor} className="size-4 text-moon" />}
                 {isDead && <Skull aria-label={dict.game.dead} className="size-4" />}
                 {role && <RoleName role={role} className="text-sm" />}
               </li>

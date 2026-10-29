@@ -45,7 +45,7 @@ export function RoleCard({
     notes.push({ icon: <Heart aria-hidden className="size-4 fill-pink-500 text-pink-500" />, text: format(t.lover, { name: loverName }) });
   }
   if (info.charmed) notes.push({ icon: <Music aria-hidden className="size-4 text-emerald-500" />, text: t.charmed });
-  if (info.isSheriff) notes.push({ icon: <Crown aria-hidden className="size-4 text-moon" />, text: t.sheriff });
+  if (info.isMayor) notes.push({ icon: <Crown aria-hidden className="size-4 text-moon" />, text: t.mayor });
 
   return (
     <div className="flex flex-col items-center gap-3">

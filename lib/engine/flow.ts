@@ -12,6 +12,18 @@ import {
   type Step,
 } from "./types";
 
+/** Closes every night and day: the game master moves on when the table is ready. */
+const phaseEnd: SequenceEntry = {
+  id: "phase-end",
+  order: 1000,
+  build: (state) => ({
+    kind: "phase-end",
+    next: state.phase.kind === "night" ? { kind: "day", number: state.phase.number } : { kind: "night", number: state.phase.number + 1 },
+  }),
+};
+
+const nightTurns = [...nightSequence, phaseEnd];
+
 const daySequence: SequenceEntry[] = [
   {
     id: "bear",
@@ -26,11 +38,11 @@ const daySequence: SequenceEntry[] = [
     },
   },
   {
-    id: "sheriff-election",
+    id: "mayor-election",
     order: 10,
     build: (state) =>
-      state.setup.settings.sheriff && !state.sheriffElected && state.phase.number > 0
-        ? { kind: "sheriff-election" }
+      state.setup.settings.mayor && !state.mayorElected && state.phase.number > 0
+        ? { kind: "mayor-election" }
         : null,
   },
   { id: "vote", order: 20, build: (state) => voteStep(state, false) },
@@ -42,6 +54,7 @@ const daySequence: SequenceEntry[] = [
       return judge && (judge.uses["second-vote"] ?? 0) > 0 ? { kind: "judge", playerId: judge.id } : null;
     },
   },
+  phaseEnd,
 ];
 
 function voteStep(state: GameState, second: boolean): Step {
@@ -52,7 +65,7 @@ function voteStep(state: GameState, second: boolean): Step {
     .map((p) => p.id);
   return {
     kind: "vote",
-    sheriffId: state.sheriffId,
+    mayorId: state.mayorId,
     ravenTargetId: state.ravenTargetId && getPlayer(state, state.ravenTargetId).alive ? state.ravenTargetId : null,
     cannotVote,
     scapegoatId: holders(state, "scapegoat")[0]?.id ?? null,
@@ -88,14 +101,14 @@ export function createGame(setup: GameSetup): GameState {
     players,
     phase: angel ? { kind: "day", number: 0 } : { kind: "night", number: 1 },
     cursor: 0,
-    pending: [],
-    step: { kind: "sheriff-election" }, // replaced by advance()
+    pending: [{ kind: "prologue" }],
+    step: { kind: "prologue" }, // replaced by advance()
     phaseStep: -1,
     extraCards: [...setup.extraCards],
     actorCards: [...(setup.actorCards ?? [])],
     lovers: null,
-    sheriffId: null,
-    sheriffElected: false,
+    mayorId: null,
+    mayorElected: false,
     villagePowersLost: false,
     wolfDied: false,
     rustTargetId: null,
@@ -144,6 +157,13 @@ function resolve(state: GameState, step: Step, action: Action) {
   const choice = () => expect("choose").value;
 
   switch (step.kind) {
+    case "prologue":
+      expect("continue");
+      // The story was the prelude: the first night (or day) opens now.
+      state.phaseStep = -1;
+      return;
+
+    case "phase-end":
     case "lovers":
     case "siblings":
     case "seer-result":
@@ -297,6 +317,7 @@ function resolve(state: GameState, step: Step, action: Action) {
       if (poisonId !== null) {
         if (!step.canPoison) throw new EngineError("invalid-action", "The Witch has no poison left");
         const target = getAlive(state, poisonId);
+        if (target.id === step.victimId) throw new EngineError("invalid-target", "The wolves' victim is already dying");
         witch.uses.poison = (witch.uses.poison ?? 1) - 1;
         state.night.poisonedId = target.id;
         log(state, { type: "witch-poison", targetId: target.id });
@@ -328,13 +349,13 @@ function resolve(state: GameState, step: Step, action: Action) {
       return;
     }
 
-    case "sheriff-election":
-    case "sheriff-succession": {
-      const target = getAlive(state, expect("sheriff").targetId);
-      const previousId = step.kind === "sheriff-succession" ? step.playerId : null;
-      state.sheriffId = target.id;
-      state.sheriffElected = true;
-      log(state, { type: "sheriff", playerId: target.id, previousId });
+    case "mayor-election":
+    case "mayor-succession": {
+      const target = getAlive(state, expect("mayor").targetId);
+      const previousId = step.kind === "mayor-succession" ? step.playerId : null;
+      state.mayorId = target.id;
+      state.mayorElected = true;
+      log(state, { type: "mayor", playerId: target.id, previousId });
       return;
     }
 
@@ -401,6 +422,8 @@ function resolve(state: GameState, step: Step, action: Action) {
 function advance(state: GameState) {
   for (;;) {
     const next = state.pending.shift();
+    // A successor only matters if the game goes on.
+    if (next?.kind === "mayor-succession" && !thiefStillToWake(state) && getWinner(state)) continue;
     if (next) {
       state.step = next;
       state.phaseStep += 1;
@@ -418,7 +441,7 @@ function advance(state: GameState) {
       }
     }
 
-    const sequence = state.phase.kind === "night" ? nightSequence : daySequence;
+    const sequence = state.phase.kind === "night" ? nightTurns : daySequence;
     while (state.cursor < sequence.length) {
       const entry = sequence[state.cursor++];
       if (entry.firstNightOnly && state.phase.number !== 1) continue;
@@ -520,13 +543,13 @@ function kill(state: GameState, victims: Death[], context: "dawn" | "vote" | "hu
   const servant = voted && holders(state, "devoted-servant").find((p) => p.id !== voted.playerId);
 
   const roleTriggers = new Map<string, Step[]>();
-  const sheriffTriggers: Step[] = [];
+  const mayorTriggers: Step[] = [];
   for (const { playerId, cause } of deaths) {
     const player = getPlayer(state, playerId);
     roleTriggers.set(playerId, roles[player.role].onDeath?.(state, player, cause) ?? []);
-    if (state.sheriffId === player.id) {
-      state.sheriffId = null;
-      if (alive(state).length > 0) sheriffTriggers.push({ kind: "sheriff-succession", playerId: player.id });
+    if (state.mayorId === player.id) {
+      state.mayorId = null;
+      if (alive(state).length > 0) mayorTriggers.push({ kind: "mayor-succession", playerId: player.id });
     }
   }
 
@@ -539,7 +562,7 @@ function kill(state: GameState, victims: Death[], context: "dawn" | "vote" | "hu
       queued.push(...roleTriggers.get(playerId)!);
     }
   }
-  queued.push(...sheriffTriggers);
+  queued.push(...mayorTriggers);
   state.pending.unshift(...queued);
 }
 
@@ -548,5 +571,5 @@ function kill(state: GameState, victims: Death[], context: "dawn" | "vote" | "hu
 function thiefStillToWake(state: GameState) {
   if (state.phase.kind === "day" && state.phase.number === 0) return state.players.some((p) => p.role === "thief");
   if (state.phase.kind !== "night" || state.phase.number !== 1) return false;
-  return nightSequence.slice(state.cursor).some((e) => e.id === "thief");
+  return nightTurns.slice(state.cursor).some((e) => e.id === "thief");
 }

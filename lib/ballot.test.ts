@@ -6,7 +6,7 @@ const ballot = (votes: Ballot["votes"], voterIds = ["a", "b", "c", "d", "e"]): B
   candidateIds: ["a", "b", "c", "d", "e"],
   votes,
 });
-const none = { sheriffId: null, ravenTargetId: null };
+const none = { mayorId: null, ravenTargetId: null };
 
 describe("tallyBallot", () => {
   it("eliminates the player with the most votes", () => {
@@ -27,12 +27,12 @@ describe("tallyBallot", () => {
     expect(tallyBallot(ballot({}), none).outcome).toEqual({ kind: "nobody" });
   });
 
-  it("counts the Sheriff twice and adds the Raven's two votes", () => {
-    expect(tallyBallot(ballot({ a: "c", b: "d", c: "d" }), { sheriffId: "a", ravenTargetId: null }).outcome).toEqual({
+  it("counts the Mayor twice and adds the Raven's two votes", () => {
+    expect(tallyBallot(ballot({ a: "c", b: "d", c: "d" }), { mayorId: "a", ravenTargetId: null }).outcome).toEqual({
       kind: "tie",
       targetIds: ["c", "d"],
     });
-    const raven = tallyBallot(ballot({ a: "c" }), { sheriffId: null, ravenTargetId: "e" });
+    const raven = tallyBallot(ballot({ a: "c" }), { mayorId: null, ravenTargetId: "e" });
     expect(raven.counts.e).toBe(2);
     expect(raven.outcome).toEqual({ kind: "eliminate", targetId: "e" });
   });

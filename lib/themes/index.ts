@@ -63,6 +63,7 @@ export function themeDictionary(dict: Dictionary, themeId: string | undefined, l
 
 function mapStrings(value: unknown, fn: (s: string) => string): unknown {
   if (typeof value === "string") return fn(value);
+  if (Array.isArray(value)) return value.map((v) => mapStrings(v, fn));
   if (value && typeof value === "object") {
     return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, mapStrings(v, fn)]));
   }
@@ -70,6 +71,8 @@ function mapStrings(value: unknown, fn: (s: string) => string): unknown {
 }
 
 function merge(base: unknown, patch: unknown): unknown {
+  // Lists (narration lines) are replaced whole.
+  if (Array.isArray(patch)) return patch;
   if (!patch || typeof patch !== "object" || !base || typeof base !== "object") return patch ?? base;
   const out: Record<string, unknown> = { ...(base as Record<string, unknown>) };
   for (const [k, v] of Object.entries(patch)) out[k] = merge(out[k], v);

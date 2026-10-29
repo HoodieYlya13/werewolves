@@ -189,8 +189,14 @@
   }
 }
 
-/* Nightfall and daybreak in the "game" theme (see setGamePhase): a slow cross-fade. */
+/* Light to dark and back (see applyTheme): a slow cross-fade, like dusk or dawn. */
 ::view-transition-old(root),
 ::view-transition-new(root) {
-  animation-duration: 0.8s;
+  animation-duration: 1.6s;
+  animation-timing-function: ease-in-out;
+}
+
+/* Taps go through to the page while it fades. */
+::view-transition {
+  pointer-events: none;
 }

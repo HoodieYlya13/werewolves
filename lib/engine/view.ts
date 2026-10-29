@@ -13,7 +13,7 @@ export type PlayerInfo = {
   /** Set once Cupid has linked the lovers. */
   loverId: string | null;
   charmed: boolean;
-  isSheriff: boolean;
+  isMayor: boolean;
 };
 
 export function playerInfo(state: GameState, playerId: string): PlayerInfo | null {
@@ -26,14 +26,16 @@ export function playerInfo(state: GameState, playerId: string): PlayerInfo | nul
     wakesWithWolves: isWolf(player),
     loverId: state.lovers?.includes(playerId) ? (state.lovers.find((id) => id !== playerId) ?? null) : null,
     charmed: !!player.flags.charmed,
-    isSheriff: state.sheriffId === playerId,
+    isMayor: state.mayorId === playerId,
   };
 }
 
-/** What everyone at the table already knows: phase, deaths, the Sheriff, the result. */
+/** What everyone at the table already knows: phase, deaths, the Mayor, the result. */
 export type PublicGame = {
   phase: PhaseRef;
-  sheriffId: string | null;
+  /** The game master is telling the opening story, before the first night. */
+  prologue: boolean;
+  mayorId: string | null;
   /** Roles stay hidden when the game is set not to reveal them on death. */
   dead: { playerId: string; role: RoleId | null }[];
   winner: Winner | null;
@@ -46,7 +48,8 @@ export function publicGame(state: GameState): PublicGame {
   const reveal = state.setup.settings.revealRoleOnDeath || !!state.winner;
   return {
     phase: state.phase,
-    sheriffId: state.sheriffId,
+    prologue: state.step.kind === "prologue",
+    mayorId: state.mayorId,
     dead: state.players.filter((p) => !p.alive).map((p) => ({ playerId: p.id, role: reveal ? p.role : null })),
     winner: state.winner,
     roles: state.winner ? Object.fromEntries(state.players.map((p) => [p.id, p.role])) : null,

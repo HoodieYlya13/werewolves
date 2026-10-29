@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BadgeCheck, Crown, Eye, EyeOff, Heart, Moon, Music, PawPrint, Pencil, Skull, Sun, Undo2, X } from "lucide-react";
+import { BadgeCheck, Crown, Eye, EyeOff, Heart, Moon, Music, PawPrint, Pencil, ScrollText, Skull, Sun, Undo2, X } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { CloseRoomButton } from "@/components/host/close-room-button";
 import { PlayerEditor } from "@/components/host/player-editor";
@@ -28,7 +28,9 @@ export function GameScreen({
   send: (message: ClientMessage) => void;
 }) {
   const { dict } = useI18n();
-  const isNight = game.phase.kind === "night";
+  // The story is told in daylight: the village has just found the narrator's body.
+  const prologue = game.step.kind === "prologue";
+  const isNight = game.phase.kind === "night" && !prologue;
   useGameTheme(isNight);
   const over = game.step.kind === "game-over";
   const [hideRoles, setHideRoles] = useState(() => {
@@ -54,17 +56,27 @@ export function GameScreen({
       <div className="flex min-w-0 flex-col gap-5">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-3">
-            {isNight ? (
+            {prologue ? (
+              <ScrollText aria-hidden className="size-7 text-moon" />
+            ) : isNight ? (
               <Moon aria-hidden className="size-7 text-moon" />
             ) : (
               <Sun aria-hidden className="size-7 text-moon" />
             )}
             <div>
               <h1 className="font-display text-2xl leading-tight font-bold">
-                {format(isNight ? dict.game.night : dict.game.day, { n: game.phase.number })}
+                {prologue
+                  ? dict.game.story.prologue.title
+                  : format(isNight ? dict.game.night : dict.game.day, { n: game.phase.number })}
               </h1>
               <p className="text-sm text-muted-foreground">
-                {isNight ? dict.game.nightHint : game.phase.number === 0 ? dict.game.dayZeroHint : dict.game.dayHint}
+                {prologue
+                  ? dict.game.story.prologue.hint
+                  : isNight
+                    ? dict.game.nightHint
+                    : game.phase.number === 0
+                      ? dict.game.dayZeroHint
+                      : dict.game.dayHint}
               </p>
             </div>
           </div>
@@ -177,7 +189,7 @@ function PlayersPanel({ game }: { game: GameState }) {
             {game.lovers?.includes(p.id) && (
               <Heart aria-label={dict.game.lover} className="secret-role size-3.5 fill-pink-500 text-pink-500" />
             )}
-            {game.sheriffId === p.id && <Crown aria-label={dict.game.sheriff} className="size-3.5 text-moon" />}
+            {game.mayorId === p.id && <Crown aria-label={dict.game.mayor} className="size-3.5 text-moon" />}
             {p.flags.charmed && (
               <Music aria-label={dict.game.charmed} className="secret-role size-3.5 text-emerald-500" />
             )}
@@ -236,8 +248,8 @@ function EventText({ game, event }: { game: GameState; event: GameEvent }) {
       return format(t[event.type], { target: name(event.targetId) });
     case "death":
       return format(t.death, { name: name(event.playerId), cause: dict.game.causes[event.cause] });
-    case "sheriff":
-      return format(t.sheriff, { name: name(event.playerId) });
+    case "mayor":
+      return format(t.mayor, { name: name(event.playerId) });
     case "vote":
       return event.targetId ? format(t.vote, { target: name(event.targetId) }) : t.voteNobody;
     case "actor":

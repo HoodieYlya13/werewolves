@@ -63,7 +63,7 @@ export const roles: Record<RoleId, RoleDefinition> = {
           victimId !== null &&
           (victimId !== witch.id || state.setup.settings.witchCanSelfHeal);
         const canPoison = (witch.uses.poison ?? 0) > 0;
-        if (!canHeal && !canPoison) return null;
+        // Called every night, potions or not: skipping her would tell the village they're gone.
         return { kind: "witch", playerId: witch.id, victimId, canHeal, canPoison };
       },
     },
@@ -292,15 +292,22 @@ export type SequenceEntry = {
 };
 
 /**
- * Keeps calling a night turn that was in the game but can't be played any more,
- * unless roles are revealed on death or the loss of powers was announced:
- * otherwise skipping it would tell the village who is gone.
+ * Whether a turn nobody can play is still called, so skipping it doesn't tell
+ * the village who is gone or out of power. It is, while the card is in the
+ * game: held by a living player, dead with roles kept hidden, or left over by
+ * the Thief. Only what the village already knows ends it: a death with roles
+ * revealed, or the announced loss of the villagers' powers.
  */
-function bluff(state: GameState, turn: string, role: RoleId, dealt: boolean): Step | null {
-  if (state.setup.settings.revealRoleOnDeath || !dealt) return null;
-  if (state.villagePowersLost && roles[role].team === "village") return null;
-  return { kind: "bluff", turn, role };
+function callsAnyway(state: GameState, role: RoleId): boolean {
+  if (state.villagePowersLost && roles[role].team === "village") return false;
+  const cards = state.players.filter((p) => p.role === role);
+  if (cards.some((p) => p.alive)) return true;
+  if (cards.length > 0) return !state.setup.settings.revealRoleOnDeath;
+  return state.extraCards.includes(role);
 }
+
+const bluff = (state: GameState, turn: string, role: RoleId): Step | null =>
+  callsAnyway(state, role) ? { kind: "bluff", turn, role } : null;
 
 const roleTurns: SequenceEntry[] = roleIds.flatMap((id) => {
   const night = roles[id].night;
@@ -313,7 +320,7 @@ const roleTurns: SequenceEntry[] = roleIds.flatMap((id) => {
     build: (state) => {
       const holder = holders(state, id)[0];
       const step = holder ? night.act(state, holder) : null;
-      return step ?? bluff(state, id, id, state.players.some((p) => p.role === id));
+      return step ?? bluff(state, id, id);
     },
   };
   if (!roles[id].actorCanBorrow) return [own];
@@ -336,7 +343,7 @@ const siblingsTurn = (role: "two-sisters" | "three-brothers", order: number): Se
   firstNightOnly: true,
   build: (state) => {
     const ids = state.players.filter((p) => p.alive && p.role === role).map((p) => p.id);
-    return ids.length > 1 ? { kind: "siblings", role, playerIds: ids } : null;
+    return ids.length > 1 ? { kind: "siblings", role, playerIds: ids } : bluff(state, role, role);
   },
 });
 
@@ -346,7 +353,8 @@ const groupTurns: SequenceEntry[] = [
     id: "lovers",
     order: 30,
     firstNightOnly: true,
-    build: (state) => (state.lovers ? { kind: "lovers", lovers: state.lovers } : null),
+    // Follows Cupid's call, even a bluffed one.
+    build: (state) => (state.lovers ? { kind: "lovers", lovers: state.lovers } : bluff(state, "lovers", "cupid")),
   },
   siblingsTurn("two-sisters", 32),
   siblingsTurn("three-brothers", 34),
@@ -374,7 +382,9 @@ const groupTurns: SequenceEntry[] = [
       const newIds = state.events
         .filter((e) => e.type === "charmed" && e.phase.kind === "night" && e.phase.number === state.phase.number)
         .flatMap((e) => (e.type === "charmed" ? e.targetIds : []));
-      return newIds.length > 0 ? { kind: "charmed", playerIds: charmed.map((p) => p.id), newIds } : null;
+      // Follows the Piper's call, even a bluffed one.
+      if (newIds.length === 0) return bluff(state, "charmed", "pied-piper");
+      return { kind: "charmed", playerIds: charmed.map((p) => p.id), newIds };
     },
   },
 ];

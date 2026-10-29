@@ -36,7 +36,6 @@ export const mafia: Theme = {
       Cupid: "Matchmaker",
       "Little Girl": "Journalist",
       Thief: "Pickpocket",
-      Sheriff: "Mayor",
       Elder: "Retired Cop",
       Scapegoat: "Fall Guy",
       "Pied Piper": "Cult Leader",
@@ -124,7 +123,18 @@ export const mafia: Theme = {
           power: "If the mafia kill the Informant, the first mafioso to the Informant's left is arrested the next night.",
         },
       },
-      game: { causes: { rust: "arrested after the Informant's tip" } },
+      game: {
+        story: {
+          prologue: {
+            say: [
+              "Welcome to Port Royal, in the 1920s. Jazz in the clubs, bootleg gin in the cellars, and a town that minds its own business.",
+              "Last night, the Mafia sent its first message. That message was me, your game master. They pulled me out of the river this morning, wearing concrete shoes.",
+              "I'm talking to you from the other side now. The killers sit among you, smiling. Find them before this whole town ends up at the bottom of the river.",
+            ],
+          },
+        },
+        causes: { rust: "arrested after the Informant's tip" },
+      },
     },
     fr: {
       roles: {
@@ -139,6 +149,15 @@ export const mafia: Theme = {
       },
       teams: { wolves: "La Mafia" },
       game: {
+        story: {
+          prologue: {
+            say: [
+              "Bienvenue à Port Royal, dans les années 1920. Du jazz dans les clubs, du gin de contrebande dans les caves, et une ville qui se mêle de ses affaires.",
+              "La nuit dernière, la Mafia a envoyé son premier message. Ce message, c'était moi, le meneur de jeu. On a sorti mon corps du fleuve ce matin, les pieds coulés dans le béton.",
+              "Je vous parle maintenant depuis l'au-delà. Les tueurs sont assis parmi vous, tout sourire. Trouvez-les avant que toute la ville ne finisse au fond du fleuve.",
+            ],
+          },
+        },
         powersLost: "Le Flic retraité a été tué par la ville : les citoyens ont perdu leurs pouvoirs.",
         causes: { rust: "arrêté sur un tuyau de l'Indic" },
         events: { "powers-lost": "Les citoyens ont perdu leurs pouvoirs" },

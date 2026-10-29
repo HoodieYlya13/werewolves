@@ -1,18 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
-  applyAction,
   assignRoles,
-  createGame,
   deckProblems,
   defaultSettings,
   EngineError,
-  replay,
   type Action,
   type GameSetup,
   type RoleId,
   type SetupOptions,
   type Settings,
 } from ".";
+import { applyAction, createGame, replay } from "./testing";
 
 /** Players p0, p1… get the roles in order and sit in that order, clockwise. */
 function setup(
@@ -24,7 +22,7 @@ function setup(
     players,
     Object.fromEntries(players.map((p, i) => [p.id, roleList[i]])),
     opts.extra ?? [],
-    { ...defaultSettings, sheriff: false, ...opts.settings },
+    { ...defaultSettings, mayor: false, ...opts.settings },
     { actorCards: opts.actorCards, groups: opts.groups },
   );
 }
@@ -219,8 +217,10 @@ describe("Personnages", () => {
         { playerId: "p3", cause: "wolves" },
       ],
     });
+    // Still called after a wolf died (so the village can't tell), but no second victim.
     const night2 = play(s, [wolves("p2"), pick("p3"), go, vote("p1"), go, wolves("p4")]);
-    expect(night2.step).toMatchObject({ kind: "deaths", deaths: [{ playerId: "p4" }] });
+    expect(night2.step).toEqual({ kind: "bluff", turn: "big-bad-wolf", role: "big-bad-wolf" });
+    expect(applyAction(night2, go).step).toMatchObject({ kind: "deaths", deaths: [{ playerId: "p4" }] });
   });
 
   it("Accursed Wolf-Father infects instead of killing; the Witch sees no victim", () => {
@@ -281,7 +281,8 @@ describe("Personnages", () => {
     });
     const miss = play(s, [pick("p1")]);
     expect(miss.step).toMatchObject({ kind: "fox-result", playerIds: ["p0", "p1", "p2"], hasWolf: false });
-    expect(play(s, [pick("p1"), go, wolves("p4"), go, vote(null)]).step.kind).toBe("wolves");
+    // Powerless, the Fox is still called: only he knows he missed.
+    expect(play(s, [pick("p1"), go, wolves("p4"), go, vote(null)]).step).toEqual({ kind: "bluff", turn: "fox", role: "fox" });
   });
 
   it("Devoted Servant can take the voted-out player's card, and its death power", () => {

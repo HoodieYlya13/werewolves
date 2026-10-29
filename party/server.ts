@@ -3,11 +3,13 @@ import {
   applyAction,
   assignRoles,
   dealRoles,
+  ENGINE_VERSION,
   EngineError,
   playerInfo,
   publicGame,
   replay,
   teamOf,
+  upgradeLog,
   type Action,
   type GameSetup,
   type GameState,
@@ -52,7 +54,16 @@ type StoredGame = {
   startedAt?: number;
   /** What was last saved to the stats database ("" or missing: nothing). */
   recorded?: string;
+  /** The engine the log was written for (missing: 1). See upgradeLog. */
+  engine?: number;
 };
+
+/** A game saved by an older engine, rewritten for this one; null if it no longer fits. */
+function upgradeGame(game: StoredGame | null | undefined): StoredGame | null {
+  if (!game || (game.engine ?? 1) >= ENGINE_VERSION) return game ?? null;
+  const log = upgradeLog(game.setup, game.log);
+  return log ? { ...game, log, engine: ENGINE_VERSION } : null;
+}
 
 /**
  * Everything the room persists. Secrets (tokens) never leave the server.
@@ -120,6 +131,11 @@ export class RoomServer extends Server<Env> {
 
   async onStart() {
     this.state = (await this.ctx.storage.get<RoomState>(STORAGE_KEY)) ?? null;
+    if (this.state) {
+      this.state.game = upgradeGame(this.state.game);
+      // A game that no longer fits is dropped: the room goes back to the lobby.
+      this.state.endedGame = upgradeGame(this.state.endedGame);
+    }
     if (this.state?.game) this.game = replay(this.state.game.setup, this.state.game.log);
   }
 
@@ -470,7 +486,7 @@ export class RoomServer extends Server<Env> {
         try {
           const setup = this.buildSetup(msg);
           this.game = replay(setup, []);
-          this.state.game = { setup, log: [], id: crypto.randomUUID(), startedAt: Date.now() };
+          this.state.game = { setup, log: [], id: crypto.randomUUID(), startedAt: Date.now(), engine: ENGINE_VERSION };
           this.state.endedGame = null;
           this.state.locked = true;
         } catch (e) {

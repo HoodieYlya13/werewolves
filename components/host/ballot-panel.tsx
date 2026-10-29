@@ -44,7 +44,7 @@ export function BallotPanel({
     );
   }
 
-  const tally = tallyBallot(ballot, { sheriffId: step.sheriffId, ravenTargetId: step.ravenTargetId });
+  const tally = tallyBallot(ballot, { mayorId: step.mayorId, ravenTargetId: step.ravenTargetId });
   const ranked = Object.entries(tally.counts)
     .filter(([, count]) => count > 0)
     .sort((a, b) => b[1] - a[1]);
@@ -79,7 +79,7 @@ export function BallotPanel({
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">
                   {nameOf(voterId)}
-                  {voterId === step.sheriffId && <span className="text-moon"> ×2</span>}
+                  {voterId === step.mayorId && <span className="text-moon"> ×2</span>}
                 </span>
                 {manual && <span className="block text-xs text-muted-foreground">{dict.host.noPhone}</span>}
               </span>
