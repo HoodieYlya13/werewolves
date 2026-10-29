@@ -37,23 +37,73 @@ export function setupNeeds(deck: RoleId[]) {
 
 export type SetupOptions = Pick<GameSetup, "actorCards" | "groups">;
 
+/** "classic": base-game roles, then villagers. "no-villagers": a power for everyone. */
+export type DeckStyle = "classic" | "no-villagers";
+
 /**
- * A balanced starting deck: about one wolf per four players, then specials in
- * the order new groups usually add them, then villagers.
+ * Village powers that need no extra setup (no Actor cards, no groups, no
+ * opening vote, no cards left over) and don't win alone, so any mix plays.
  */
-export function suggestedDeck(playerCount: number): RoleId[] {
+const villagePowers: RoleId[] = [
+  "little-girl",
+  "elder",
+  "defender",
+  "village-idiot",
+  "scapegoat",
+  "knight",
+  "fox",
+  "bear-tamer",
+  "raven",
+  "stuttering-judge",
+  "devoted-servant",
+  "wild-child",
+];
+const villageSets: RoleId[] = ["two-sisters", "three-brothers"];
+
+/**
+ * A balanced starting deck: about one wolf per four players, then the base
+ * game's specials in the order new groups usually add them. "classic" fills
+ * the rest with villagers; "no-villagers" with a random mix of village powers,
+ * different on each call.
+ */
+export function suggestedDeck(playerCount: number, style: DeckStyle = "classic", random: () => number = Math.random): RoleId[] {
   const wolves = playerCount <= 5 ? 1 : playerCount <= 11 ? 2 : playerCount <= 17 ? 3 : 4;
   const specials: [RoleId, number][] = [
     ["seer", 3],
     ["witch", 4],
     ["hunter", 5],
     ["cupid", 6],
-    ["little-girl", 8],
+    ...(style === "classic" ? [["little-girl", 8] as [RoleId, number]] : []),
   ];
   const deck: RoleId[] = Array(wolves).fill("werewolf");
   for (const [role, minPlayers] of specials) if (playerCount >= minPlayers) deck.push(role);
+
+  if (style === "no-villagers") {
+    const singles = shuffle(villagePowers, random);
+    let room = playerCount - deck.length;
+    for (const set of shuffle(villageSets, random)) {
+      const size = roles[set].copies!;
+      // Sets are a coin toss, unless the single powers alone can't fill the deck.
+      if (size <= room && (random() < 0.5 || room > singles.length)) {
+        deck.push(...Array<RoleId>(size).fill(set));
+        room -= size;
+      }
+    }
+    deck.push(...singles.slice(0, Math.max(0, room)));
+  }
+
+  // Villagers only fill what's left (very large groups, in "no-villagers").
   while (deck.length < playerCount) deck.push("villager");
   return deck.slice(0, Math.max(playerCount, wolves + 1));
+}
+
+function shuffle<T>(items: T[], random: () => number): T[] {
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
 }
 
 /** Shuffles the deck and deals one card per player; the rest go face down. */
@@ -64,11 +114,7 @@ export function dealRoles(
   options: SetupOptions = {},
   random: () => number = Math.random,
 ): GameSetup {
-  const cards = [...deck];
-  for (let i = cards.length - 1; i > 0; i--) {
-    const j = Math.floor(random() * (i + 1));
-    [cards[i], cards[j]] = [cards[j], cards[i]];
-  }
+  const cards = shuffle(deck, random);
   const ordered = [...players].sort((a, b) => a.seat - b.seat);
   const setup: GameSetup = {
     players: ordered,

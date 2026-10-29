@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, Hand, History, Minus, Plus, Shuffle, Sparkles } from "lucide-react";
+import { ArrowLeft, Dices, Hand, History, Minus, Plus, Shuffle, Sparkles } from "lucide-react";
 import { I18nProvider, useI18n } from "@/components/i18n-provider";
 import { RoleName } from "@/components/host/role-chip";
 import { format } from "@/lib/i18n/config";
@@ -15,6 +15,7 @@ import {
   roles,
   setupNeeds,
   suggestedDeck,
+  type DeckStyle,
   type RoleId,
   type Settings,
 } from "@/lib/engine";
@@ -40,19 +41,27 @@ function toDeck(counts: Counts): RoleId[] {
   return pickerOrder.flatMap((r) => Array<RoleId>(counts[r] ?? 0).fill(r));
 }
 
-/** The last deck and rules are remembered, since groups tend to replay them. */
-function loadSaved(playerCount: number): { counts: Counts; settings: Settings; actorCards: RoleId[] } {
+/**
+ * The last deck and rules are remembered, since groups tend to replay them.
+ * A deck for another number of players is replaced by a suggested one, in the
+ * style picked last time.
+ */
+function loadSaved(playerCount: number) {
+  let saved: { counts?: Counts; settings?: Partial<Settings>; actorCards?: RoleId[]; style?: DeckStyle } | null = null;
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null");
-    if (saved) {
-      return {
-        counts: saved.counts,
-        settings: { ...defaultSettings, ...saved.settings },
-        actorCards: saved.actorCards ?? [],
-      };
-    }
+    saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null");
   } catch {}
-  return { counts: toCounts(suggestedDeck(playerCount)), settings: defaultSettings, actorCards: [] };
+  const style: DeckStyle = saved?.style === "no-villagers" ? "no-villagers" : "classic";
+  const savedDeck = saved?.counts ? toDeck(saved.counts) : null;
+  const fits = !!savedDeck && savedDeck.length === deckSize(playerCount, savedDeck);
+  return {
+    counts: fits ? saved!.counts! : toCounts(suggestedDeck(playerCount, style)),
+    settings: { ...defaultSettings, ...saved?.settings },
+    actorCards: saved?.actorCards ?? [],
+    style,
+    /** The size of a remembered deck that didn't fit, to say why it changed. */
+    resizedFrom: savedDeck && !fits ? savedDeck.length : null,
+  };
 }
 
 type BooleanSetting = { [K in keyof Settings]: Settings[K] extends boolean ? K : never }[keyof Settings];
@@ -70,7 +79,9 @@ export function SetupScreen({
 }) {
   const { dict: baseDict, locale } = useI18n();
   const [initial] = useState(() => loadSaved(players.length));
-  const [counts, setCounts] = useState<Counts>(initial.counts);
+  const [counts, setCountsState] = useState<Counts>(initial.counts);
+  const [style, setStyle] = useState<DeckStyle>(initial.style);
+  const [resizedFrom, setResizedFrom] = useState(initial.resizedFrom);
   const [settings, setSettings] = useState<Settings>(initial.settings);
   // Role names follow the chosen theme as soon as it's picked.
   const dict = themeDictionary(baseDict, settings.theme, locale);
@@ -103,6 +114,17 @@ export function SetupScreen({
   const everyoneAssigned = players.every((p) => holds.has(p.id));
   const canStart = problems.length === 0 && actorReady && groupsReady && (mode === "random" || everyoneAssigned);
 
+  /** Any change to the deck makes the note about the remembered one moot. */
+  function setCounts(next: Counts | ((c: Counts) => Counts)) {
+    setCountsState(next);
+    setResizedFrom(null);
+  }
+
+  function suggest(next: DeckStyle) {
+    setStyle(next);
+    setCounts(toCounts(suggestedDeck(players.length, next)));
+  }
+
   function change(role: RoleId, delta: number) {
     // Sets (Two Sisters, Three Brothers) are added and removed as a whole.
     const step = roles[role].copies ?? 1;
@@ -114,7 +136,7 @@ export function SetupScreen({
 
   function start() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ counts, settings, actorCards }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ counts, settings, actorCards, style }));
     } catch {}
     const options = {
       actorCards: needs.actorCards ? actorCards : undefined,
@@ -143,14 +165,26 @@ export function SetupScreen({
               <ArrowLeft aria-hidden className="size-4" />
               {dict.setup.back}
             </Button>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
-                variant="outline" className="h-9 px-3 text-sm"
-                onClick={() => setCounts(toCounts(suggestedDeck(players.length)))}
+                variant="outline"
+                className="h-9 px-3 text-sm"
+                title={dict.setup.suggestHint}
+                onClick={() => suggest("classic")}
               >
                 <Sparkles aria-hidden className="size-4" />
                 {dict.setup.suggest}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 px-3 text-sm"
+                title={dict.setup.suggestSpecialsHint}
+                onClick={() => suggest("no-villagers")}
+              >
+                <Dices aria-hidden className="size-4" />
+                {dict.setup.suggestSpecials}
               </Button>
               <Button type="button" variant="outline" className="h-9 px-3 text-sm" onClick={() => setCounts({})}>
                 {dict.setup.clear}
@@ -228,6 +262,22 @@ export function SetupScreen({
             >
               {format(dict.setup.cards, { count: deck.length, needed })}
             </p>
+            {resizedFrom !== null && (
+              <p className="text-sm text-muted-foreground">{format(dict.setup.resized, { count: resizedFrom, needed })}</p>
+            )}
+            {/* The whole deck at a glance, without scrolling through every card. */}
+            {deck.length > 0 && (
+              <ul aria-label={dict.setup.title} className="flex flex-wrap gap-1.5">
+                {pickerOrder
+                  .filter((role) => (counts[role] ?? 0) > 0)
+                  .map((role) => (
+                    <li key={role} className="rounded-full bg-surface-2 px-2.5 py-1 text-sm">
+                      {counts[role]! > 1 && <span className="font-mono tabular-nums">{counts[role]} × </span>}
+                      <RoleName role={role} className="font-medium" />
+                    </li>
+                  ))}
+              </ul>
+            )}
             {deck.includes("thief") && <p className="text-sm text-muted-foreground">{dict.setup.thiefNote}</p>}
             {problems.length > 0 && (
               <ul className="flex flex-col gap-1 text-sm text-primary">

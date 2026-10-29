@@ -14,6 +14,7 @@ export {
   validateSetup,
   MIN_PLAYERS,
   type DeckProblem,
+  type DeckStyle,
   type SetupOptions,
 } from "./setup";
 export { playerInfo, publicGame, type PlayerInfo, type PublicGame } from "./view";

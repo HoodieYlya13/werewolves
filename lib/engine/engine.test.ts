@@ -396,6 +396,21 @@ describe("suggested deck", () => {
   it("is playable for every group size", () => {
     for (let n = 3; n <= 24; n++) expect(deckProblems(n, suggestedDeck(n))).toEqual([]);
   });
+
+  it("can give everyone a power, with a new mix each time", () => {
+    for (let seed = 0; seed < 50; seed++) {
+      let x = seed + 1;
+      const random = () => ((x = (x * 16807) % 2147483647) - 1) / 2147483646;
+      for (let n = 3; n <= 24; n++) {
+        const deck = suggestedDeck(n, "no-villagers", random);
+        expect(deckProblems(n, deck)).toEqual([]);
+        expect(deck).not.toContain("villager");
+        expect(deck.filter((r) => r === "werewolf")).toHaveLength(suggestedDeck(n).filter((r) => r === "werewolf").length);
+      }
+    }
+    const decks = new Set(Array.from({ length: 20 }, () => suggestedDeck(10, "no-villagers").sort().join()));
+    expect(decks.size).toBeGreaterThan(1);
+  });
 });
 
 describe("phone views", () => {
