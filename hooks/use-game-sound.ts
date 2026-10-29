@@ -2,8 +2,8 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 import type { GameState } from "@/lib/engine";
-import { isMuted, leaveScene, playStinger, setMuted, setScene, subscribeSound } from "@/lib/sound";
-import { sceneFor } from "@/lib/soundtrack";
+import { HOWL, isMuted, leaveScene, loadSample, playStinger, setMuted, setScene, subscribeSound } from "@/lib/sound";
+import { isWerewolves, sceneFor } from "@/lib/soundtrack";
 
 /** The last stinger played, so a remount or a re-render doesn't ring it twice. */
 let lastStinger = "";
@@ -11,6 +11,11 @@ let lastStinger = "";
 /** Plays the game's soundtrack on the game master's device. */
 export function useGameSound(game: GameState, actionCount: number) {
   const scene = sceneFor(game);
+  const howl = isWerewolves(game);
+  // Fetched ahead, so the wolves' first howl doesn't wait for it.
+  useEffect(() => {
+    if (howl) void loadSample(HOWL);
+  }, [howl]);
   useEffect(() => setScene(scene), [scene]);
   useEffect(() => leaveScene, []);
 
@@ -21,9 +26,9 @@ export function useGameSound(game: GameState, actionCount: number) {
     const key = `${game.setup.players.map((p) => p.id).join()}:${actionCount}`;
     if (key === lastStinger || (deaths === 0 && !winner)) return;
     lastStinger = key;
-    if (winner) playStinger({ kind: "win", team: winner === "village" || winner === "wolves" ? winner : "other" });
+    if (winner) playStinger({ kind: "win", team: winner === "village" || winner === "wolves" ? winner : "other", howl });
     else playStinger({ kind: "deaths", count: deaths });
-  }, [game.setup.players, actionCount, deaths, winner]);
+  }, [game.setup.players, actionCount, deaths, winner, howl]);
 }
 
 export function useSoundMuted() {

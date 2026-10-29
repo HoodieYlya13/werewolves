@@ -15,7 +15,7 @@ describe("soundtrack", () => {
     const scenes = (log: Action[]) => sceneFor(replay(s, log));
     expect(scenes([])).toBe("prologue");
     expect(scenes([go])).toBe("seer");
-    expect(scenes([go, { type: "seer", targetId: "p0" }, go])).toBe("wolves");
+    expect(scenes([go, { type: "seer", targetId: "p0" }, go])).toBe("howl");
     expect(scenes([go, { type: "seer", targetId: "p0" }, go, { type: "wolves", targetId: "p3" }])).toBe("witch");
     const night1: Action[] = [go, { type: "seer", targetId: "p0" }, go, { type: "wolves", targetId: "p3" }, { type: "witch", heal: false, poisonId: null }];
     expect(scenes(night1)).toBe("night");
@@ -30,5 +30,13 @@ describe("soundtrack", () => {
     const state = replay(s, log);
     expect(state.step).toEqual({ kind: "bluff", turn: "seer", role: "seer" });
     expect(sceneFor(state)).toBe("seer");
+  });
+
+  it("howls only in the Werewolves theme", () => {
+    const log: Action[] = [go, { type: "seer", targetId: "p0" }, go];
+    for (const theme of ["mafia", "vampires", "spaceship"]) {
+      const s = assignRoles(players, roles, [], { ...defaultSettings, mayor: false, theme });
+      expect(sceneFor(replay(s, log))).toBe("wolves");
+    }
   });
 });

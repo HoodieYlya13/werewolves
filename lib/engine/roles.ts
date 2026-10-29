@@ -351,7 +351,8 @@ const siblingsTurn = (role: "two-sisters" | "three-brothers", order: number): Se
 const groupTurns: SequenceEntry[] = [
   {
     id: "lovers",
-    order: 30,
+    // Straight after Cupid: "Cupid, go back to sleep. I'll tap the lovers…"
+    order: 21,
     firstNightOnly: true,
     // Follows Cupid's call, even a bluffed one.
     build: (state) => (state.lovers ? { kind: "lovers", lovers: state.lovers } : bluff(state, "lovers", "cupid")),

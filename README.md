@@ -57,6 +57,10 @@ Finished games are saved to Postgres (Neon) for signed-in players and game maste
 
 Each environment has its own database in `POSTGRES_URL` (Vercel's Neon integration sets it). Vercel builds create the tables (`scripts/db-migrate.mjs`, safe to rerun) and hand the URL to the room server as a Worker secret. Locally, `npm run db:migrate` applies the schema to the database in `.env.local`, and `wrangler dev` reads the URL from there too.
 
+## Sound
+
+The game master's screen plays a soundtrack (`lib/sound.ts`): music composed live with the Web Audio API for the day, the night, the vote and each night role, a bell for each death and a tune for the winners. Phones stay silent. The one recording is the wolves' howl in the Werewolves theme, `public/sounds/wolf-howl.m4a`: "Wolf howls.ogg" from Wikimedia Commons, recorded by the U.S. Fish and Wildlife Service, in the public domain.
+
 ## How rooms work
 
 - The game master's browser creates a 4-letter room code and a secret token, saved in `localStorage`.

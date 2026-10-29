@@ -1,11 +1,16 @@
 /**
- * The game master's soundtrack, composed live with the Web Audio API: no audio
- * files to load or license. A scene loops until the next one cross-fades in;
- * stingers (a bell, a fanfare) play over it once.
+ * The game master's soundtrack, composed live with the Web Audio API. A scene
+ * loops until the next one cross-fades in; stingers (a bell, a fanfare) play
+ * over it once. One recording: the Werewolves theme's wolves howl for real
+ * (public/sounds/wolf-howl.m4a, U.S. Fish and Wildlife Service, public domain,
+ * from Wikimedia Commons "Wolf howls.ogg").
  */
 
-export type Scene = "prologue" | "day" | "night" | "wolves" | "witch" | "seer" | "love" | "piper" | "vote";
-export type Stinger = { kind: "deaths"; count: number } | { kind: "win"; team: "village" | "wolves" | "other" };
+/** "howl" is the wolves' turn in the Werewolves theme; other themes' wolves keep "wolves". */
+export type Scene = "prologue" | "day" | "night" | "wolves" | "howl" | "witch" | "seer" | "love" | "piper" | "vote";
+export type Stinger =
+  | { kind: "deaths"; count: number }
+  | { kind: "win"; team: "village" | "wolves" | "other"; howl?: boolean };
 
 const SOUND_KEY = "ww:sound";
 const VOLUME = 0.8;
@@ -41,6 +46,25 @@ function audio() {
   addEventListener("pointerdown", resume);
   addEventListener("keydown", resume);
   return { ctx, master };
+}
+
+// --- recordings ---
+
+export const HOWL = "/sounds/wolf-howl.m4a";
+const samples = new Map<string, Promise<AudioBuffer | null>>();
+
+/** Fetches and decodes a recording once; null if it can't load (the synth stands in). */
+export function loadSample(url: string) {
+  let sample = samples.get(url);
+  if (!sample) {
+    const { ctx } = audio();
+    sample = fetch(url)
+      .then((res) => (res.ok ? res.arrayBuffer() : Promise.reject(new Error(res.statusText))))
+      .then((data) => ctx.decodeAudioData(data))
+      .catch(() => null);
+    samples.set(url, sample);
+  }
+  return sample;
 }
 
 // --- muting ---
@@ -97,7 +121,13 @@ export function playStinger(stinger: Stinger) {
     [60, 64, 67, 72].forEach((n, i) => k.note(n, { type: "triangle", gain: 0.09, decay: 1.2, at: i * 0.18 }));
     [60, 64, 67, 72, 76].forEach((n) => k.note(n, { type: "triangle", gain: 0.06, attack: 0.05, decay: 3.5, at: 0.8 }));
   } else if (stinger.team === "wolves") {
-    howl(k, 0);
+    if (stinger.howl) {
+      void loadSample(HOWL).then((buffer) =>
+        buffer ? k.play(buffer, { offset: 2, duration: 8, gain: 0.7 }) : pack(k, 0, 3),
+      );
+    } else {
+      howl(k, 0);
+    }
     [45, 48, 52].forEach((n) => k.note(n, { type: "sawtooth", gain: 0.05, attack: 0.4, decay: 4.5, at: 1.6, cutoff: 700 }));
   } else {
     [62, 65, 69, 73].forEach((n, i) => k.note(n, { type: "sine", gain: 0.07, attack: 0.1, decay: 4, at: i * 0.12 }));
@@ -137,6 +167,7 @@ function kit(fade = true) {
   const timers = new Set<ReturnType<typeof setTimeout>>();
   const loops: AudioScheduledSourceNode[] = [];
   const running = () => ctx.state === "running";
+  let stopped = false;
 
   const k = {
     /** A note by MIDI number (60 is middle C); `tone` takes Hz. */
@@ -173,6 +204,75 @@ function kit(fade = true) {
       out.connect(bus);
       osc.start(t);
       osc.stop(t + attack + decay + 0.1);
+    },
+    /**
+     * A wolf's "awouuu": a bright "a" sliding up into a long, dark "ou" that
+     * wavers more and more, then sinks away.
+     */
+    wolf(freq: number, { at = 0, length = 3, gain = 0.05 } = {}) {
+      const t = ctx.currentTime + at;
+      const osc = ctx.createOscillator();
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(freq * 0.75, t);
+      osc.frequency.exponentialRampToValueAtTime(freq * 1.45, t + 0.45);
+      osc.frequency.linearRampToValueAtTime(freq * 1.55, t + length * 0.65);
+      osc.frequency.exponentialRampToValueAtTime(freq * 1.05, t + length);
+      const lfo = ctx.createOscillator();
+      const depth = ctx.createGain();
+      lfo.frequency.value = 5;
+      depth.gain.setValueAtTime(0, t);
+      depth.gain.linearRampToValueAtTime(0, t + 0.6);
+      depth.gain.linearRampToValueAtTime(35, t + length);
+      lfo.connect(depth).connect(osc.detune);
+      // The vowel: an open filter for "a", closing for "ou".
+      const mouth = ctx.createBiquadFilter();
+      mouth.Q.value = 5;
+      mouth.frequency.setValueAtTime(2400, t);
+      mouth.frequency.exponentialRampToValueAtTime(1100, t + 0.4);
+      mouth.frequency.exponentialRampToValueAtTime(800, t + length);
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0.0001, t);
+      env.gain.exponentialRampToValueAtTime(gain, t + 0.35);
+      env.gain.linearRampToValueAtTime(gain * 0.8, t + length * 0.7);
+      env.gain.exponentialRampToValueAtTime(0.0001, t + length);
+      osc.connect(mouth).connect(env).connect(bus);
+      osc.start(t);
+      lfo.start(t);
+      osc.stop(t + length + 0.1);
+      lfo.stop(t + length + 0.1);
+    },
+    /** Plays part of a recording, faded in and out so it never starts or ends on a click. */
+    play(buffer: AudioBuffer, o: { offset?: number; duration?: number; gain?: number; at?: number; fade?: number } = {}) {
+      if (stopped) return;
+      const { offset = 0, duration = buffer.duration - offset, gain = 1, at = 0, fade = 1.5 } = o;
+      const t = ctx.currentTime + at;
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(gain, t + fade);
+      env.gain.setValueAtTime(gain, t + duration - fade);
+      env.gain.linearRampToValueAtTime(0, t + duration);
+      src.connect(env).connect(bus);
+      src.start(t, offset, duration);
+      loops.push(src);
+    },
+    /**
+     * A recording on repeat, from a random point each time, each pass
+     * cross-fading into the next so the loop has no seam.
+     */
+    loop(buffer: AudioBuffer, { gain = 1, length = 12, fade = 2 } = {}) {
+      const pass = () => {
+        if (stopped) return;
+        const duration = Math.min(length, buffer.duration);
+        k.play(buffer, { offset: between(0, buffer.duration - duration), duration, gain, fade });
+        const timer = setTimeout(() => {
+          timers.delete(timer);
+          pass();
+        }, (duration - fade) * 1000);
+        timers.add(timer);
+      };
+      pass();
     },
     /** A held chord, softly filtered, breathing with a slow sweep. */
     drone(midis: number[], { type = "sine" as OscillatorType, gain = 0.03, cutoff = 1200, sweep = 0.3 } = {}) {
@@ -243,12 +343,17 @@ function kit(fade = true) {
     },
     /** Fades the scene out, then lets everything go. */
     stop() {
+      stopped = true;
       timers.forEach(clearTimeout);
       bus.gain.cancelScheduledValues(ctx.currentTime);
       bus.gain.setValueAtTime(bus.gain.value, ctx.currentTime);
       bus.gain.linearRampToValueAtTime(0, ctx.currentTime + FADE);
       setTimeout(() => {
-        loops.forEach((n) => n.stop());
+        loops.forEach((n) => {
+          try {
+            n.stop();
+          } catch {} // A recording that already ended.
+        });
         bus.disconnect();
       }, FADE * 1000 + 100);
     },
@@ -263,6 +368,13 @@ function bell(k: Kit, base: number, at: number) {
     [2.76, 0.05, 2.5],
     [5.4, 0.025, 1.5],
   ].forEach(([ratio, gain, decay]) => k.tone(base * ratio, { gain, decay, at }));
+}
+
+/** One wolf, then maybe others answering, a little higher or lower. */
+function pack(k: Kit, at: number, size = 1 + Math.floor(Math.random() * 3)) {
+  k.wolf(between(360, 420), { at, length: between(2.6, 3.4), gain: 0.1 });
+  if (size > 1) k.wolf(between(450, 520), { at: at + between(0.7, 1.2), length: between(2.2, 3), gain: 0.065 });
+  if (size > 2) k.wolf(between(300, 340), { at: at + between(1.4, 2), length: between(2.4, 3.2), gain: 0.055 });
 }
 
 function howl(k: Kit, at: number) {
@@ -305,6 +417,20 @@ const scenes: Record<Scene, (k: Kit) => () => void> = {
       k.tone(60, { gain: 0.16, decay: 0.25, at: 0.22, glide: [0.66] });
     });
     k.every(9, 15, () => howl(k, 0));
+    return k.stop;
+  },
+  // The pack howling at the moon, out in the dark woods: a real recording.
+  howl: (k) => {
+    k.drone([33, 40], { gain: 0.03, cutoff: 280 });
+    k.noise({ gain: 0.02, cutoff: 450 });
+    void loadSample(HOWL).then((buffer) => {
+      if (buffer) k.loop(buffer, { gain: 0.55 });
+      // Without the recording, synthesised wolves (after the cross-fade, so the first is heard).
+      else {
+        pack(k, 1.8);
+        k.every(5, 9, () => pack(k, 0));
+      }
+    });
     return k.stop;
   },
   // A bubbling cauldron and a crooked, whole-tone spell.

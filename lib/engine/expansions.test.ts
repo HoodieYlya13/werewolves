@@ -380,3 +380,12 @@ describe("calling dead roles", () => {
     expect(night2.step).toEqual({ kind: "bluff", turn: "wolves", role: "werewolf" });
   });
 });
+
+describe("first night order", () => {
+  it("taps the lovers right after Cupid, before the Wild Child", () => {
+    const s = setup(["cupid", "wild-child", "werewolf", "villager", "villager"]);
+    const state = play(s, [{ type: "cupid", lovers: ["p3", "p4"] }]);
+    expect(state.step).toEqual({ kind: "lovers", lovers: ["p3", "p4"] });
+    expect(applyAction(state, go).step).toMatchObject({ kind: "wild-child" });
+  });
+});

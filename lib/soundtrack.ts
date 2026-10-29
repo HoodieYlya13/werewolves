@@ -28,5 +28,9 @@ export function sceneFor(game: GameState): Scene | null {
   if (step.kind === "prologue") return "prologue";
   if (step.kind === "game-over") return null;
   if (game.phase.kind === "day") return step.kind === "vote" ? "vote" : "day";
-  return nightScenes[step.kind === "bluff" ? step.turn : step.kind] ?? "night";
+  const scene = nightScenes[step.kind === "bluff" ? step.turn : step.kind] ?? "night";
+  // Werewolves howl; the other themes' killers (mafia, vampires, impostors) don't.
+  return scene === "wolves" && isWerewolves(game) ? "howl" : scene;
 }
+
+export const isWerewolves = (game: GameState) => (game.setup.settings.theme ?? "werewolves") === "werewolves";
