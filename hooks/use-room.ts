@@ -11,6 +11,13 @@ const FATAL: ErrorCode[] = ["room-not-found", "room-taken", "not-host", "room-cl
 
 export type RoomStatus = "connecting" | "open" | "reconnecting";
 
+/**
+ * The last view of each room this page saw. A screen that remounts (switching
+ * language swaps the whole page) shows it straight away instead of an empty
+ * room, until the reconnected socket sends a fresh one.
+ */
+const lastViews = new Map<string, { view: RoomView; clockOffset: number }>();
+
 /** Server clock minus this device's clock, measured when a view arrives. */
 function offsetFrom(serverNow: number) {
   return serverNow - Date.now();
@@ -21,10 +28,11 @@ function offsetFrom(serverNow: number) {
  * client (it reads localStorage and window.location).
  */
 export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
-  const [view, setView] = useState<V | null>(null);
+  const cacheKey = `${as}:${code}`;
+  const [view, setView] = useState<V | null>(() => (lastViews.get(cacheKey)?.view as V | undefined) ?? null);
   const [error, setError] = useState<ErrorCode | null>(null);
   const [status, setStatus] = useState<RoomStatus>("connecting");
-  const [clockOffset, setClockOffset] = useState(0);
+  const [clockOffset, setClockOffset] = useState(() => lastViews.get(cacheKey)?.clockOffset ?? 0);
   // The account has a seat in another room; set until the phone answers.
   const [otherRoom, setOtherRoom] = useState<{ room: string; inGame: boolean } | null>(null);
 
@@ -54,6 +62,7 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
           if (msg.view.kind === "player" && !msg.view.me && !msg.view.rejoin && !msg.view.lockedSeat) identity.setPlayer(code, null);
           setView(msg.view as V);
           setClockOffset(offsetFrom(msg.view.serverNow));
+          lastViews.set(cacheKey, { view: msg.view, clockOffset: offsetFrom(msg.view.serverNow) });
           setError(null);
           break;
         case "joined":
@@ -74,7 +83,10 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
             identity.setPlayer(code, null);
             identity.setHost(code, null);
           }
-          if (FATAL.includes(msg.code)) socket.close();
+          if (FATAL.includes(msg.code)) {
+            socket.close();
+            lastViews.delete(cacheKey);
+          }
           setError(msg.code);
           break;
       }

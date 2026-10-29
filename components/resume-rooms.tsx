@@ -12,6 +12,9 @@ import { identity, savedSeats, seatStatus } from "@/lib/room";
 
 type Active = Extract<SeatStatus, { active: true }> & { code: string };
 
+/** The last answer, so the bar is there at once when the page remounts (switching language). */
+let known: Active[] = [];
+
 /**
  * Outside a room, a way back to the rooms this device still has a seat in:
  * after closing the tab, or a detour through the stats. Only on the device's
@@ -30,7 +33,9 @@ function ResumeRoomsForPath() {
   const pathname = usePathname();
   // Inside a room page, that room is the page itself.
   const inRoom = /^\/[a-z]{2}\/(host|play)\/[A-Z]{4}/.test(pathname);
-  const [rooms, setRooms] = useState<Active[]>([]);
+  const [rooms, setRooms] = useState<Active[]>(known);
+  // Only a bar that wasn't there already slides in.
+  const [slideIn] = useState(known.length === 0);
 
   useEffect(() => {
     if (inRoom) return;
@@ -45,6 +50,7 @@ function ResumeRoomsForPath() {
         // The room forgot this seat (closed, expired, removed): so can the device.
         else if (answer) (seat.as === "host" ? identity.setHost : identity.setPlayer)(seat.code, null);
       });
+      known = active;
       if (!cancelled) setRooms(active);
     })();
     return () => {
@@ -54,7 +60,10 @@ function ResumeRoomsForPath() {
 
   if (inRoom || rooms.length === 0) return null;
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-2 px-4 pb-4 sm:px-6">
+    // Slides in rather than shoving the page down in one frame.
+    <div
+      className={`mx-auto flex w-full max-w-3xl flex-col gap-2 px-4 pb-4 sm:px-6 ${slideIn ? "animate-in duration-300 fade-in slide-in-from-top-2" : ""}`}
+    >
       {rooms.map((room) => (
         <RoomLink key={`${room.role}:${room.code}`} room={room} />
       ))}

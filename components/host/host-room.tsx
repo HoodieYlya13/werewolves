@@ -13,6 +13,7 @@ import { Avatar, RoomProvider } from "@/components/room-context";
 import { useI18n } from "@/components/i18n-provider";
 import { QrCode } from "@/components/qr-code";
 import { ConnectionBanner, FatalError } from "@/components/room-status";
+import { HostRoomSkeleton } from "@/components/skeletons";
 import { useErrorToast, useHostToasts } from "@/components/toasts";
 import { useRoom } from "@/hooks/use-room";
 import { MIN_PLAYERS } from "@/lib/engine";
@@ -89,7 +90,17 @@ function HostContent({
   if (error === "room-not-found" || error === "not-host" || error === "room-closed" || error === "host-moved")
     return <FatalError code={error} />;
 
-  if (view?.game) {
+  // Nothing about the room is known yet: not even whether it's an empty lobby.
+  if (!view) {
+    return (
+      <>
+        <ConnectionBanner status={status} />
+        <HostRoomSkeleton />
+      </>
+    );
+  }
+
+  if (view.game) {
     return (
       <>
         <ConnectionBanner status={status} />

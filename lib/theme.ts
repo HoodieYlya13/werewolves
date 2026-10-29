@@ -23,7 +23,19 @@ export function readTheme(): Theme {
 /** The phase of the game on screen, if any; set by the game screens. */
 let gamePhase: "day" | "night" | null = null;
 
+let leaving: ReturnType<typeof setTimeout> | undefined;
+
 export function setGamePhase(phase: "day" | "night" | null) {
+  clearTimeout(leaving);
+  // A game screen that remounts (switching language) comes straight back:
+  // waiting a moment keeps its night from flashing to the device's theme.
+  if (phase === null) {
+    leaving = setTimeout(() => {
+      gamePhase = null;
+      applyTheme(readTheme());
+    }, 500);
+    return;
+  }
   gamePhase = phase;
   applyTheme(readTheme());
 }

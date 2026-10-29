@@ -26,6 +26,7 @@ import { TimerDisplay } from "@/components/vote-timer";
 import { ThemedI18n } from "@/components/themed-i18n";
 import { ConnectionBanner, FatalError } from "@/components/room-status";
 import { useGameTheme } from "@/hooks/use-game-theme";
+import { PhoneSkeleton } from "@/components/skeletons";
 import { useRoom } from "@/hooks/use-room";
 import { format } from "@/lib/i18n/config";
 import { identity, takeoverKey } from "@/lib/room";
@@ -181,6 +182,9 @@ function PlayerScreen({ code }: { code: string }) {
   }
 
   const room = { code, players: view?.players ?? [], timer: view?.timer ?? null, clockOffset };
+  // What to show a phone without a seat depends on the account too: until both
+  // are known, a skeleton instead of a form that may be the wrong one.
+  const ready = !!view && (!!me || session !== null);
 
   return (
     <RoomProvider value={room}>
@@ -194,7 +198,9 @@ function PlayerScreen({ code }: { code: string }) {
         </p>
       )}
 
-      {view?.rejoin && !joinAsNew && (
+      {!ready && <PhoneSkeleton code={code} />}
+
+      {ready && view?.rejoin && !joinAsNew && (
         <RejoinCard
           rejoin={view.rejoin}
           error={error}
@@ -211,7 +217,7 @@ function PlayerScreen({ code }: { code: string }) {
         />
       )}
 
-      {view?.lockedSeat && !joinAsNew && (
+      {ready && view?.lockedSeat && !joinAsNew && (
         <LockedSeatCard
           seat={view.lockedSeat}
           signedIn={signedIn}
@@ -220,7 +226,7 @@ function PlayerScreen({ code }: { code: string }) {
         />
       )}
 
-      {view && !me && ((!view.rejoin && !view.lockedSeat) || joinAsNew) && account && (
+      {ready && view && !me && ((!view.rejoin && !view.lockedSeat) || joinAsNew) && account && (
         <section className="card flex flex-col items-center gap-3 p-6 text-center">
           <Face name={account.name} src={account.picture} className="size-24 text-3xl" />
           <p className="text-muted-foreground">{dict.account.fromAccount}</p>
@@ -241,7 +247,7 @@ function PlayerScreen({ code }: { code: string }) {
         </section>
       )}
 
-      {view && !me && ((!view.rejoin && !view.lockedSeat) || joinAsNew) && !account && (
+      {ready && view && !me && ((!view.rejoin && !view.lockedSeat) || joinAsNew) && !account && (
         <form
           className="card flex flex-col gap-3 p-6"
           onSubmit={(e) => {
@@ -318,7 +324,7 @@ function PlayerScreen({ code }: { code: string }) {
         </ThemedI18n>
       )}
 
-      {view && !view.game && view.players.length > 0 && (
+      {ready && view && !view.game && view.players.length > 0 && (
         <section>
           <h2 className="mb-2 text-sm font-medium text-muted-foreground">{dict.play.roomPlayers}</h2>
           <ul className="flex flex-wrap gap-2">

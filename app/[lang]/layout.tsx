@@ -62,7 +62,7 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
               </Link>
               <div className="flex items-center gap-2">
                 <LocaleSwitcher />
-                <AccountButton />
+                <AccountButton accounts={!!process.env.AUTH_CLIENT_ID && !!process.env.AUTH_CLIENT_SECRET} />
               </div>
             </header>
             <ResumeRooms />

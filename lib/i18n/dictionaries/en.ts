@@ -173,6 +173,7 @@ const en = {
     phoneCannotVote: "You can't vote this time.",
   },
   connection: {
+    loading: "Loading…",
     connecting: "Connecting…",
     reconnecting: "Connection lost. Reconnecting…",
   },

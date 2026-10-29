@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChartColumn, LogIn, LogOut, UserCog } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { Face } from "@/components/room-context";
+import { Skeleton } from "@/components/skeletons";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,15 +46,20 @@ export function AuthButton({ to, ...props }: { to: "in" | "out" } & Omit<React.C
   return <Button type="button" onClick={() => goToAuth(to)} {...props} />;
 }
 
-/** Signing in from the header. Hidden when accounts aren't set up (e.g. previews). */
-export function AccountButton() {
+/**
+ * Signing in from the header. Hidden when accounts aren't set up (e.g.
+ * previews); `accounts` says so from the server, so the space is held while
+ * the device asks who is signed in, instead of the button popping in.
+ */
+export function AccountButton({ accounts }: { accounts: boolean }) {
   const { dict, locale } = useI18n();
   const session = useSession();
   // Set while asking a player whose seat is the account's to confirm.
   const [leaving, setLeaving] = useState<SignOutGuard | null>(null);
   // The page the account page links back to, read when the menu opens (it can change without remounting).
   const [returnPath, setReturnPath] = useState("/");
-  if (!session?.enabled) return null;
+  if (!session) return accounts ? <Skeleton className="size-9 rounded-full" /> : null;
+  if (!session.enabled) return null;
 
   if (!session.account) {
     return (

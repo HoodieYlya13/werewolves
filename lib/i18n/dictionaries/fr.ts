@@ -175,6 +175,7 @@ const fr: Dictionary = {
     phoneCannotVote: "Vous ne pouvez pas voter cette fois.",
   },
   connection: {
+    loading: "Chargement…",
     connecting: "Connexion…",
     reconnecting: "Connexion perdue. Reconnexion…",
   },

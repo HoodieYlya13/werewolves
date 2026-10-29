@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Crown, HeartPulse, Swords, Trophy } from "lucide-react";
 import { AuthButton } from "@/components/account-button";
 import { useI18n } from "@/components/i18n-provider";
+import { StatsSkeleton } from "@/components/skeletons";
 import { Button } from "@/components/ui/button";
 import type { RoleId, Team } from "@/lib/engine";
 import { format } from "@/lib/i18n/config";
@@ -33,7 +34,7 @@ export function StatsView() {
     };
   }, [sub, attempt]);
 
-  if (!session) return null;
+  if (!session) return <StatsSkeleton />;
   if (!session.stats) return <Message>{dict.stats.unavailable}</Message>;
   if (!session.account) {
     return (
@@ -44,7 +45,7 @@ export function StatsView() {
     );
   }
   // Still loading, or loaded for an account that has since changed.
-  if (!stats || stats.sub !== sub) return <Message>…</Message>;
+  if (!stats || stats.sub !== sub) return <StatsSkeleton />;
   if (stats.value === "failed") {
     return (
       <Message>

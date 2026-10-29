@@ -1,15 +1,29 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n-provider";
 import { Button } from "@/components/ui/button";
 import type { RoomStatus } from "@/hooks/use-room";
 import type { ErrorCode } from "@/lib/protocol";
 
-/** Connecting / reconnecting banner. Shown above the room screens. */
+/** How long a connection may take before the banner says so: most never get there. */
+const BANNER_DELAY = 800;
+
+/** Connecting / reconnecting banner. Shown above the room screens, once the wait is noticeable. */
 export function ConnectionBanner({ status }: { status: RoomStatus }) {
   const { dict } = useI18n();
-  if (status === "open") return null;
+  const waiting = status !== "open";
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    if (!waiting) return;
+    const timer = setTimeout(() => setShown(true), BANNER_DELAY);
+    return () => {
+      clearTimeout(timer);
+      setShown(false);
+    };
+  }, [waiting]);
+  if (!waiting || !shown) return null;
   return (
     <p role="status" className="mx-auto mb-4 w-fit rounded-full bg-surface-2 px-4 py-1.5 text-sm text-muted-foreground">
       {status === "connecting" ? dict.connection.connecting : dict.connection.reconnecting}
