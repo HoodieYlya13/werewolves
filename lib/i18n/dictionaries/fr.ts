@@ -374,6 +374,8 @@ const fr: Dictionary = {
     showTo: "Montrer à {name}",
     hide: "Masquer",
     hideRoles: "Masquer les rôles",
+    mute: "Couper la musique",
+    unmute: "Remettre la musique",
     showRoles: "Afficher les rôles",
     players: "Joueurs",
     remaining: "Peuvent encore gagner",

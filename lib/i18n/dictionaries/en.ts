@@ -372,6 +372,8 @@ const en = {
     showTo: "Show to {name}",
     hide: "Hide",
     hideRoles: "Hide roles",
+    mute: "Mute the music",
+    unmute: "Play the music",
     showRoles: "Show roles",
     players: "Players",
     remaining: "Can still win",

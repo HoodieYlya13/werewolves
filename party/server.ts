@@ -61,8 +61,11 @@ type StoredGame = {
 /** A game saved by an older engine, rewritten for this one; null if it no longer fits. */
 function upgradeGame(game: StoredGame | null | undefined): StoredGame | null {
   if (!game || (game.engine ?? 1) >= ENGINE_VERSION) return game ?? null;
-  const log = upgradeLog(game.setup, game.log);
-  return log ? { ...game, log, engine: ENGINE_VERSION } : null;
+  // Before version 2, the Mayor was called the Sheriff.
+  const { sheriff, ...settings } = game.setup.settings as typeof game.setup.settings & { sheriff?: boolean };
+  const setup = sheriff === undefined ? game.setup : { ...game.setup, settings: { ...settings, mayor: sheriff } };
+  const log = upgradeLog(setup, game.log);
+  return log ? { ...game, setup, log, engine: ENGINE_VERSION } : null;
 }
 
 /**
@@ -136,7 +139,14 @@ export class RoomServer extends Server<Env> {
       // A game that no longer fits is dropped: the room goes back to the lobby.
       this.state.endedGame = upgradeGame(this.state.endedGame);
     }
-    if (this.state?.game) this.game = replay(this.state.game.setup, this.state.game.log);
+    if (this.state?.game) {
+      try {
+        this.game = replay(this.state.game.setup, this.state.game.log);
+      } catch {
+        // A saved game this engine can't replay: back to the lobby rather than a room that never starts.
+        this.state.game = null;
+      }
+    }
   }
 
   async onConnect(conn: Conn, ctx: ConnectionContext) {

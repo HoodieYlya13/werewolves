@@ -29,6 +29,8 @@ function filler(step: Step): Action | null {
  * running across the deploy then goes back to the lobby instead of breaking).
  */
 export function upgradeLog(setup: GameSetup, log: Action[]): Action[] | null {
+  // Before version 2, the Mayor was called the Sheriff.
+  log = log.map((action) => ((action.type as string) === "sheriff" ? { ...action, type: "mayor" } : action) as Action);
   try {
     let state: GameState = createGame(setup);
     const out: Action[] = [];

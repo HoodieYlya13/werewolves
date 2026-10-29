@@ -508,6 +508,12 @@ describe("logs from older engines", () => {
     expect(engine.replay(s, log).step).toMatchObject({ kind: "game-over", winner: { team: "village" } });
   });
 
+  it("call the Sheriff the Mayor", () => {
+    const s = setup(["werewolf", "villager", "villager", "villager", "villager"], { settings: { mayor: true } });
+    const old = [{ type: "wolves", targetId: "p1" }, go, { type: "sheriff", targetId: "p2" }] as unknown as Action[];
+    expect(engine.replay(s, engine.upgradeLog(s, old)!).mayorId).toBe("p2");
+  });
+
   it("are dropped when they no longer fit", () => {
     expect(engine.upgradeLog(setup(["werewolf", "villager", "villager"]), [{ type: "seer", targetId: "p1" }])).toBeNull();
   });

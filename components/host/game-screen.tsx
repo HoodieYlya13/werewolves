@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { BadgeCheck, Crown, Eye, EyeOff, Heart, Moon, Music, PawPrint, Pencil, ScrollText, Skull, Sun, Undo2, X } from "lucide-react";
+import { BadgeCheck, Crown, Eye, EyeOff, Heart, Moon, Music, PawPrint, Pencil, ScrollText, Skull, Sun, Undo2, Volume2, VolumeX, X } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { CloseRoomButton } from "@/components/host/close-room-button";
 import { PlayerEditor } from "@/components/host/player-editor";
 import { ConfirmButton } from "@/components/confirm-button";
+import { setMuted, useGameSound, useSoundMuted } from "@/hooks/use-game-sound";
 import { useGameTheme } from "@/hooks/use-game-theme";
 import { RejoinRequests } from "@/components/host/rejoin-requests";
 import { RoleName, teamColor } from "@/components/host/role-chip";
@@ -32,6 +33,9 @@ export function GameScreen({
   const prologue = game.step.kind === "prologue";
   const isNight = game.phase.kind === "night" && !prologue;
   useGameTheme(isNight);
+  // The soundtrack plays here only: phones stay silent in the dark.
+  useGameSound(game, view.actionCount);
+  const muted = useSoundMuted();
   const over = game.step.kind === "game-over";
   const [hideRoles, setHideRoles] = useState(() => {
     try {
@@ -81,6 +85,16 @@ export function GameScreen({
             </div>
           </div>
           <div className="ml-auto flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="size-10 p-0"
+              title={muted ? dict.game.unmute : dict.game.mute}
+              onClick={() => setMuted(!muted)}
+            >
+              {muted ? <VolumeX aria-hidden className="size-4" /> : <Volume2 aria-hidden className="size-4" />}
+              <span className="sr-only">{muted ? dict.game.unmute : dict.game.mute}</span>
+            </Button>
             <Button
               type="button"
               variant="outline" className="h-10 px-4"
