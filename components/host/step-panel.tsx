@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { FlaskConical, Moon, Skull, Sun, Trophy } from "lucide-react";
+import { FlaskConical, Moon, Skull, Smartphone, Sun, Trophy } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { BallotPanel } from "@/components/host/ballot-panel";
 import { PhonelessIntro } from "@/components/host/phoneless-cards";
 import { PlayerGrid, toggle } from "@/components/host/player-grid";
 import { Reveal } from "@/components/host/reveal";
 import { RoleName } from "@/components/host/role-chip";
+import { useRoomContext } from "@/components/room-context";
 import { TimerControls } from "@/components/vote-timer";
 import { format } from "@/lib/i18n/config";
 import { isWolf, type Action, type Death, type GameState, type PhaseRef, type Player, type Step } from "@/lib/engine";
@@ -28,9 +29,13 @@ export function StepPanel({ game, act }: { game: GameState; act: (action: Action
   // Every night opens with the whole village closing their eyes.
   const nightFalls =
     game.phase.kind === "night" && game.phaseStep === 0 && game.step.kind !== "prologue" && game.step.kind !== "phase-end";
+  const sleeper = game.backToSleep;
   return (
     <>
       {nightFalls && <Say>{dict.game.nightFalls}</Say>}
+      {sleeper && (
+        <Say>{sleeper === "wolves" ? dict.game.wolvesSleep : format(dict.game.sleep, { role: dict.roles[sleeper].name })}</Say>
+      )}
       <StepContent game={game} act={act} />
     </>
   );
@@ -521,11 +526,54 @@ function MayorStep({ game, step, act }: Props<"mayor-election" | "mayor-successi
   const { dict } = useI18n();
   const t = dict.game.steps[step.kind];
   const name = step.kind === "mayor-succession" ? nameOf(game, step.playerId) : "";
+  const { ballot, send } = useRoomContext();
+  // The election's phone vote: the candidates being picked, before it opens.
+  const [candidates, setCandidates] = useState<string[] | null>(null);
+  const election = step.kind === "mayor-election" ? step : null;
+  const picking = !!election && !ballot && candidates !== null;
   return (
     <>
       <Say>{format(t.say, { name })}</Say>
-      <Do>{t.do}</Do>
-      <PickPlayers game={game} count={1} onConfirm={([targetId]) => act({ type: "mayor", targetId })} />
+      {election && send && !ballot && !picking && (
+        <div className="flex flex-wrap items-center gap-3">
+          <Button type="button" variant="outline" className="h-11" onClick={() => setCandidates([])}>
+            <Smartphone aria-hidden className="size-4" />
+            {dict.ballot.open}
+          </Button>
+          <p className="text-sm text-muted-foreground">{dict.ballot.mayorOpenHint}</p>
+        </div>
+      )}
+      {picking && send && (
+        <>
+          <Do>{dict.ballot.candidatesHint}</Do>
+          <PlayerGrid
+            game={game}
+            players={living(game)}
+            selected={candidates}
+            onToggle={(id) => setCandidates((s) => toggle(s ?? [], id, Infinity))}
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              className="h-12 px-8 text-base"
+              disabled={candidates.length < 2}
+              onClick={() => send({ type: "open-ballot", candidateIds: candidates })}
+            >
+              {format(dict.ballot.startElection, { count: candidates.length })}
+            </Button>
+            <Button type="button" variant="outline" className="h-12" onClick={() => setCandidates(null)}>
+              {dict.ballot.back}
+            </Button>
+          </div>
+        </>
+      )}
+      {election && <BallotPanel game={game} step={election} act={act} />}
+      {!picking && (
+        <>
+          <Do>{t.do}</Do>
+          <PickPlayers game={game} count={1} onConfirm={([targetId]) => act({ type: "mayor", targetId })} />
+        </>
+      )}
     </>
   );
 }

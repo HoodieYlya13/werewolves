@@ -59,6 +59,7 @@ export type HostView = BaseView & {
 
 /** The open ballot as a phone sees it: only its own vote. */
 export type PhoneBallot = {
+  kind: "vote" | "mayor";
   candidateIds: string[];
   canVote: boolean;
   /** Whether this phone has voted, and for whom (null = no one). */
@@ -195,7 +196,8 @@ export type ClientMessage =
   /** Disconnects everyone and deletes the room. */
   | { type: "close-room" }
   | { type: "answer-rejoin"; playerId: string; allow: boolean }
-  | { type: "open-ballot" }
+  /** `candidateIds`: who runs for Mayor, when the ballot is the Mayor's election. */
+  | { type: "open-ballot"; candidateIds?: string[] }
   | { type: "close-ballot" }
   /** Sets (or with `clear`, removes) someone's vote: misclicks and players without a phone. */
   | { type: "set-vote"; voterId: string; targetId: string | null; clear?: boolean }

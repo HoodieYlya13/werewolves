@@ -4,9 +4,14 @@
  * usual vote action. The ballot itself never touches the game engine.
  */
 export type Ballot = {
+  /**
+   * The day's vote against someone, or the Mayor's election (for one of the
+   * candidates the game master picked, never "no one"). Missing = a vote.
+   */
+  kind?: "vote" | "mayor";
   /** Players allowed to vote (alive, and not barred by the Idiot or the Scapegoat). */
   voterIds: string[];
-  /** Players who can be voted against. */
+  /** Players who can be voted against (or elected). */
   candidateIds: string[];
   /** voterId → the player they vote against, or null for "no one". Missing = hasn't voted yet. */
   votes: Record<string, string | null>;

@@ -448,6 +448,17 @@ function InGame({ view, onVote }: { view: PlayerView; onVote: (targetId: string 
         </p>
       )}
 
+      {/* Eyes closed, phones on the table: the game master reads whose seat it is from across the room. */}
+      {isNight && !game.winner && (
+        <section aria-label={t.nightName} className="flex flex-col items-center gap-3 py-4 text-center">
+          {/* The initials are sized from the text around them. */}
+          <div className="text-4xl">
+            <Avatar playerId={me.id} name={me.name} className="size-24" />
+          </div>
+          <p className="font-display text-5xl font-bold break-words text-balance">{me.name}</p>
+        </section>
+      )}
+
       {!game.winner && <TimerDisplay />}
 
       {view.ballot && !game.winner && <PhoneBallotCard view={view} onVote={onVote} />}
@@ -485,7 +496,7 @@ function InGame({ view, onVote }: { view: PlayerView; onVote: (targetId: string 
   );
 }
 
-/** The day's vote on a phone, while the game master has it open. */
+/** The day's vote or the Mayor's election on a phone, while the game master has it open. */
 function PhoneBallotCard({ view, onVote }: { view: PlayerView; onVote: (targetId: string | null) => void }) {
   const { dict } = useI18n();
   const t = dict.ballot;
@@ -501,21 +512,27 @@ function PhoneBallotCard({ view, onVote }: { view: PlayerView; onVote: (targetId
     );
   }
 
-  const choices: { id: string | null; label: string }[] = [
-    ...ballot.candidateIds.filter((id) => id !== me.id).map((id) => ({ id, label: nameOf(id) })),
-    { id: null, label: t.noOne },
-  ];
+  const election = ballot.kind === "mayor";
+  // Candidates may vote for themselves; nobody votes against themself.
+  const choices: { id: string | null; label: string }[] = election
+    ? ballot.candidateIds.map((id) => ({ id, label: nameOf(id) }))
+    : [
+        ...ballot.candidateIds.filter((id) => id !== me.id).map((id) => ({ id, label: nameOf(id) })),
+        { id: null, label: t.noOne },
+      ];
 
   return (
     <section className="card flex flex-col gap-3 p-4">
       <h2 className="flex items-center gap-2 text-lg font-semibold">
         <Vote aria-hidden className="size-5" />
-        {t.phoneTitle}
+        {election ? t.mayorTitle : t.phoneTitle}
       </h2>
       <p className="text-sm text-muted-foreground">
         {ballot.voted
-          ? format(t.phoneVoted, { name: ballot.targetId ? nameOf(ballot.targetId) : t.noOne })
-          : t.phoneHint}
+          ? format(election ? t.mayorVoted : t.phoneVoted, { name: ballot.targetId ? nameOf(ballot.targetId) : t.noOne })
+          : election
+            ? t.mayorHint
+            : t.phoneHint}
       </p>
       <ul className="flex flex-col gap-2">
         {choices.map((choice) => {

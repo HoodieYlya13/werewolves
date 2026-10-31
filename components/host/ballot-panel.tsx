@@ -13,9 +13,10 @@ const NOT_VOTED = "";
 const NO_ONE = "__nobody__";
 
 /**
- * Phone voting, for when counting hands is too hard. Every vote shows up here;
- * the game master can change any of them (misclicks, players without a phone)
- * and validates the result, which becomes the usual vote action.
+ * Phone voting, for when counting hands is too hard: the day's vote, or the
+ * Mayor's election between the candidates the game master picked. Every vote
+ * shows up here; the game master can change any of them (misclicks, players
+ * without a phone) and validates the result, which becomes the usual action.
  */
 export function BallotPanel({
   game,
@@ -23,7 +24,7 @@ export function BallotPanel({
   act,
 }: {
   game: GameState;
-  step: Extract<Step, { kind: "vote" }>;
+  step: Extract<Step, { kind: "vote" | "mayor-election" }>;
   act: (action: Action) => void;
 }) {
   const { dict } = useI18n();
@@ -31,8 +32,12 @@ export function BallotPanel({
   const { ballot, players, send } = useRoomContext();
   if (!send) return null;
   const nameOf = (id: string) => game.players.find((p) => p.id === id)?.name ?? "?";
+  const vote = step.kind === "vote" ? step : null;
+  const election = ballot?.kind === "mayor";
 
-  if (!ballot) {
+  // The election's ballot opens once the candidates are picked (see MayorStep).
+  if (!ballot || (ballot.kind === "mayor") !== (step.kind === "mayor-election")) {
+    if (!vote) return null;
     return (
       <div className="flex flex-wrap items-center gap-3">
         <Button type="button" variant="outline" className="h-11" onClick={() => send({ type: "open-ballot" })}>
@@ -44,13 +49,17 @@ export function BallotPanel({
     );
   }
 
-  const tally = tallyBallot(ballot, { mayorId: step.mayorId, ravenTargetId: step.ravenTargetId });
+  const tally = tallyBallot(ballot, { mayorId: vote?.mayorId ?? null, ravenTargetId: vote?.ravenTargetId ?? null });
   const ranked = Object.entries(tally.counts)
     .filter(([, count]) => count > 0)
     .sort((a, b) => b[1] - a[1]);
   const outcome = tally.outcome;
 
   function validate() {
+    if (!vote) {
+      if (outcome.kind === "eliminate") act({ type: "mayor", targetId: outcome.targetId });
+      return;
+    }
     if (outcome.kind === "eliminate") act({ type: "vote", targetId: outcome.targetId });
     else if (outcome.kind === "tie") act({ type: "vote", targetId: null, tie: true });
     else act({ type: "vote", targetId: null });
@@ -79,7 +88,7 @@ export function BallotPanel({
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">
                   {nameOf(voterId)}
-                  {voterId === step.mayorId && <span className="text-moon"> ×2</span>}
+                  {voterId === vote?.mayorId && <span className="text-moon"> ×2</span>}
                 </span>
                 {manual && <span className="block text-xs text-muted-foreground">{dict.host.noPhone}</span>}
               </span>
@@ -94,7 +103,7 @@ export function BallotPanel({
                 }}
               >
                 <option value={NOT_VOTED}>{t.notVoted}</option>
-                <option value={NO_ONE}>{t.noOne}</option>
+                {!election && <option value={NO_ONE}>{t.noOne}</option>}
                 {ballot.candidateIds.map((id) => (
                   <option key={id} value={id}>
                     {nameOf(id)}
@@ -116,7 +125,7 @@ export function BallotPanel({
               <li key={id} className="flex items-center gap-1.5 rounded-full bg-surface-2 py-1 pr-3 pl-1">
                 <Avatar playerId={id} name={nameOf(id)} className="size-6" />
                 {nameOf(id)} · <strong>{count}</strong>
-                {id === step.ravenTargetId && <span className="text-muted-foreground">{t.ravenBonus}</span>}
+                {id === vote?.ravenTargetId && <span className="text-muted-foreground">{t.ravenBonus}</span>}
               </li>
             ))}
             {tally.nobody > 0 && (
@@ -126,19 +135,41 @@ export function BallotPanel({
             )}
           </ul>
         )}
-        <p className="text-sm text-muted-foreground">{t.rule}</p>
+        <p className="text-sm text-muted-foreground">{election ? t.mayorRule : t.rule}</p>
       </div>
 
-      <Button type="button" className="h-12 text-base" onClick={validate}>
-        <Check aria-hidden className="size-5" />
-        {outcome.kind === "eliminate"
-          ? format(t.validateEliminate, { name: nameOf(outcome.targetId) })
-          : outcome.kind === "tie"
-            ? step.scapegoatId
-              ? t.validateTieScapegoat
-              : format(t.validateTie, { names: outcome.targetIds.map(nameOf).join(", ") })
-            : t.validateNobody}
-      </Button>
+      {!vote ? (
+        outcome.kind === "tie" ? (
+          // A tied election: the game master settles it (new vote, the table's call…).
+          <div className="flex flex-col gap-2">
+            <p className="font-medium">{format(t.mayorTie, { names: outcome.targetIds.map(nameOf).join(", ") })}</p>
+            <div className="flex flex-wrap gap-2">
+              {outcome.targetIds.map((id) => (
+                <Button key={id} type="button" className="h-12" onClick={() => act({ type: "mayor", targetId: id })}>
+                  <Check aria-hidden className="size-5" />
+                  {format(t.validateMayor, { name: nameOf(id) })}
+                </Button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <Button type="button" className="h-12 text-base" disabled={outcome.kind !== "eliminate"} onClick={validate}>
+            <Check aria-hidden className="size-5" />
+            {outcome.kind === "eliminate" ? format(t.validateMayor, { name: nameOf(outcome.targetId) }) : t.noVotes}
+          </Button>
+        )
+      ) : (
+        <Button type="button" className="h-12 text-base" onClick={validate}>
+          <Check aria-hidden className="size-5" />
+          {outcome.kind === "eliminate"
+            ? format(t.validateEliminate, { name: nameOf(outcome.targetId) })
+            : outcome.kind === "tie"
+              ? vote.scapegoatId
+                ? t.validateTieScapegoat
+                : format(t.validateTie, { names: outcome.targetIds.map(nameOf).join(", ") })
+              : t.validateNobody}
+        </Button>
+      )}
     </section>
   );
 }

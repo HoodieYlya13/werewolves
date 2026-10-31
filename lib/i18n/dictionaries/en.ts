@@ -82,6 +82,7 @@ const en = {
     joinedAs: "You're in as {name}",
     waiting: "Waiting for the game master to start…",
     roomPlayers: "In this room",
+    nightName: "Your seat",
     youWin: "You win!",
     youLose: "You lose.",
     card: {
@@ -198,6 +199,16 @@ const en = {
     phoneHint: "Tap the player you vote against. You can change your mind until the game master closes the vote.",
     phoneVoted: "You vote against: {name}. You can still change.",
     phoneCannotVote: "You can't vote this time.",
+    mayorOpenHint: "Pick the candidates, then everyone votes for one of them on their phone.",
+    candidatesHint: "Tap the players running for Mayor (at least 2).",
+    startElection: "Open the vote ({count} candidates)",
+    back: "Back",
+    mayorRule: "The candidate with the most votes becomes Mayor. On a tie, you settle it.",
+    mayorTie: "Tie between {names}. Settle it as the table agrees, then elect one of them:",
+    validateMayor: "Elect {name} Mayor",
+    mayorTitle: "Elect the Mayor",
+    mayorHint: "Tap the candidate you want as Mayor. You can change your mind until the game master closes the vote.",
+    mayorVoted: "You vote for {name}. You can still change.",
   },
   connection: {
     loading: "Loading…",
@@ -383,6 +394,8 @@ const en = {
     day: "Day {n}",
     nightHint: "Everyone sleeps",
     nightFalls: "Night falls. Everyone closes their eyes: the village goes to sleep.",
+    sleep: "{role}, go back to sleep.",
+    wolvesSleep: "Werewolves, go back to sleep.",
     nightShort: "N",
     dayShort: "D",
     dayHint: "Everyone is awake",
@@ -504,7 +517,7 @@ const en = {
     },
     steps: {
       bluff: {
-        do: "Nobody can play this turn any more, but the village mustn't know. Wait a few seconds as if they were choosing, then say they go back to sleep.",
+        do: "Nobody can play this turn any more, but the village mustn't know. Wait a few seconds as if they were choosing, then move on: the next screen sends them back to sleep.",
       },
       thief: {
         say: "Thief, wake up. You may swap your card for one of these two.",

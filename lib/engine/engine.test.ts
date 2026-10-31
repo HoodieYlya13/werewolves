@@ -518,3 +518,40 @@ describe("logs from older engines", () => {
     expect(engine.upgradeLog(setup(["werewolf", "villager", "villager"]), [{ type: "seer", targetId: "p1" }])).toBeNull();
   });
 });
+
+describe("going back to sleep", () => {
+  it("sends each role back to sleep, unless its own closing line already did", () => {
+    const s = setup(["thief", "cupid", "seer", "werewolf", "witch", "villager", "hunter"], {
+      extra: ["villager", "little-girl"],
+    });
+    let state = engine.createGame(s);
+    state = engine.applyAction(state, go); // prologue
+    const sleepers: (string | null)[] = [];
+    for (const a of [
+      { type: "thief", pick: null },
+      { type: "cupid", lovers: ["p5", "p6"] },
+      go,
+      { type: "seer", targetId: "p3" },
+      go,
+      { type: "wolves", targetId: "p5" },
+      { type: "witch", heal: true, poisonId: null },
+    ] satisfies Action[]) {
+      state = engine.applyAction(state, a);
+      sleepers.push(state.backToSleep);
+    }
+    // Cupid and the Seer are sent to sleep by the lovers' and the result's lines.
+    expect(sleepers).toEqual(["thief", null, null, null, null, "wolves", "witch"]);
+    expect(state.step.kind).toBe("phase-end");
+  });
+
+  it("closes a bluffed turn too", () => {
+    // The Seer's card is left over: still called, and sent back to sleep.
+    const s = setup(["thief", "werewolf", "villager", "villager"], { extra: ["seer", "villager"] });
+    let state = engine.createGame(s);
+    state = engine.applyAction(state, go);
+    state = engine.applyAction(state, { type: "thief", pick: 1 });
+    expect(state.step).toMatchObject({ kind: "bluff", role: "seer" });
+    state = engine.applyAction(state, go);
+    expect(state.backToSleep).toBe("seer");
+  });
+});

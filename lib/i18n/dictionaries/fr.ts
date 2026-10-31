@@ -84,6 +84,7 @@ const fr: Dictionary = {
     joinedAs: "Vous jouez en tant que {name}",
     waiting: "En attente du lancement par le meneur…",
     roomPlayers: "Dans cette partie",
+    nightName: "Votre place",
     youWin: "Vous avez gagné !",
     youLose: "Vous avez perdu.",
     card: {
@@ -200,6 +201,16 @@ const fr: Dictionary = {
     phoneHint: "Touchez le joueur contre qui vous votez. Vous pouvez changer d'avis jusqu'à ce que le meneur clôture le vote.",
     phoneVoted: "Vous votez contre : {name}. Vous pouvez encore changer.",
     phoneCannotVote: "Vous ne pouvez pas voter cette fois.",
+    mayorOpenHint: "Choisissez les candidats, puis chacun vote pour l'un d'eux sur son téléphone.",
+    candidatesHint: "Touchez les joueurs candidats au poste de Maire (au moins 2).",
+    startElection: "Ouvrir le vote ({count} candidats)",
+    back: "Retour",
+    mayorRule: "Le candidat qui a le plus de voix devient Maire. En cas d'égalité, c'est vous qui tranchez.",
+    mayorTie: "Égalité entre {names}. Tranchez comme la table le décide, puis élisez l'un d'eux :",
+    validateMayor: "Élire {name} Maire",
+    mayorTitle: "Élection du Maire",
+    mayorHint: "Touchez le candidat que vous voulez comme Maire. Vous pouvez changer d'avis jusqu'à ce que le meneur ferme le vote.",
+    mayorVoted: "Vous votez pour {name}. Vous pouvez encore changer.",
   },
   connection: {
     loading: "Chargement…",
@@ -385,6 +396,8 @@ const fr: Dictionary = {
     day: "Jour {n}",
     nightHint: "Tout le monde dort",
     nightFalls: "La nuit tombe. Tout le monde ferme les yeux : le village s'endort.",
+    sleep: "{role}, rendors-toi.",
+    wolvesSleep: "Loups-Garous, rendormez-vous.",
     nightShort: "N",
     dayShort: "J",
     dayHint: "Tout le monde est réveillé",
@@ -506,7 +519,7 @@ const fr: Dictionary = {
     },
     steps: {
       bluff: {
-        do: "Plus personne ne peut jouer ce tour, mais le village ne doit pas le savoir. Attendez quelques secondes comme si on choisissait, puis annoncez le retour au sommeil.",
+        do: "Plus personne ne peut jouer ce tour, mais le village ne doit pas le savoir. Attendez quelques secondes comme si on choisissait, puis passez à la suite : l'écran suivant les renvoie dormir.",
       },
       thief: {
         say: "Voleur, réveille-toi. Tu peux échanger ta carte contre l'une de ces deux-là.",

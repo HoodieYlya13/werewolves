@@ -591,9 +591,18 @@ export class RoomServer extends Server<Env> {
       case "open-ballot": {
         if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
         const step = this.game?.step;
-        if (!this.game || step?.kind !== "vote") return;
+        if (!this.game) return;
         const living = this.game.players.filter((p) => p.alive).map((p) => p.id);
+        if (step?.kind === "mayor-election") {
+          const wanted = Array.isArray(msg.candidateIds) ? msg.candidateIds : [];
+          const candidateIds = living.filter((id) => wanted.includes(id));
+          if (candidateIds.length === 0) return;
+          this.state.ballot = { kind: "mayor", voterIds: living, candidateIds, votes: {} };
+          break;
+        }
+        if (step?.kind !== "vote") return;
         this.state.ballot = {
+          kind: "vote",
           voterIds: living.filter((id) => !step.cannotVote.includes(id)),
           candidateIds: living,
           votes: {},
@@ -622,7 +631,8 @@ export class RoomServer extends Server<Env> {
           delete ballot.votes[voterId];
           break;
         }
-        if (msg.targetId !== null && !ballot.candidateIds.includes(msg.targetId)) return;
+        // A Mayor is always elected: "no one" is only for the day's vote.
+        if (msg.targetId === null ? ballot.kind === "mayor" : !ballot.candidateIds.includes(msg.targetId)) return;
         ballot.votes[voterId] = msg.targetId;
         break;
       }
@@ -1133,6 +1143,7 @@ export class RoomServer extends Server<Env> {
     const phoneBallot =
       ballot && me
         ? {
+            kind: ballot.kind ?? "vote",
             candidateIds: ballot.candidateIds,
             canVote: ballot.voterIds.includes(me.id),
             voted: me.id in ballot.votes,

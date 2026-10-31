@@ -249,6 +249,11 @@ export type GameState = {
   pending: Step[];
   /** The step the game master sees now. */
   step: Step;
+  /**
+   * Who was just awake and goes back to sleep before this step: a role, or the
+   * whole pack. Null when the step just played said it itself (Cupid, the Seer…).
+   */
+  backToSleep: RoleId | "wolves" | null;
   /** 0 for the first step of the current night or day, then 1, 2… */
   phaseStep: number;
   extraCards: RoleId[];

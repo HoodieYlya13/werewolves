@@ -103,6 +103,7 @@ export function createGame(setup: GameSetup): GameState {
     cursor: 0,
     pending: [{ kind: "prologue" }],
     step: { kind: "prologue" }, // replaced by advance()
+    backToSleep: null,
     phaseStep: -1,
     extraCards: [...setup.extraCards],
     actorCards: [...(setup.actorCards ?? [])],
@@ -127,9 +128,44 @@ export function createGame(setup: GameSetup): GameState {
 export function applyAction(prev: GameState, action: Action): GameState {
   if (prev.step.kind === "game-over") throw new EngineError("game-over", "The game is over");
   const state = structuredClone(prev);
+  const done = state.step;
   resolve(state, state.step, action);
   advance(state);
+  state.backToSleep = backToSleep(done, state.step);
   return state;
+}
+
+/**
+ * Who closes their eyes once a night step is played. Steps followed by their
+ * own closing line (the Seer's result, the lovers, the siblings…) need none.
+ */
+function backToSleep(done: Step, next: Step): GameState["backToSleep"] {
+  switch (done.kind) {
+    case "thief":
+    case "actor":
+    case "wolf-hound":
+    case "wild-child":
+    case "defender":
+    case "big-bad-wolf":
+    case "white-werewolf":
+    case "witch":
+    case "raven":
+      return done.kind;
+    case "piper":
+      return "pied-piper";
+    // The Wolf-Father answers while the pack is still awake.
+    case "wolves":
+      return next.kind === "infect" ? null : "wolves";
+    case "infect":
+      return "wolves";
+    case "bluff":
+      if (done.turn === "wolves") return "wolves";
+      // These calls already end with everyone going back to sleep.
+      if (["lovers", "charmed", "two-sisters", "three-brothers"].includes(done.turn)) return null;
+      return done.role;
+    default:
+      return null;
+  }
 }
 
 /** Rebuilds the state from scratch. Undo = replay without the last action. */
