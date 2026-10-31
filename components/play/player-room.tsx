@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useParams, useRouter } from "next/navigation";
 import { Check, Crown, LogIn, LogOut, Moon, Pencil, Skull, Sun, UserPlus, UserRound, Vote } from "lucide-react";
 import { AuthButton, goToAuth } from "@/components/account-button";
+import { AddAccountPhoto } from "@/components/account-page-link";
 import { ConfirmButton } from "@/components/confirm-button";
 import {
   AlertDialog,
@@ -136,6 +137,21 @@ function PlayerScreen({ code }: { code: string }) {
     void getTicket({ room: code }).then((ticket) => ticket && send((lastAccountMessage.current = { type: "link-account", ticket })));
   }, [me, account, send, code]);
 
+  // The account's name or photo changed (on the account page): the seat follows.
+  const seat = me && view?.players.find((p) => p.id === me.id);
+  const accountKey = account && `${account.sub}|${account.name}|${account.picture}`;
+  const outdated =
+    !!seat?.account &&
+    !!account &&
+    // The room may have added a number to a name already taken ("Ylya 2").
+    (seat.picture !== account.picture || !(seat.name === account.name || seat.name.startsWith(`${account.name} `)));
+  const synced = useRef<string | null>(null);
+  useEffect(() => {
+    if (!outdated || !accountKey || synced.current === accountKey) return;
+    synced.current = accountKey;
+    void getTicket({ room: code }).then((ticket) => ticket && send({ type: "link-account", ticket }));
+  }, [outdated, accountKey, code, send]);
+
   // The photo is remembered on this phone for the next rooms too.
   function changePhoto(data: string | null) {
     setPhoto(data);
@@ -230,6 +246,7 @@ function PlayerScreen({ code }: { code: string }) {
         <section className="card flex flex-col items-center gap-3 p-6 text-center">
           <Face name={account.name} src={account.picture} className="size-24 text-3xl" />
           <p className="text-muted-foreground">{dict.account.fromAccount}</p>
+          <AddAccountPhoto />
           <Button type="button" className="w-full" onClick={joinWithAccount}>
             {format(dict.account.joinAs, { name: account.name })}
           </Button>
@@ -301,7 +318,10 @@ function PlayerScreen({ code }: { code: string }) {
           <Avatar playerId={me.id} name={me.name} className="size-24 text-3xl" />
           <p className="text-xl font-semibold">{format(dict.play.joinedAs, { name: me.name })}</p>
           {me.account ? (
-            <p className="text-sm text-muted-foreground">{dict.account.fromAccount}</p>
+            <>
+              <p className="text-sm text-muted-foreground">{dict.account.fromAccount}</p>
+              <AddAccountPhoto />
+            </>
           ) : (
             <>
               <PhotoPicker

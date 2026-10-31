@@ -97,7 +97,7 @@ const MIN_VALIDITY_MS = 2 * 60 * 1000;
  * with the refresh token when it's about to expire (the auth server rotates
  * that one). `finish` writes the new or cleared cookies on the route's response.
  */
-export async function currentAccount(request: NextRequest, config: AuthConfig) {
+export async function currentAccount(request: NextRequest, config: AuthConfig, { fresh = false } = {}) {
   const savedSession = request.cookies.get(COOKIES.session)?.value;
   // Signed in before sessions existed: start one now.
   const sessionId = savedSession ?? newSessionId();
@@ -108,7 +108,8 @@ export async function currentAccount(request: NextRequest, config: AuthConfig) {
 
   const idToken = request.cookies.get(COOKIES.id)?.value;
   const current = await verifyIdToken(idToken, config);
-  if (current && current.expiresAt - Date.now() > MIN_VALIDITY_MS) {
+  // `fresh`: back from the account page, so the name or photo may have changed since.
+  if (current && !fresh && current.expiresAt - Date.now() > MIN_VALIDITY_MS) {
     return { account: publicAccount(current), sessionId, finish: keepSession };
   }
 

@@ -22,12 +22,14 @@ let pending: Promise<Session> | null = null;
 const listeners = new Set<() => void>();
 
 /**
- * Asks the server who is signed in, refreshing the ID token if it's old.
- * Calls made at the same time share one request, so the rotating refresh
- * token is never used twice.
+ * Asks the server who is signed in, refreshing the ID token if it's old (or
+ * now, with `fresh`). Calls made at the same time share one request, so the
+ * rotating refresh token is never used twice.
  */
-export function loadSession(): Promise<Session> {
-  pending ??= fetch("/api/auth/session", { cache: "no-store" })
+export function loadSession(fresh = false): Promise<Session> {
+  // A fresh read waits for one already on its way rather than racing it.
+  if (fresh && pending) return pending.then(() => loadSession(true));
+  pending ??= fetch(fresh ? "/api/auth/session?fresh=1" : "/api/auth/session", { cache: "no-store" })
     .then((res) => (res.ok ? (res.json() as Promise<Session>) : signedOut))
     .catch(() => signedOut)
     .then((value) => {
@@ -41,8 +43,40 @@ export function loadSession(): Promise<Session> {
 
 function subscribe(listener: () => void) {
   listeners.add(listener);
-  if (!session) void loadSession();
+  if (!session) void loadSession(takeAccountVisit());
   return () => listeners.delete(listener);
+}
+
+// --- coming back from the account page ---
+
+const ACCOUNT_VISIT_KEY = "ww:account-visit";
+
+/**
+ * Called on the way to the account page. Back here (by its link or the Back
+ * button), the sign-in is refreshed once, so a new name or photo shows at
+ * once instead of when the ID token next expires.
+ */
+export function markAccountVisit() {
+  try {
+    sessionStorage.setItem(ACCOUNT_VISIT_KEY, "1");
+  } catch {}
+}
+
+function takeAccountVisit() {
+  try {
+    const visited = sessionStorage.getItem(ACCOUNT_VISIT_KEY) === "1";
+    sessionStorage.removeItem(ACCOUNT_VISIT_KEY);
+    return visited;
+  } catch {
+    return false;
+  }
+}
+
+// The Back button can restore this page from memory, without reloading it.
+if (typeof window !== "undefined") {
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted && takeAccountVisit()) void loadSession(true);
+  });
 }
 
 /** The signed-in account, or null while loading. */

@@ -305,7 +305,12 @@ export class RoomServer extends Server<Env> {
         if (!account || !this.state || sender.state?.kind !== "player") return;
         const playerId = sender.state.playerId;
         const player = this.state.players.find((p) => p.id === playerId);
-        if (!player || player.sub === account.sub) return;
+        if (!player) return;
+        // Already this account's seat: the name or photo changed on the account page.
+        if (player.sub === account.sub) {
+          this.applyAccount(player, account);
+          break;
+        }
         const other = this.findAccount(account.sub);
         if (player.sub || other) return this.send(sender, { type: "error", code: "account-in-use" });
         if (!(await this.checkOtherRoom(sender, account.sub, msg.leaveOther))) return;

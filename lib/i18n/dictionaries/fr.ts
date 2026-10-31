@@ -141,6 +141,7 @@ const fr: Dictionary = {
     joinAs: "Rejoindre en tant que {name}",
     orSignIn: "Vous avez un compte ? Connectez-vous pour jouer avec son nom et sa photo.",
     fromAccount: "Votre nom et votre photo viennent de votre compte.",
+    addPhoto: "Ajouter une photo",
     notYou: "Ce n'est pas vous ?",
     signOutLeave: {
       title: "Se déconnecter et quitter la partie ?",

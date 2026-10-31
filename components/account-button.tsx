@@ -30,6 +30,7 @@ import {
   accountPageUrl,
   currentPath,
   getSignOutGuard,
+  markAccountVisit,
   signInUrl,
   signOutUrl,
   useSession,
@@ -101,8 +102,8 @@ export function AccountButton({ accounts }: { accounts: boolean }) {
           )}
           {accountPage && (
             <DropdownMenuItem asChild>
-              {/* Same tab: the account page links back to the app. */}
-              <a href={accountPage}>
+              {/* Same tab: the account page links back to the app, and the sign-in refreshes then. */}
+              <a href={accountPage} onClick={markAccountVisit}>
                 <UserCog aria-hidden />
                 {dict.account.manage}
               </a>
