@@ -46,6 +46,29 @@ export const sitePath = (request: NextRequest, path: string) => new URL(path, si
 export const callbackUrl = (request: NextRequest) => `${siteOrigin(request)}/api/auth/callback`;
 export const loggedOutUrl = (request: NextRequest) => `${siteOrigin(request)}/api/auth/logged-out`;
 
+/**
+ * Whether a sign-out request comes from a page of this site or of the auth
+ * server, as a real navigation. A link, image or script planted on another
+ * site can't sign anyone out (logout CSRF). Browsers that send none of these
+ * headers are let through, as the auth server does.
+ */
+export function signOutAllowed(request: NextRequest, config: AuthConfig | null) {
+  const dest = request.headers.get("sec-fetch-dest");
+  if (dest && dest !== "document") return false;
+  const referer = request.headers.get("referer");
+  if (referer) {
+    const ours = [siteOrigin(request), ...(config ? [new URL(config.issuer).origin] : [])];
+    try {
+      return ours.includes(new URL(referer).origin);
+    } catch {
+      return false;
+    }
+  }
+  // No referrer (privacy settings): typed or bookmarked, or from our own domain.
+  const site = request.headers.get("sec-fetch-site");
+  return !site || site === "none" || site === "same-origin" || site === "same-site";
+}
+
 /** Only same-site paths, so the sign-in flow can't redirect elsewhere. */
 export function safeReturnTo(value: string | null | undefined) {
   return value && value.startsWith("/") && !value.startsWith("//") && !value.startsWith("/\\") ? value : "/";

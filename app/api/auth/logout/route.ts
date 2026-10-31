@@ -1,12 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { discover } from "@/lib/account";
-import { authConfig, clearTokens, loggedOutUrl, safeReturnTo, sitePath } from "@/lib/auth";
+import { authConfig, clearTokens, loggedOutUrl, safeReturnTo, signOutAllowed, sitePath } from "@/lib/auth";
 
 /** Signs out here and on the auth server, then comes back to `returnTo`. */
 export async function GET(request: NextRequest) {
   const returnTo = safeReturnTo(request.nextUrl.searchParams.get("returnTo"));
   const config = authConfig();
   let target = sitePath(request, returnTo);
+  // Planted on another site: back to the page, still signed in.
+  if (!signOutAllowed(request, config)) return NextResponse.redirect(target);
   if (config) {
     const { end_session_endpoint } = await discover(config.issuer).catch(() => ({ end_session_endpoint: undefined }));
     if (end_session_endpoint) {
