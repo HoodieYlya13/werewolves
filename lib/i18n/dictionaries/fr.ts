@@ -432,6 +432,7 @@ const fr: Dictionary = {
     remaining: "Peuvent encore gagner",
     timeline: "Historique",
     lover: "Amoureux",
+    model: "Modèle de {name} (Enfant Sauvage)",
     charmed: "Charmé",
     powersLost: "L'Ancien a été tué par le village : les villageois ont perdu leurs pouvoirs.",
     mayor: "Maire",

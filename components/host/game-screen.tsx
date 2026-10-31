@@ -6,6 +6,7 @@ import { useI18n } from "@/components/i18n-provider";
 import { CloseRoomButton } from "@/components/host/close-room-button";
 import { PhonelessPanel } from "@/components/host/phoneless-cards";
 import { PlayerEditor } from "@/components/host/player-editor";
+import { ModelMark } from "@/components/host/player-grid";
 import { ConfirmButton } from "@/components/confirm-button";
 import { setMuted, useGameSound, useSoundMuted } from "@/hooks/use-game-sound";
 import { useGameTheme } from "@/hooks/use-game-theme";
@@ -209,6 +210,7 @@ function PlayersPanel({ game }: { game: GameState }) {
             {p.flags.charmed && (
               <Music aria-label={dict.game.charmed} className="secret-role size-3.5 text-emerald-500" />
             )}
+            <ModelMark game={game} playerId={p.id} />
             {isWolf(p) && roles[p.role].team !== "wolves" && p.role !== "white-werewolf" && (
               <PawPrint aria-hidden className="secret-role size-3.5 text-primary" />
             )}

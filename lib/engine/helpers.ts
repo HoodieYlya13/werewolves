@@ -26,6 +26,11 @@ export function isWolf(player: Player) {
   return baseTeam(player) === "wolves" || player.role === "white-werewolf";
 }
 
+/** The living Wild Child who picked this player as their role model, if any. */
+export function wildChildOf(state: GameState, playerId: string) {
+  return state.players.find((p) => p.alive && p.role === "wild-child" && p.memo.model === playerId) ?? null;
+}
+
 /**
  * Whether a player can still use their role. Killing the Elder strips every
  * villager of their power; the Fox loses his after a wrong guess.

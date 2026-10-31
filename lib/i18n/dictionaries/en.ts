@@ -431,6 +431,7 @@ const en = {
     timeline: "Timeline",
     lover: "Lover",
     charmed: "Charmed",
+    model: "{name}'s role model (Wild Child)",
     powersLost: "The Elder was killed by the village: villagers have lost their powers.",
     mayor: "Mayor",
     dead: "Dead",

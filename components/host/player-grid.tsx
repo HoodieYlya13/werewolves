@@ -1,9 +1,11 @@
 "use client";
 
-import { Crown, Heart, Music } from "lucide-react";
+import { Crown, Heart, Music, Star } from "lucide-react";
+import { useI18n } from "@/components/i18n-provider";
 import { RoleName } from "@/components/host/role-chip";
 import { Avatar } from "@/components/room-context";
-import type { GameState, Player } from "@/lib/engine";
+import { wildChildOf, type GameState, type Player } from "@/lib/engine";
+import { format } from "@/lib/i18n/config";
 
 /**
  * Big tap targets for picking players. Shows each player's role, since only
@@ -44,6 +46,7 @@ export function PlayerGrid({
                 {game.lovers?.includes(p.id) && <Heart aria-hidden className="secret-role size-3.5 shrink-0 fill-pink-500 text-pink-500" />}
                 {game.mayorId === p.id && <Crown aria-hidden className="size-3.5 shrink-0 text-moon" />}
                 {p.flags.charmed && <Music aria-hidden className="secret-role size-3.5 shrink-0 text-emerald-500" />}
+                <ModelMark game={game} playerId={p.id} />
               </span>
               <RoleName role={p.role} className="pl-8.5 text-xs" secret />
             </button>
@@ -51,6 +54,19 @@ export function PlayerGrid({
         );
       })}
     </ul>
+  );
+}
+
+/** Marks the Wild Child's role model, for the game master only: hidden with the roles. */
+export function ModelMark({ game, playerId }: { game: GameState; playerId: string }) {
+  const { dict } = useI18n();
+  const child = wildChildOf(game, playerId);
+  if (!child) return null;
+  const label = format(dict.game.model, { name: child.name });
+  return (
+    <span title={label} className="secret-role inline-flex shrink-0">
+      <Star aria-label={label} className="size-3.5 fill-amber-500 text-amber-500" />
+    </span>
   );
 }
 
