@@ -10,6 +10,7 @@ import { SessionGuard } from "@/components/session-guard";
 import { Toaster } from "@/components/ui/sonner";
 import { locales } from "@/lib/i18n/config";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
+import { SITE_URL } from "@/lib/seo";
 import { themeScript } from "@/lib/theme";
 import "../globals.css";
 
@@ -23,11 +24,14 @@ export function generateStaticParams() {
 export async function generateMetadata(): Promise<Metadata> {
   const dict = await getDictionary();
   return {
-    title: { default: dict.app.name, template: `%s · ${dict.app.name}` },
-    description: dict.app.tagline,
+    metadataBase: new URL(SITE_URL),
+    title: { default: dict.seo.home.title, template: `%s · ${dict.app.name}` },
+    description: dict.seo.home.description,
     applicationName: dict.app.name,
     appleWebApp: { capable: true, title: dict.app.name, statusBarStyle: "black-translucent" },
-    alternates: { languages: Object.fromEntries(locales.map((l) => [l, `/${l}`])) },
+    openGraph: { siteName: dict.app.name, type: "website" },
+    twitter: { card: "summary_large_image" },
+    category: "games",
   };
 }
 
@@ -68,7 +72,19 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
             <ResumeRooms />
             {children}
             {/* Down here, so the header has room for the account on phones. */}
-            <footer className="flex justify-center px-4 py-4">
+            <footer className="flex flex-col items-center gap-3 px-4 py-4">
+              {/* Every page links to the guides: people find them, and so do search engines. */}
+              <nav aria-label={dict.nav.label} className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                <Link href={`/${locale}/rules`} className="hover:text-fg">
+                  {dict.nav.rules}
+                </Link>
+                <Link href={`/${locale}/roles`} className="hover:text-fg">
+                  {dict.nav.roles}
+                </Link>
+                <Link href={`/${locale}/faq`} className="hover:text-fg">
+                  {dict.nav.faq}
+                </Link>
+              </nav>
               <ThemeSwitcher />
             </footer>
           </div>

@@ -4,6 +4,31 @@ const en = {
     tagline:
       "The game master's companion for Werewolves and other hidden-role games. No more narrator mistakes.",
   },
+  seo: {
+    home: {
+      title: "Werewolves – free game master app for Werewolf & Mafia",
+      description: "Run a game of Werewolves (Les Loups-Garous de Thiercelieux) or Mafia without a single mistake: the app deals the cards, calls every role in the right order, keeps track of the night and tells you who wins. Free, in the browser, players join with their phones.",
+    },
+    rules: {
+      title: "How to play Werewolves: the rules, step by step",
+      description: "The rules of Werewolves (Loups-Garous) explained simply: the goal, setting up, how a night and a day go, the vote, the Mayor, how each side wins, and tips for the game master.",
+    },
+    roles: {
+      title: "Every Werewolves role explained",
+      description: "All the roles of Werewolves (Loups-Garous de Thiercelieux): base game, New Moon, Characters and the Raven. What each one does, which side it plays for and when it wakes up.",
+    },
+    faq: {
+      title: "Questions and answers about the Werewolves app",
+      description: "Is it free? Do players need a phone? How many players? Which roles? Everything about running a game of Werewolves or Mafia with the app.",
+    },
+  },
+  nav: {
+    label: "Learn the game",
+    rules: "Rules",
+    roles: "Roles",
+    faq: "FAQ",
+    start: "Start a game",
+  },
   home: {
     hostTitle: "I'm the game master",
     hostDescription: "Create a room on the big screen. Players join with their phones.",

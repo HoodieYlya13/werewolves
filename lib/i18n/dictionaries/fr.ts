@@ -6,6 +6,31 @@ const fr: Dictionary = {
     tagline:
       "L'assistant du meneur de jeu pour les Loups-Garous et autres jeux à rôles cachés. Fini les erreurs de narration.",
   },
+  seo: {
+    home: {
+      title: "Loups-Garous – application gratuite pour le meneur de jeu",
+      description: "Animez une partie de Loups-Garous de Thiercelieux ou de Mafia sans la moindre erreur : l'application distribue les cartes, appelle chaque rôle dans le bon ordre, suit la nuit et annonce qui gagne. Gratuit, dans le navigateur, les joueurs rejoignent avec leur téléphone.",
+    },
+    rules: {
+      title: "Règles du Loup-Garou : comment jouer, étape par étape",
+      description: "Les règles des Loups-Garous expliquées simplement : le but, la mise en place, le déroulement d'une nuit et d'une journée, le vote, le Maire, la victoire de chaque camp et des conseils pour le meneur de jeu.",
+    },
+    roles: {
+      title: "Tous les rôles des Loups-Garous expliqués",
+      description: "Tous les rôles des Loups-Garous de Thiercelieux : jeu de base, Nouvelle Lune, Personnages et le Corbeau. Ce que fait chacun, son camp et quand il se réveille.",
+    },
+    faq: {
+      title: "Questions fréquentes sur l'application Loups-Garous",
+      description: "C'est gratuit ? Faut-il un téléphone ? Combien de joueurs ? Quels rôles ? Tout pour animer une partie de Loups-Garous ou de Mafia avec l'application.",
+    },
+  },
+  nav: {
+    label: "Découvrir le jeu",
+    rules: "Règles",
+    roles: "Rôles",
+    faq: "FAQ",
+    start: "Lancer une partie",
+  },
   home: {
     hostTitle: "Je suis le meneur",
     hostDescription: "Créez une partie sur le grand écran. Les joueurs rejoignent avec leur téléphone.",

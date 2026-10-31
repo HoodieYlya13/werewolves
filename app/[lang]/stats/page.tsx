@@ -3,9 +3,10 @@ import { ClientOnly } from "@/components/client-only";
 import { StatsSkeleton } from "@/components/skeletons";
 import { StatsView } from "@/components/stats-view";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { privatePage } from "@/lib/seo";
 
 export async function generateMetadata(): Promise<Metadata> {
-  return { title: (await getDictionary()).stats.title };
+  return { title: (await getDictionary()).stats.title, ...privatePage };
 }
 
 export default async function StatsPage() {
