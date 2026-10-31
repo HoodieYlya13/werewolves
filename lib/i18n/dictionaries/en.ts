@@ -140,6 +140,7 @@ const en = {
     orSignIn: "Have an account? Sign in to play with its name and photo.",
     fromAccount: "Your name and photo come from your account.",
     addPhoto: "Add a photo",
+    showUsername: "Play under my username, {username}",
     notYou: "Not you?",
     signOutLeave: {
       title: "Sign out and leave the room?",

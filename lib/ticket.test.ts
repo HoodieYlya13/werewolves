@@ -3,7 +3,7 @@ import { SignJWT } from "jose";
 import { describe, expect, it } from "vitest";
 import { signTicket, ticketKey, verifyTicket } from "./ticket";
 
-const sam = { sub: "sub-sam", name: "Sam", picture: null };
+const sam = { sub: "sub-sam", name: "Sam", picture: null, username: "sam_w" };
 
 describe("tickets", () => {
   it("stand for the account, for the server they name", async () => {

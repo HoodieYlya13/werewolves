@@ -154,12 +154,15 @@ export type ClientMessage =
   /**
    * `photo`: the photo this phone used last time, to start with (a JPEG data URL).
    * `ticket`: joins with an account (see lib/ticket.ts), whose name and photo replace `name` and `photo`.
+   * `showUsername`: an account plays under its username rather than its first name.
    */
-  | { type: "join"; name: string; photo?: string | null; ticket?: string; leaveOther?: boolean }
+  | { type: "join"; name: string; photo?: string | null; ticket?: string; leaveOther?: boolean; showUsername?: boolean }
   /** A player who signed in after joining links their seat to the account. */
   | { type: "link-account"; ticket: string; leaveOther?: boolean }
   /** Takes back this phone's account seat (see PlayerView.lockedSeat) with a ticket from that account. */
   | { type: "unlock"; ticket: string }
+  /** An account's player switches between their first name and their username. */
+  | { type: "show-username"; value: boolean }
   /** A player without an account changes their own name, at any time. */
   | { type: "rename-self"; name: string }
   /** Leaves the room. Mid-game the player stays in the game for the game master to play. */

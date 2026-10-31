@@ -136,7 +136,7 @@ export async function currentAccount(request: NextRequest, config: AuthConfig, {
   };
 }
 
-const publicAccount = ({ sub, name, picture }: Account): Account => ({ sub, name, picture });
+const publicAccount = ({ sub, name, picture, username }: Account): Account => ({ sub, name, picture, username });
 
 /** Calls the token endpoint, authenticating with the client secret. */
 export async function requestTokens(config: AuthConfig, params: Record<string, string>): Promise<TokenResponse | null> {

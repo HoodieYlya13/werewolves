@@ -5,7 +5,7 @@ import type { Account } from "./account";
  * Tickets: what a page hands the room or account server to prove who is
  * signed in, so the ID token never leaves the site's server. A ticket is
  * signed with a key the site and the Worker share, names one server
- * (`audience`), carries only the account's sub, game name and photo, and
+ * (`audience`), carries only the account's sub, game name, username and photo, and
  * expires within a minute. Shared by Next and the Worker.
  */
 
@@ -39,7 +39,7 @@ export async function ticketKey({ key, clientSecret }: { key?: string; clientSec
 }
 
 export function signTicket(key: Uint8Array, to: TicketAudience, account: Account, sid?: string) {
-  return new SignJWT({ name: account.name, picture: account.picture, ...(sid ? { sid } : {}) })
+  return new SignJWT({ name: account.name, picture: account.picture, username: account.username, ...(sid ? { sid } : {}) })
     .setProtectedHeader({ alg: "HS256", typ: "ww-ticket" })
     .setIssuer(ISSUER)
     .setAudience(audienceOf(to))
@@ -55,12 +55,13 @@ export async function verifyTicket(key: Uint8Array | null, token: unknown, to: T
   if (!key || typeof token !== "string" || !token) return null;
   try {
     const { payload } = await jwtVerify(token, key, { issuer: ISSUER, audience: audienceOf(to), algorithms: ["HS256"], typ: "ww-ticket" });
-    const { sub, name, picture, sid, jti, exp } = payload;
+    const { sub, name, picture, username, sid, jti, exp } = payload;
     if (!sub || typeof name !== "string" || !jti || !exp) return null;
     return {
       sub,
       name,
       picture: typeof picture === "string" ? picture : null,
+      username: typeof username === "string" ? username : null,
       ...(typeof sid === "string" ? { sid } : {}),
       jti,
       exp,

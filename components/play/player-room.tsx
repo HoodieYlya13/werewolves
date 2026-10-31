@@ -59,6 +59,8 @@ function PlayerScreen({ code }: { code: string }) {
   // The name used last time, ready to change.
   const [name, setName] = useState(() => identity.getName());
   const [photo, setPhoto] = useState(() => identity.getPhoto());
+  // Signed in: the first name (the username only to tell namesakes apart), or the username.
+  const [showUsername, setShowUsername] = useState(() => identity.getShowUsername());
   const session = useSession();
   const account = session?.account ?? null;
   const me = view?.me;
@@ -140,11 +142,13 @@ function PlayerScreen({ code }: { code: string }) {
   // The account's name or photo changed (on the account page): the seat follows.
   const seat = me && view?.players.find((p) => p.id === me.id);
   const accountKey = account && `${account.sub}|${account.name}|${account.picture}`;
+  const expectedName = account && (showUsername && account.username ? account.username : account.name);
   const outdated =
     !!seat?.account &&
     !!account &&
-    // The room may have added a number to a name already taken ("Ylya 2").
-    (seat.picture !== account.picture || !(seat.name === account.name || seat.name.startsWith(`${account.name} `)));
+    !!expectedName &&
+    // The room may have added a username or a number to tell namesakes apart ("Ylya (hy13)", "Ylya 2").
+    (seat.picture !== account.picture || !(seat.name === expectedName || seat.name.startsWith(`${expectedName} `)));
   const synced = useRef<string | null>(null);
   useEffect(() => {
     if (!outdated || !accountKey || synced.current === accountKey) return;
@@ -181,7 +185,13 @@ function PlayerScreen({ code }: { code: string }) {
   async function joinWithAccount() {
     const ticket = await getTicket({ room: code });
     // Signed out meanwhile: the session update shows the guest form instead.
-    if (ticket && account) sendWithAccount({ type: "join", name: account.name, ticket });
+    if (ticket && account) sendWithAccount({ type: "join", name: account.name, ticket, showUsername });
+  }
+
+  function changeShowUsername(value: boolean) {
+    setShowUsername(value);
+    identity.setShowUsername(value);
+    if (me?.account) send({ type: "show-username", value });
   }
 
   /** Confirmed: leave the other room and send the same request again, with a new ticket. */
@@ -244,11 +254,14 @@ function PlayerScreen({ code }: { code: string }) {
 
       {ready && view && !me && ((!view.rejoin && !view.lockedSeat) || joinAsNew) && account && (
         <section className="card flex flex-col items-center gap-3 p-6 text-center">
-          <Face name={account.name} src={account.picture} className="size-24 text-3xl" />
+          <Face name={expectedName ?? account.name} src={account.picture} className="size-24 text-3xl" />
           <p className="text-muted-foreground">{dict.account.fromAccount}</p>
           <AddAccountPhoto />
+          {account.username && (
+            <UsernameChoice username={account.username} checked={showUsername} onChange={changeShowUsername} />
+          )}
           <Button type="button" className="w-full" onClick={joinWithAccount}>
-            {format(dict.account.joinAs, { name: account.name })}
+            {format(dict.account.joinAs, { name: expectedName ?? account.name })}
           </Button>
           {error === "room-locked" && (
             <p role="alert" className="text-sm text-primary">
@@ -321,6 +334,9 @@ function PlayerScreen({ code }: { code: string }) {
             <>
               <p className="text-sm text-muted-foreground">{dict.account.fromAccount}</p>
               <AddAccountPhoto />
+              {account?.username && (
+                <UsernameChoice username={account.username} checked={showUsername} onChange={changeShowUsername} />
+              )}
             </>
           ) : (
             <>
@@ -707,5 +723,21 @@ function RejoinCard({
         </p>
       )}
     </form>
+  );
+}
+
+/** Signed in: play under the account's first name, or under its username. */
+function UsernameChoice({ username, checked, onChange }: { username: string; checked: boolean; onChange: (value: boolean) => void }) {
+  const { dict } = useI18n();
+  return (
+    <label className="flex cursor-pointer items-center gap-2 text-sm">
+      <input
+        type="checkbox"
+        className="size-4 accent-[var(--primary)]"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      {format(dict.account.showUsername, { username })}
+    </label>
   );
 }

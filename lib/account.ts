@@ -9,8 +9,11 @@ import { MAX_NAME_LENGTH } from "./protocol";
 
 export const DEFAULT_ISSUER = "https://auth.hy13dev.com";
 
-/** What a room knows about someone signed in. */
-export type Account = { sub: string; name: string; picture: string | null };
+/**
+ * What a room knows about someone signed in. `username` is unique on the auth
+ * server: it tells two accounts with the same first name apart.
+ */
+export type Account = { sub: string; name: string; picture: string | null; username: string | null };
 
 type Discovery = {
   authorization_endpoint: string;
@@ -67,6 +70,7 @@ export async function verifyIdToken(
     return {
       sub: payload.sub,
       name: gameName(payload),
+      username: typeof payload.preferred_username === "string" && payload.preferred_username.trim() ? payload.preferred_username.trim() : null,
       // Only the auth server's own avatar URLs are shown to the room.
       picture: typeof payload.picture === "string" && payload.picture.startsWith(`${issuer}/`) ? payload.picture : null,
       expiresAt: payload.exp * 1000,

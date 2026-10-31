@@ -42,6 +42,11 @@ type StoredPlayer = Omit<PublicPlayer, "account" | "picture"> & {
   /** The account's id, for players who signed in. */
   sub?: string;
   picture?: string | null;
+  /** The account's first name and username: the seat's name is built from them. */
+  accountName?: string;
+  username?: string | null;
+  /** Plays under the username rather than the first name (the player's choice). */
+  showUsername?: boolean;
   /** Lost their name to someone who signed in with it. */
   renamed?: boolean;
 };
@@ -283,7 +288,10 @@ export class RoomServer extends Server<Env> {
           if (!(await this.checkOtherRoom(sender, account.sub, msg.leaveOther))) return;
           if (!this.state || !canJoin()) return;
         }
-        const name = account ? this.claimName(account.name) : this.validateName(sender, msg.name);
+        const showUsername = !!msg.showUsername && !!account?.username;
+        const name = account
+          ? this.claimAccountName({ accountName: account.name, username: account.username, showUsername })
+          : this.validateName(sender, msg.name);
         if (!name) return;
         const { deviceId, token } = sender.state?.kind === "guest" ? sender.state : {};
         const taken = [...this.state.players, ...(this.state.formerPlayers ?? [])].some((p) => p.id === deviceId);
@@ -291,6 +299,9 @@ export class RoomServer extends Server<Env> {
         if (account) {
           player.sub = account.sub;
           player.picture = account.picture;
+          player.accountName = account.name;
+          player.username = account.username;
+          player.showUsername = showUsername;
           await this.tellAccount(account.sub, true);
         } else if (msg.photo) {
           await this.storePhoto(player, msg.photo);
@@ -340,6 +351,17 @@ export class RoomServer extends Server<Env> {
         player.connected = true;
         sender.setState({ kind: "player", playerId });
         await this.tellAccount(player.sub, true);
+        break;
+      }
+      case "show-username": {
+        if (sender.state?.kind !== "player") return;
+        const playerId = sender.state.playerId;
+        const player = this.state.players.find((p) => p.id === playerId);
+        if (!player?.sub || !player.accountName) return;
+        player.showUsername = msg.value === true && !!player.username;
+        const name = this.claimAccountName({ ...player, accountName: player.accountName }, player.id);
+        if (name !== player.name) this.renamePlayer(player, name);
+        this.untangleNames(player.accountName);
         break;
       }
       case "rename-self": {
@@ -404,7 +426,7 @@ export class RoomServer extends Server<Env> {
         }
         // The name may have been taken while they were away.
         const name = player.sub
-          ? this.claimName(request.name, player.id)
+          ? this.claimAccountName({ ...player, accountName: player.accountName ?? request.name }, player.id)
           : this.isNameFree(request.name, player.id)
             ? request.name
             : this.uniqueName(request.name, player.id);
@@ -866,13 +888,53 @@ export class RoomServer extends Server<Env> {
    * who uses that name is renamed (and can pick another). If another account
    * already has it, this one gets a number instead.
    */
-  private claimName(wanted: string, selfId?: string) {
-    const holder = this.state!.players.find((p) => p.id !== selfId && p.name.toLowerCase() === wanted.toLowerCase());
+  private claimName(wanted: string, selfId?: string, username?: string | null) {
+    const same = (name: string | undefined) => name?.toLowerCase() === wanted.toLowerCase();
+    const others = this.state!.players.filter((p) => p.id !== selfId);
+    // Accounts with the same first name: each shows its username, "Ylya (hy13)".
+    const namesakes = others.filter((p) => p.sub && !p.showUsername && (same(p.accountName) || same(p.name)));
+    if (namesakes.length > 0) {
+      for (const p of namesakes) {
+        const named = p.username && this.withUsername(wanted, p.username, p.id);
+        if (named && named !== p.name) this.renamePlayer(p, named);
+      }
+      return (username && this.withUsername(wanted, username, selfId)) || this.uniqueName(wanted, selfId);
+    }
+    // A guest using the name gives it up, and is told; an account (by its username) keeps it.
+    const holder = others.find((p) => same(p.name));
     if (!holder) return wanted;
     if (holder.sub) return this.uniqueName(wanted, selfId);
     this.renamePlayer(holder, this.uniqueName(wanted, holder.id));
     holder.renamed = true;
     return wanted;
+  }
+
+  /**
+   * The name an account plays under: its username when the player chose it
+   * (unique, so nothing to tell apart), its first name otherwise.
+   */
+  private claimAccountName(
+    { accountName, username, showUsername }: Pick<StoredPlayer, "username" | "showUsername"> & { accountName: string },
+    selfId?: string,
+  ) {
+    if (showUsername && username) return this.claimName(username.slice(0, MAX_NAME_LENGTH), selfId);
+    return this.claimName(accountName, selfId, username);
+  }
+
+  /** An account told apart from a namesake who now plays under their username gets its plain first name back. */
+  private untangleNames(accountName: string) {
+    const same = (name?: string) => name?.toLowerCase() === accountName.toLowerCase();
+    const namesakes = this.state!.players.filter((p) => p.sub && !p.showUsername && same(p.accountName));
+    const [only] = namesakes;
+    if (namesakes.length === 1 && only.name !== accountName && this.isNameFree(accountName, only.id)) {
+      this.renamePlayer(only, accountName);
+    }
+  }
+
+  /** "Ylya (hy13)", if it fits and nobody else has it. */
+  private withUsername(name: string, username: string, selfId?: string) {
+    const named = `${name} (${username})`;
+    return named.length <= MAX_NAME_LENGTH && this.isNameFree(named, selfId) ? named : null;
   }
 
   /** Checks an ID token from the auth server. Accounts are off when no client id is set. */
@@ -886,7 +948,7 @@ export class RoomServer extends Server<Env> {
       return null;
     }
     this.usedTickets.set(ticket.jti, ticket.exp);
-    return { sub: ticket.sub, name: ticket.name, picture: ticket.picture };
+    return { sub: ticket.sub, name: ticket.name, picture: ticket.picture, username: ticket.username };
   }
 
   /**
@@ -944,7 +1006,9 @@ export class RoomServer extends Server<Env> {
   /** Keeps a player's name and photo in step with their account. */
   private applyAccount(player: StoredPlayer, account: Account) {
     player.picture = account.picture;
-    const name = this.claimName(account.name, player.id);
+    player.accountName = account.name;
+    player.username = account.username;
+    const name = this.claimAccountName({ ...player, accountName: account.name }, player.id);
     if (name !== player.name) this.renamePlayer(player, name);
   }
 

@@ -5,7 +5,7 @@ import { useSyncExternalStore } from "react";
 /** What /api/auth/session returns. `enabled` is false when accounts aren't configured. */
 export type Session = {
   enabled: boolean;
-  account: { sub: string; name: string; picture: string | null } | null;
+  account: { sub: string; name: string; picture: string | null; username: string | null } | null;
   /** This device's sign-in (see `newSessionId`). */
   sessionId: string | null;
   /** The auth server, where the account is managed. */

@@ -29,6 +29,7 @@ const playerKey = (code: string) => `ww:player:${code}`;
 const DEVICE_KEY = "ww:device";
 const NAME_KEY = "ww:name";
 const PHOTO_KEY = "ww:photo";
+const SHOW_USERNAME_KEY = "ww:show-username";
 
 function read<T>(key: string): T | null {
   try {
@@ -68,6 +69,9 @@ export const identity = {
   /** The last photo this phone used (a small JPEG data URL), offered again next time. */
   getPhoto: () => read<string>(PHOTO_KEY),
   setPhoto: (photo: string | null) => write(PHOTO_KEY, photo),
+  /** Signed in: play under the account's username rather than its first name, in every room. */
+  getShowUsername: () => read<boolean>(SHOW_USERNAME_KEY) === true,
+  setShowUsername: (value: boolean) => write(SHOW_USERNAME_KEY, value || null),
 };
 
 function hasFlag(key: string) {
