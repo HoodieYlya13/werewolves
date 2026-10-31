@@ -27,7 +27,7 @@ import { TimerDisplay } from "@/components/vote-timer";
 import { ThemedI18n } from "@/components/themed-i18n";
 import { ConnectionBanner, FatalError } from "@/components/room-status";
 import { useGameTheme } from "@/hooks/use-game-theme";
-import { PhoneSkeleton } from "@/components/skeletons";
+import { PhoneSkeleton, Skeleton } from "@/components/skeletons";
 import { useRoom } from "@/hooks/use-room";
 import { format } from "@/lib/i18n/config";
 import { identity, takeoverKey } from "@/lib/room";
@@ -49,7 +49,7 @@ const PHONE_TOASTS: ErrorCode[] = ["invalid-account", "account-in-use", "account
 function PlayerScreen({ code }: { code: string }) {
   const { dict, locale } = useI18n();
   const router = useRouter();
-  const { view, error, status, send, clockOffset, close, flushed, otherRoom, clearOtherRoom } = useRoom<PlayerView>(code, "player");
+  const { view, live, error, status, send, clockOffset, close, flushed, otherRoom, clearOtherRoom } = useRoom<PlayerView>(code, "player");
   // The last join, link or rejoin sent with the account, to send again after "leave the other room".
   const lastAccountMessage = useRef<Extract<ClientMessage, { leaveOther?: boolean }> | null>(null);
   function sendWithAccount(message: Extract<ClientMessage, { leaveOther?: boolean }>) {
@@ -356,7 +356,7 @@ function PlayerScreen({ code }: { code: string }) {
 
       {me && view?.info && view.game && (
         <ThemedI18n theme={view.game.theme}>
-          <InGame view={view} onVote={(targetId) => send({ type: "cast-vote", targetId })} />
+          <InGame view={view} live={live} onVote={(targetId) => send({ type: "cast-vote", targetId })} />
         </ThemedI18n>
       )}
 
@@ -417,7 +417,16 @@ function PlayerScreen({ code }: { code: string }) {
 }
 
 /** The phone during a game: public status, the player's own card, the table. */
-function InGame({ view, onVote }: { view: PlayerView; onVote: (targetId: string | null) => void }) {
+function InGame({
+  view,
+  live,
+  onVote,
+}: {
+  view: PlayerView;
+  /** The view is the server's current one: until then, nothing on it can be trusted to be this game's. */
+  live: boolean;
+  onVote: (targetId: string | null) => void;
+}) {
   const { dict } = useI18n();
   const info = view.info!;
   const game = view.game!;
@@ -427,6 +436,16 @@ function InGame({ view, onVote }: { view: PlayerView; onVote: (targetId: string 
   const isNight = game.phase.kind === "night" && !game.prologue;
   useGameTheme(isNight);
   const t = dict.play;
+
+  // A card from a finished game would lie: show none until the room confirms this one.
+  if (!live) {
+    return (
+      <section role="status" className="flex flex-col items-center gap-4 py-2 text-center">
+        <Skeleton className="aspect-[5/7] w-full max-w-[18rem] rounded-3xl" />
+        <p className="text-muted-foreground">{t.checkingCard}</p>
+      </section>
+    );
+  }
 
   return (
     <>

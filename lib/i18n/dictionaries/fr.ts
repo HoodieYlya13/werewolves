@@ -85,6 +85,7 @@ const fr: Dictionary = {
     waiting: "En attente du lancement par le meneur…",
     roomPlayers: "Dans cette partie",
     nightName: "Votre place",
+    checkingCard: "Vérification de votre carte auprès de la partie…",
     youWin: "Vous avez gagné !",
     youLose: "Vous avez perdu.",
     card: {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import usePartySocket from "partysocket/react";
 import type { ClientMessage, ConnectQuery, ErrorCode, RoomView, ServerMessage } from "@/lib/protocol";
 import { clearHostTakeover, identity, isTakingHostOver, partyHost } from "@/lib/room";
@@ -32,6 +32,10 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
   const [view, setView] = useState<V | null>(() => (lastViews.get(cacheKey)?.view as V | undefined) ?? null);
   const [error, setError] = useState<ErrorCode | null>(null);
   const [status, setStatus] = useState<RoomStatus>("connecting");
+  // The view came from the server over the current connection, since the page
+  // was last shown. A cached view, or one from before the screen was locked
+  // (the socket may look open while it's dead), can belong to a finished game.
+  const [live, setLive] = useState(false);
   const [clockOffset, setClockOffset] = useState(() => lastViews.get(cacheKey)?.clockOffset ?? 0);
   // The account has a seat in another room; set until the phone answers.
   const [otherRoom, setOtherRoom] = useState<{ room: string; inGame: boolean } | null>(null);
@@ -53,7 +57,10 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
       return { as, id: player.id, token: player.token };
     },
     onOpen: () => setStatus("open"),
-    onClose: () => setStatus((s) => (s === "open" ? "reconnecting" : s)),
+    onClose: () => {
+      setLive(false);
+      setStatus((s) => (s === "open" ? "reconnecting" : s));
+    },
     onMessage: (event) => {
       const msg = JSON.parse(event.data as string) as ServerMessage;
       switch (msg.type) {
@@ -61,6 +68,7 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
           // Stored identity that the room no longer knows (removed, room reset).
           if (msg.view.kind === "player" && !msg.view.me && !msg.view.rejoin && !msg.view.lockedSeat) identity.setPlayer(code, null);
           setView(msg.view as V);
+          setLive(true);
           setClockOffset(offsetFrom(msg.view.serverNow));
           lastViews.set(cacheKey, { view: msg.view, clockOffset: offsetFrom(msg.view.serverNow) });
           setError(null);
@@ -93,6 +101,26 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
     },
   });
 
+  // Back from a locked screen or another app: reconnect rather than trust a
+  // socket that may have died meanwhile, and wait for the view it sends.
+  useEffect(() => {
+    const onHide = () => setLive(false);
+    const onShow = () => {
+      setLive(false);
+      socket.reconnect();
+    };
+    const onVisibility = () => (document.hidden ? onHide() : onShow());
+    const onPageShow = (e: PageTransitionEvent) => e.persisted && onShow();
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", onHide);
+    window.addEventListener("pageshow", onPageShow);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", onHide);
+      window.removeEventListener("pageshow", onPageShow);
+    };
+  }, [socket]);
+
   function send(message: ClientMessage) {
     setError(null);
     socket.send(JSON.stringify(message));
@@ -112,5 +140,5 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
     });
   }
 
-  return { view, error, status, send, clockOffset, close, flushed, otherRoom, clearOtherRoom: () => setOtherRoom(null) };
+  return { view, live, error, status, send, clockOffset, close, flushed, otherRoom, clearOtherRoom: () => setOtherRoom(null) };
 }

@@ -83,6 +83,7 @@ const en = {
     waiting: "Waiting for the game master to start…",
     roomPlayers: "In this room",
     nightName: "Your seat",
+    checkingCard: "Checking your card with the room…",
     youWin: "You win!",
     youLose: "You lose.",
     card: {
