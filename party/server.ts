@@ -685,7 +685,9 @@ export class RoomServer extends Server<Env> {
     }
     await this.releaseAccounts();
     await this.ctx.storage.deleteAll();
+    // All of it: a game left in memory would come back in the next room made with this code.
     this.state = null;
+    this.game = null;
   }
 
   // --- called by AccountServer (party/account.ts) ---

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { BadgeCheck, Crown, Eye, EyeOff, Heart, Moon, Music, PawPrint, Pencil, ScrollText, Skull, Sun, Undo2, Volume2, VolumeX, X } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { CloseRoomButton } from "@/components/host/close-room-button";
+import { PhonelessPanel } from "@/components/host/phoneless-cards";
 import { PlayerEditor } from "@/components/host/player-editor";
 import { ConfirmButton } from "@/components/confirm-button";
 import { setMuted, useGameSound, useSoundMuted } from "@/hooks/use-game-sound";
@@ -146,6 +147,7 @@ export function GameScreen({
       <aside className="flex flex-col gap-4 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:self-start lg:overflow-y-auto lg:pb-1">
         <Remaining game={game} />
         <PlayersPanel game={game} />
+        <PhonelessPanel game={game} />
         <Timeline game={game} />
       </aside>
     </main>

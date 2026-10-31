@@ -4,6 +4,7 @@ import { useState } from "react";
 import { FlaskConical, Moon, Skull, Sun, Trophy } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { BallotPanel } from "@/components/host/ballot-panel";
+import { PhonelessIntro } from "@/components/host/phoneless-cards";
 import { PlayerGrid, toggle } from "@/components/host/player-grid";
 import { Reveal } from "@/components/host/reveal";
 import { RoleName } from "@/components/host/role-chip";
@@ -237,6 +238,7 @@ function PrologueStep({ game, act }: Props<"prologue">) {
   const t = dict.game.story.prologue;
   return (
     <>
+      <PhonelessIntro game={game} />
       <Say>
         {t.say.map((paragraph, i) => (
           <span key={i} className="block not-first:mt-3">

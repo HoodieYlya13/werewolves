@@ -372,6 +372,17 @@ const fr: Dictionary = {
     continue: "Continuer",
     say: "À dire",
     showTo: "Montrer à {name}",
+    /** Cards shown on the game master's device, to players without a phone. */
+    cards: {
+      title: "Joueurs sans téléphone",
+      show: "Montrer sa carte",
+      yourCard: "{name}, voici ta carte",
+      done: "Terminé, rendez l'appareil",
+      unseen: "Pas encore vue",
+      seen: "Vue",
+      changed: "Carte modifiée",
+      prologue: "D'abord, montrez leur carte aux joueurs sans téléphone :",
+    },
     hide: "Masquer",
     hideRoles: "Masquer les rôles",
     mute: "Couper la musique",

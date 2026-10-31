@@ -370,6 +370,17 @@ const en = {
     continue: "Continue",
     say: "Say",
     showTo: "Show to {name}",
+    /** Cards shown on the game master's device, to players without a phone. */
+    cards: {
+      title: "Players without a phone",
+      show: "Show card",
+      yourCard: "{name}, this is your card",
+      done: "Done, give the device back",
+      unseen: "Not seen yet",
+      seen: "Seen",
+      changed: "Card changed",
+      prologue: "First, let each player without a phone see their card:",
+    },
     hide: "Hide",
     hideRoles: "Hide roles",
     mute: "Mute the music",

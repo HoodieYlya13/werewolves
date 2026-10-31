@@ -16,11 +16,14 @@ export function RoleCard({
   info,
   loverName,
   alwaysShown = false,
+  onShow,
 }: {
   info: PlayerInfo;
   loverName: string | null;
   /** Once the game is over there's nothing left to hide. */
   alwaysShown?: boolean;
+  /** Called when the card turns face up. */
+  onShow?: () => void;
 }) {
   const { dict } = useI18n();
   const [held, setHeld] = useState(false);
@@ -55,6 +58,7 @@ export function RoleCard({
         className="relative aspect-[5/7] w-full max-w-[18rem] touch-none rounded-3xl select-none [-webkit-touch-callout:none] focus-visible:outline-offset-4"
         onPointerDown={(e) => {
           setHeld(true);
+          onShow?.();
           // Keeps the card shown if the finger slides off it while held.
           try {
             e.currentTarget.setPointerCapture(e.pointerId);
@@ -67,6 +71,7 @@ export function RoleCard({
           if (e.key === " " || e.key === "Enter") {
             e.preventDefault();
             setHeld(true);
+            onShow?.();
           }
         }}
         onKeyUp={() => setHeld(false)}
