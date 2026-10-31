@@ -6,8 +6,10 @@ import type { Action, GameSetup, GameState, Step } from "./types";
  * 2: the prologue, the end of each night and day, the Witch called without
  * potions, turns called for powerless or left-over cards, and no successor
  * once the game is won.
+ * 3: the bear's morning line read on after the Bear Tamer is gone, while
+ * roles stay hidden.
  */
-export const ENGINE_VERSION = 2;
+export const ENGINE_VERSION = 3;
 
 /** The answer to a step older engines skipped, when it has a neutral one. */
 function filler(step: Step): Action | null {
@@ -15,6 +17,7 @@ function filler(step: Step): Action | null {
     case "prologue":
     case "phase-end":
     case "bluff":
+    case "bear":
       return { type: "continue" };
     case "witch":
       return !step.canHeal && !step.canPoison ? { type: "witch", heal: false, poisonId: null } : null;

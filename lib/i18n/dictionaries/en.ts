@@ -673,7 +673,8 @@ const en = {
         skip: "Mark nobody",
       },
       bear: {
-        growls: "Grrr! The bear growls: a werewolf sits next to {name}.",
+        growls: "Grrr! The bear growls: a werewolf sits next to the Bear Tamer.",
+        secret: "For your eyes only: {name} is the Bear Tamer. Don't say it.",
         quiet: "The bear stays quiet.",
       },
       idiot: {

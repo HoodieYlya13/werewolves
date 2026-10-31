@@ -675,7 +675,8 @@ const fr: Dictionary = {
         skip: "Ne désigner personne",
       },
       bear: {
-        growls: "Grrr ! L'ours grogne : un loup-garou est assis à côté de {name}.",
+        growls: "Grrr ! L'ours grogne : un loup-garou est assis à côté du Montreur d'Ours.",
+        secret: "Pour vous seul : {name} est le Montreur d'Ours. Ne le dites pas.",
         quiet: "L'ours reste silencieux.",
       },
       idiot: {

@@ -861,7 +861,9 @@ function BearStep({ game, step, act }: Props<"bear">) {
   const t = dict.game.steps.bear;
   return (
     <>
-      <Say>{step.growls ? format(t.growls, { name: nameOf(game, step.playerId) }) : t.quiet}</Say>
+      <Say>{step.growls ? t.growls : t.quiet}</Say>
+      {/* The tamer stays secret: only they know whose neighbours the bear means. */}
+      {step.playerId && <Do>{format(t.secret, { name: nameOf(game, step.playerId) })}</Do>}
       <ContinueButton act={act} />
     </>
   );

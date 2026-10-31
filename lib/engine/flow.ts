@@ -1,5 +1,5 @@
 import { alive, getAlive, getPlayer, hasPower, holders, isWolf, livingNeighbours, log } from "./helpers";
-import { nightSequence, roles, type SequenceEntry } from "./roles";
+import { callsAnyway, nightSequence, roles, type SequenceEntry } from "./roles";
 import { validateSetup } from "./setup";
 import { getWinner } from "./win";
 import {
@@ -29,8 +29,10 @@ const daySequence: SequenceEntry[] = [
     id: "bear",
     order: 5,
     build: (state) => {
+      if (state.phase.number === 0) return null;
       const tamer = holders(state, "bear-tamer")[0];
-      if (!tamer || state.phase.number === 0) return null;
+      // The bear keeps quiet rather than going missing, which would tell the village the tamer is gone.
+      if (!tamer) return callsAnyway(state, "bear-tamer") ? { kind: "bear", playerId: null, growls: false } : null;
       const n = livingNeighbours(state, tamer);
       // An infected Bear Tamer's bear always growls.
       const growls = !!tamer.flags.infected || (!!n && (isWolf(n.left) || isWolf(n.right)));

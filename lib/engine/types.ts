@@ -163,7 +163,8 @@ export type Step =
   | { kind: "bluff"; turn: string; role: RoleId }
   | { kind: "deaths"; context: "dawn" | "vote" | "hunter"; deaths: Death[] }
   | { kind: "hunter"; playerId: string }
-  | { kind: "bear"; playerId: string; growls: boolean }
+  /** `playerId` is null once the Bear Tamer is gone but the village can't know it. */
+  | { kind: "bear"; playerId: string | null; growls: boolean }
   | { kind: "mayor-election" }
   | { kind: "mayor-succession"; playerId: string }
   | {

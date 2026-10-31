@@ -298,7 +298,7 @@ export type SequenceEntry = {
  * the Thief. Only what the village already knows ends it: a death with roles
  * revealed, or the announced loss of the villagers' powers.
  */
-function callsAnyway(state: GameState, role: RoleId): boolean {
+export function callsAnyway(state: GameState, role: RoleId): boolean {
   if (state.villagePowersLost && roles[role].team === "village") return false;
   const cards = state.players.filter((p) => p.role === role);
   if (cards.some((p) => p.alive)) return true;

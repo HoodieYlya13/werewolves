@@ -271,6 +271,14 @@ describe("Personnages", () => {
     expect(play(s, [wolves("p1"), go]).step).toMatchObject({ kind: "bear", growls: true });
   });
 
+  it("the bear stays quiet after the Bear Tamer dies, unless roles are revealed", () => {
+    const roleList: RoleId[] = ["werewolf", "villager", "bear-tamer", "villager", "villager"];
+    const hidden = setup(roleList, { settings: { revealRoleOnDeath: false } });
+    expect(play(hidden, [wolves("p2"), go]).step).toEqual({ kind: "bear", playerId: null, growls: false });
+    // Revealed on death: everyone knows the bear is gone.
+    expect(play(setup(roleList), [wolves("p2"), go]).step.kind).not.toBe("bear");
+  });
+
   it("Fox sniffs three neighbours and loses his power on a miss", () => {
     const s = setup(["fox", "villager", "villager", "werewolf", "villager", "villager"]);
     expect(play(s, [pick("p4")]).step).toEqual({
