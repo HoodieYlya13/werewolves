@@ -3,7 +3,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useParams, useRouter } from "next/navigation";
-import { Check, Crown, LogIn, LogOut, Moon, Pencil, Skull, Sun, UserPlus, UserRound, Vote } from "lucide-react";
+import { Check, Crown, LogIn, LogOut, Pencil, Skull, Sun, UserPlus, UserRound, Vote } from "lucide-react";
 import { AuthButton, goToAuth } from "@/components/account-button";
 import { AccountLinks, AddAccountPhoto } from "@/components/account-page-link";
 import { ConfirmButton } from "@/components/confirm-button";
@@ -214,6 +214,8 @@ function PlayerScreen({ code }: { code: string }) {
   }
 
   const room = { code, players: view?.players ?? [], timer: view?.timer ?? null, clockOffset };
+  // Night, eyes closed: the phone shows its player's name and photo, and nothing else.
+  const asleep = !!(me && live && view?.info && view.game && view.game.phase.kind === "night" && !view.game.prologue && !view.game.winner);
   // A locked room or a game: joining only asks the game master (and says so).
   const closed = view?.game ? dict.play.knock.game : view?.locked ? dict.play.knock.locked : null;
   const knocking = view?.knock?.status === "pending";
@@ -225,7 +227,7 @@ function PlayerScreen({ code }: { code: string }) {
     <RoomProvider value={room}>
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-10">
       <ConnectionBanner status={status} />
-      <p className="text-center font-mono text-sm tracking-[0.3em] text-muted-foreground">{code}</p>
+      {!asleep && <p className="text-center font-mono text-sm tracking-[0.3em] text-muted-foreground">{code}</p>}
 
       {(error === "removed" || error === "signed-in-elsewhere" || error === "left-elsewhere" || error === "moved-room" || error === "seat-given") && (
         <p role="alert" className="text-center text-primary">
@@ -393,7 +395,7 @@ function PlayerScreen({ code }: { code: string }) {
       )}
 
       {/* During the game too: a guest changes their own name and photo, an account goes to its page. */}
-      {me && view?.info && (
+      {me && view?.info && !asleep && (
         <div className="flex flex-col items-center gap-3">
           {me.account ? (
             <AccountLinks />
@@ -409,7 +411,7 @@ function PlayerScreen({ code }: { code: string }) {
         </div>
       )}
 
-      {me && (
+      {me && !asleep && (
         <ConfirmButton
           type="button"
           variant="outline"
@@ -473,6 +475,20 @@ function InGame({
     );
   }
 
+  // Eyes closed, phones on the table: the game master reads whose seat it is from across the room.
+  // Nothing else: anything more is only there to be misread or seen.
+  if (isNight && !game.winner) {
+    return (
+      <section aria-label={t.nightName} className="flex flex-1 flex-col items-center justify-center gap-3 py-4 text-center">
+        {/* The initials are sized from the text around them. */}
+        <div className="text-4xl">
+          <Avatar playerId={me.id} name={me.name} className="size-24" />
+        </div>
+        <p className="font-display text-5xl font-bold break-words text-balance">{me.name}</p>
+      </section>
+    );
+  }
+
   return (
     <>
       {game.winner ? (
@@ -486,22 +502,9 @@ function InGame({
         </section>
       ) : (
         <p className="flex items-center justify-center gap-2 text-muted-foreground">
-          {isNight ? <Moon aria-hidden className="size-4" /> : <Sun aria-hidden className="size-4" />}
-          {game.prologue
-            ? dict.game.story.prologue.title
-            : format(isNight ? dict.game.night : dict.game.day, { n: game.phase.number })}
+          <Sun aria-hidden className="size-4" />
+          {game.prologue ? dict.game.story.prologue.title : format(dict.game.day, { n: game.phase.number })}
         </p>
-      )}
-
-      {/* Eyes closed, phones on the table: the game master reads whose seat it is from across the room. */}
-      {isNight && !game.winner && (
-        <section aria-label={t.nightName} className="flex flex-col items-center gap-3 py-4 text-center">
-          {/* The initials are sized from the text around them. */}
-          <div className="text-4xl">
-            <Avatar playerId={me.id} name={me.name} className="size-24" />
-          </div>
-          <p className="font-display text-5xl font-bold break-words text-balance">{me.name}</p>
-        </section>
       )}
 
       {!game.winner && <TimerDisplay />}
