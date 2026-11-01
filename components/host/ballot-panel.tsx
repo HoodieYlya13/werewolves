@@ -40,7 +40,7 @@ export function BallotPanel({
     if (!vote) return null;
     return (
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="button" variant="outline" className="h-11" onClick={() => send({ type: "open-ballot" })}>
+        <Button type="button" variant="outline" className="h-11 w-full sm:w-auto" onClick={() => send({ type: "open-ballot" })}>
           <Smartphone aria-hidden className="size-4" />
           {t.open}
         </Button>
@@ -143,7 +143,7 @@ export function BallotPanel({
           // A tied election: the game master settles it (new vote, the table's call…).
           <div className="flex flex-col gap-2">
             <p className="font-medium">{format(t.mayorTie, { names: outcome.targetIds.map(nameOf).join(", ") })}</p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 [&>*]:grow sm:[&>*]:grow-0">
               {outcome.targetIds.map((id) => (
                 <Button key={id} type="button" className="h-12" onClick={() => act({ type: "mayor", targetId: id })}>
                   <Check aria-hidden className="size-5" />
@@ -153,13 +153,13 @@ export function BallotPanel({
             </div>
           </div>
         ) : (
-          <Button type="button" className="h-12 text-base" disabled={outcome.kind !== "eliminate"} onClick={validate}>
+          <Button type="button" className="h-12 w-full text-base sm:w-auto sm:self-start" disabled={outcome.kind !== "eliminate"} onClick={validate}>
             <Check aria-hidden className="size-5" />
             {outcome.kind === "eliminate" ? format(t.validateMayor, { name: nameOf(outcome.targetId) }) : t.noVotes}
           </Button>
         )
       ) : (
-        <Button type="button" className="h-12 text-base" onClick={validate}>
+        <Button type="button" className="h-12 w-full text-base sm:w-auto sm:self-start" onClick={validate}>
           <Check aria-hidden className="size-5" />
           {outcome.kind === "eliminate"
             ? format(t.validateEliminate, { name: nameOf(outcome.targetId) })

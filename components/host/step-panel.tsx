@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FlaskConical, Moon, Skull, Smartphone, Sun, Trophy } from "lucide-react";
+import { FlaskConical, Megaphone, Moon, Quote, Skull, Smartphone, Sun, Trophy } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { BallotPanel } from "@/components/host/ballot-panel";
 import { PhonelessIntro } from "@/components/host/phoneless-cards";
@@ -26,19 +26,32 @@ type Props<K extends Step["kind"]> = {
  */
 export function StepPanel({ game, act }: { game: GameState; act: (action: Action) => void }) {
   const { dict } = useI18n();
+  const sleeper = game.backToSleep;
   // Every night opens with the whole village closing their eyes.
   const nightFalls =
     game.phase.kind === "night" && game.phaseStep === 0 && game.step.kind !== "prologue" && game.step.kind !== "phase-end";
-  const sleeper = game.backToSleep;
-  return (
-    <>
-      {nightFalls && <Say>{dict.game.nightFalls}</Say>}
-      {sleeper && (
-        <Say>{sleeper === "wolves" ? dict.game.wolvesSleep : format(dict.game.sleep, { role: dict.roles[sleeper].name })}</Say>
-      )}
-      <StepContent game={game} act={act} />
-    </>
-  );
+  // Lines that close the last turn or open the night are read on their own, one Continue each,
+  // so every turn starts by itself. Only on this screen: the game doesn't wait for them.
+  const lead = [
+    sleeper && (sleeper === "wolves" ? dict.game.wolvesSleep : format(dict.game.sleep, { role: dict.roles[sleeper].name })),
+    nightFalls && dict.game.nightFalls,
+  ].filter((line): line is string => !!line);
+  const [read, setRead] = useState(0);
+
+  if (read < lead.length) {
+    return (
+      <>
+        <Say>{lead[read]}</Say>
+        <NextButton
+          onClick={() => {
+            setRead(read + 1);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+        />
+      </>
+    );
+  }
+  return <StepContent game={game} act={act} />;
 }
 
 function StepContent({ game, act }: { game: GameState; act: (action: Action) => void }) {
@@ -116,13 +129,19 @@ function StepContent({ game, act }: { game: GameState; act: (action: Action) => 
 
 // --- building blocks ---
 
+/** The narrator's words, set apart like a script: read them out as they are. */
 function Say({ children }: { children: React.ReactNode }) {
   const { dict } = useI18n();
   return (
-    <blockquote className="rounded-2xl border-l-4 border-moon bg-surface-2 px-5 py-4">
-      <p className="mb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{dict.game.say}</p>
-      <p className="text-xl leading-snug text-balance sm:text-2xl">{children}</p>
-    </blockquote>
+    <figure className="relative overflow-hidden rounded-3xl bg-linear-to-br from-moon/15 via-surface-2/80 to-surface-2/80 px-6 pt-4 pb-5 ring-1 ring-moon/20 sm:px-7">
+      {/* A big quotation mark behind the text, barely there. */}
+      <Quote aria-hidden className="pointer-events-none absolute top-3 right-4 size-14 fill-current text-moon/10" strokeWidth={0} />
+      <figcaption className="relative mb-2 flex items-center gap-1.5 text-[0.7rem] font-semibold tracking-[0.2em] text-moon uppercase">
+        <Megaphone aria-hidden className="size-3.5" />
+        {dict.game.say}
+      </figcaption>
+      <blockquote className="relative text-xl leading-relaxed text-pretty sm:text-2xl">{children}</blockquote>
+    </figure>
   );
 }
 
@@ -130,13 +149,18 @@ function Do({ children }: { children: React.ReactNode }) {
   return <p className="text-muted-foreground">{children}</p>;
 }
 
-function ContinueButton({ act, label }: { act: Props<"lovers">["act"]; label?: string }) {
+/** The step's main way on: the whole width on phones, its own size from tablets up. */
+function NextButton({ onClick, label }: { onClick: () => void; label?: string }) {
   const { dict } = useI18n();
   return (
-    <Button type="button" className="h-12 self-start px-8 text-base" onClick={() => act({ type: "continue" })}>
+    <Button type="button" className="h-12 w-full px-8 text-base sm:w-auto sm:self-start" onClick={onClick}>
       {label ?? dict.game.continue}
     </Button>
   );
+}
+
+function ContinueButton({ act, label }: { act: Props<"lovers">["act"]; label?: string }) {
+  return <NextButton label={label} onClick={() => act({ type: "continue" })} />;
 }
 
 function ConfirmButton({ disabled, onClick }: { disabled: boolean; onClick: () => void }) {
@@ -153,7 +177,7 @@ function StartPhaseButton({ act, next }: { act: Props<"prologue">["act"]; next: 
   const { dict } = useI18n();
   const Icon = next.kind === "night" ? Moon : Sun;
   return (
-    <Button type="button" className="h-12 self-start px-8 text-base" onClick={() => act({ type: "continue" })}>
+    <Button type="button" className="h-12 w-full px-8 text-base sm:w-auto sm:self-start" onClick={() => act({ type: "continue" })}>
       <Icon aria-hidden className="size-5" />
       {format(dict.game.story.start[next.kind], { n: next.number })}
     </Button>
@@ -204,7 +228,7 @@ function PickPlayers({
         onToggle={(id) => setSelected((s) => toggle(s, id, count))}
         isDisabled={isDisabled}
       />
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 [&>*]:grow sm:[&>*]:grow-0">
         <ConfirmButton
           disabled={selected.length < Math.max(min, 1) || selected.length > count}
           onClick={() => onConfirm(selected)}
@@ -226,7 +250,7 @@ const names = (game: GameState, ids: string[]) => ids.map((id) => nameOf(game, i
 
 function ChoiceButtons({ options }: { options: { label: React.ReactNode; onClick: () => void; ghost?: boolean }[] }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-2 [&>*]:grow sm:[&>*]:grow-0">
       {options.map((o, i) => (
         <Button key={i} type="button" variant={o.ghost ? "outline" : "default"} className="h-12 px-6 text-base" onClick={o.onClick}>
           {o.label}
@@ -295,7 +319,7 @@ function ThiefStep({ game, step, act }: Props<"thief">) {
         {step.mustTakeWolf ? (
           <p className="text-primary">{t.mustTakeWolf}</p>
         ) : (
-          <Button type="button" variant="outline" className="h-12" onClick={() => act({ type: "thief", pick: null })}>
+          <Button type="button" variant="outline" className="h-12 w-full sm:w-auto sm:self-start" onClick={() => act({ type: "thief", pick: null })}>
             {t.keep}
           </Button>
         )}
@@ -441,7 +465,7 @@ function WitchStep({ game, step, act }: Props<"witch">) {
         )}
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 [&>*]:grow sm:[&>*]:grow-0">
         <Button
           type="button"
           className="h-12 px-8 text-base"
@@ -552,7 +576,7 @@ function MayorStep({ game, step, act }: Props<"mayor-election" | "mayor-successi
             selected={candidates}
             onToggle={(id) => setCandidates((s) => toggle(s ?? [], id, Infinity))}
           />
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 [&>*]:grow sm:[&>*]:grow-0">
             <Button
               type="button"
               className="h-12 px-8 text-base"
@@ -659,7 +683,7 @@ function ActorStep({ game, step, act }: Props<"actor">) {
           </button>
         ))}
       </div>
-      <Button type="button" variant="outline" className="self-start" onClick={() => act({ type: "choose", value: null })}>
+      <Button type="button" variant="outline" className="h-12 w-full sm:w-auto sm:self-start" onClick={() => act({ type: "choose", value: null })}>
         {t.none}
       </Button>
     </>
