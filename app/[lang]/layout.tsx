@@ -28,7 +28,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title: { default: dict.seo.home.title, template: `%s · ${dict.app.name}` },
     description: dict.seo.home.description,
     applicationName: dict.app.name,
-    appleWebApp: { capable: true, title: dict.app.name, statusBarStyle: "black-translucent" },
+    appleWebApp: { capable: true, title: dict.app.name, statusBarStyle: "default" },
     openGraph: { siteName: dict.app.name, type: "website" },
     twitter: { card: "summary_large_image" },
     category: "games",
