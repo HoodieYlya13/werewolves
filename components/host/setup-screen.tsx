@@ -206,8 +206,8 @@ export function SetupScreen({
               </Button>
             </div>
           </div>
-          {/* Answered from here: no need to go back to the lobby. */}
-          <JoinRequests inGame={false} />
+          {/* Let in from the lobby, or refused right here. */}
+          <JoinRequests inGame={false} onLobby={onBack} />
 
           <section>
             <h2 className="mb-2 text-sm font-medium tracking-wide text-muted-foreground uppercase">{dict.setup.theme}</h2>

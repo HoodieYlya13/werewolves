@@ -18,19 +18,28 @@ export function useErrorToast(error: ErrorCode | null, codes: readonly ErrorCode
   }, [error]);
 }
 
-/** Tells the game master when someone leaves mid-game. Requests to come in have their own card. */
-export function useHostToasts(view: HostView | null) {
+/** Tells the game master when someone asks to come in (unless `quiet`) or leaves mid-game. */
+export function useHostToasts(view: HostView | null, quiet = false) {
   const { dict } = useI18n();
-  const seen = useRef<Set<string> | null>(null);
-  const say = useEffectEvent((name: string) => toast(format(dict.host.toastLeft, { name })));
+  const seen = useRef<{ requests: Set<string>; left: Set<string> } | null>(null);
+  const say = useEffectEvent((key: "toastRejoin" | "toastLeft", name: string) => toast(format(dict.host[key], { name })));
+  const isQuiet = useEffectEvent(() => quiet);
   useEffect(() => {
     if (!view) return;
     const previous = seen.current;
-    seen.current = new Set(view.players.filter((p) => p.left).map((p) => p.id));
+    seen.current = {
+      requests: new Set(view.requests.map((r) => r.id)),
+      left: new Set(view.players.filter((p) => p.left).map((p) => p.id)),
+    };
     // Nothing to announce about what was already there when the screen opened.
     if (!previous) return;
+    if (!isQuiet()) {
+      for (const r of view.requests) {
+        if (!previous.requests.has(r.id)) say("toastRejoin", r.name);
+      }
+    }
     for (const p of view.players) {
-      if (p.left && !previous.has(p.id)) say(p.name);
+      if (p.left && !previous.left.has(p.id)) say("toastLeft", p.name);
     }
   }, [view]);
 }

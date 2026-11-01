@@ -85,7 +85,8 @@ function HostContent({
   }, [connected, sub, send, code]);
 
   useErrorToast(error, HOST_TOASTS);
-  useHostToasts(view);
+  // While cards are picked, requests have their own row there instead.
+  useHostToasts(view, screen === "setup" && !view?.game);
 
   if (error === "room-not-found" || error === "not-host" || error === "room-closed" || error === "host-moved")
     return <FatalError code={error} />;
