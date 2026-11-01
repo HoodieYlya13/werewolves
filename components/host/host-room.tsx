@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { BadgeCheck, ChevronDown, ChevronUp, History, Layers, Lock, LockOpen, Pencil, Smartphone, UserPlus, X } from "lucide-react";
+import { BadgeCheck, ChevronDown, ChevronUp, GripVertical, History, Layers, Lock, LockOpen, Pencil, Smartphone, UserPlus, X } from "lucide-react";
 import { GameScreen } from "@/components/host/game-screen";
 import { ThemedI18n } from "@/components/themed-i18n";
 import { CloseRoomButton } from "@/components/host/close-room-button";
+import { useDragSort } from "@/components/host/drag-sort";
 import { PlayerEditor } from "@/components/host/player-editor";
 import { JoinRequests } from "@/components/host/join-requests";
 import { SetupScreen } from "@/components/host/setup-screen";
@@ -64,6 +65,19 @@ function HostContent({
   const [name, setName] = useState("");
   const [screen, setScreen] = useState<"lobby" | "setup">("lobby");
   const [editing, setEditing] = useState<string | null>(null);
+
+  // Seats can be dragged; a dropped row stays put until the room confirms the new order.
+  const [moved, setMoved] = useState<{ basis: string; ids: string[] } | null>(null);
+  const roomPlayers = view?.players ?? [];
+  const basis = roomPlayers.map((p) => p.id).join();
+  const seated = moved?.basis === basis ? moved.ids.flatMap((id) => roomPlayers.find((p) => p.id === id) ?? []) : roomPlayers;
+  const seats = useDragSort((from, to) => {
+    const ids = seated.map((p) => p.id);
+    const [id] = ids.splice(from, 1);
+    ids.splice(to, 0, id);
+    setMoved({ basis, ids });
+    send({ type: "move-player", playerId: id, seat: to });
+  });
 
   // Code collision on create: pick a new code and move there.
   useEffect(() => {
@@ -130,7 +144,7 @@ function HostContent({
   }
 
   const joinUrl = `${window.location.origin}/play/${code}`;
-  const players = view?.players ?? [];
+  const players = seated;
 
   return (
     <main className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-[minmax(0,1fr)] gap-6 px-4 pb-10 sm:px-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
@@ -172,8 +186,21 @@ function HostContent({
         ) : (
           <ol className="flex flex-col gap-2">
             {players.map((p, i) => (
-              <li key={p.id} className="flex items-center gap-2 rounded-xl bg-surface-2 py-2 pr-1 pl-2 sm:gap-3 sm:pr-2 sm:pl-3">
-                <span className="w-5 shrink-0 text-right font-mono text-sm text-muted-foreground sm:w-6">{i + 1}</span>
+              <li
+                key={p.id}
+                style={seats.rowStyle(i)}
+                className={`flex items-center gap-2 rounded-xl bg-surface-2 py-2 pr-1 pl-1 sm:gap-3 sm:pr-2 sm:pl-2 ${seats.dragging === i ? "shadow-lg ring-1 ring-moon/50" : ""}`}
+              >
+                <button
+                  type="button"
+                  aria-label={format(dict.host.dragSeat, { name: p.name })}
+                  title={format(dict.host.dragSeat, { name: p.name })}
+                  className={`grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-surface hover:text-fg ${seats.dragging === i ? "cursor-grabbing" : "cursor-grab"}`}
+                  {...seats.handleProps(i)}
+                >
+                  <GripVertical className="size-4" />
+                </button>
+                <span className="w-4 shrink-0 text-right font-mono text-sm text-muted-foreground sm:w-5">{i + 1}</span>
                 <span
                   className={`size-2.5 shrink-0 rounded-full ${p.manual ? "bg-transparent" : p.connected ? "bg-ok" : "bg-muted-foreground/40"}`}
                   title={p.manual ? undefined : p.connected ? dict.host.online : dict.host.offline}
