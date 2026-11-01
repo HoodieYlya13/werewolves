@@ -296,8 +296,7 @@ export function SetupScreen({
             inert={!cardsOpen}
             className={`grid shrink-0 transition-[grid-template-rows,margin] duration-300 ease-out motion-reduce:transition-none ${cardsOpen ? "grid-rows-[1fr]" : "-mt-4 grid-rows-[0fr]"}`}
           >
-          {/* The padding keeps focus rings from being cut off by the overflow. */}
-          <ul className="-m-1 grid min-h-0 gap-3 overflow-hidden p-1 sm:grid-cols-2">
+          <ul className="grid min-h-0 gap-3 overflow-hidden sm:grid-cols-2">
             {pickerOrder.map((role) => {
               const count = counts[role] ?? 0;
               const max = roles[role].max;
@@ -340,22 +339,24 @@ export function SetupScreen({
 
         <aside className="flex flex-col gap-4 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:self-start lg:overflow-y-auto lg:pb-1">
           <section className="card flex flex-col gap-2 p-5">
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex min-h-10 items-start justify-between gap-3">
               <p
                 className={`font-mono text-3xl font-bold tabular-nums ${deck.length === needed ? "text-ok" : "text-primary"}`}
               >
                 {format(dict.setup.cards, { count: deck.length, needed })}
               </p>
-              {/* Always there, so nothing moves when the list opens. */}
-              <button
-                type="button"
-                aria-label={dict.setup.editCards}
-                title={dict.setup.editCards}
-                className="grid size-10 shrink-0 place-items-center rounded-lg border border-line text-muted-foreground hover:text-fg"
-                onClick={openCards}
-              >
-                <Pencil aria-hidden className="size-4" />
-              </button>
+              {/* Opens the list and scrolls to it; once it's open, the list is the way. */}
+              {!cardsOpen && (
+                <button
+                  type="button"
+                  aria-label={dict.setup.editCards}
+                  title={dict.setup.editCards}
+                  className="grid size-10 shrink-0 place-items-center rounded-lg border border-line text-muted-foreground hover:text-fg"
+                  onClick={openCards}
+                >
+                  <Pencil aria-hidden className="size-4" />
+                </button>
+              )}
             </div>
             {/* The whole deck at a glance, without scrolling through every card. */}
             {deck.length > 0 && <DeckChips counts={counts} />}

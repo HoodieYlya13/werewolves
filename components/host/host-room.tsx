@@ -99,6 +99,13 @@ function HostContent({
     else void getTicket({ room: code }).then((ticket) => ticket && send({ type: "host-account", ticket }));
   }, [connected, sub, send, code]);
 
+  // Each screen starts at its top, not where the last one was scrolled to
+  // (the lobby's "Choose the cards" sits at the bottom, on phones especially).
+  const page = view?.game ? "game" : screen;
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [page]);
+
   useErrorToast(error, HOST_TOASTS);
   // While cards are picked, requests have their own row there instead.
   useHostToasts(view, screen === "setup" && !view?.game);
