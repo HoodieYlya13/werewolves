@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { useParams, useRouter } from "next/navigation";
 import { Check, Crown, LogIn, LogOut, Moon, Pencil, Skull, Sun, UserPlus, UserRound, Vote } from "lucide-react";
 import { AuthButton, goToAuth } from "@/components/account-button";
-import { AddAccountPhoto } from "@/components/account-page-link";
+import { AccountLinks, AddAccountPhoto } from "@/components/account-page-link";
 import { ConfirmButton } from "@/components/confirm-button";
 import {
   AlertDialog,
@@ -163,6 +163,12 @@ function PlayerScreen({ code }: { code: string }) {
   }
 
   if (error === "room-not-found" || error === "room-closed") return <FatalError code={error} />;
+
+  /** A guest's photo, in the room and remembered on this phone. */
+  function changeOwnPhoto(data: string | null) {
+    changePhoto(data);
+    send({ type: "set-photo", data });
+  }
 
   function leave() {
     send({ type: "leave" });
@@ -345,7 +351,7 @@ function PlayerScreen({ code }: { code: string }) {
           {me.account ? (
             <>
               <p className="text-sm text-muted-foreground">{dict.account.fromAccount}</p>
-              <AddAccountPhoto />
+              <AccountLinks />
               {account?.username && (
                 <UsernameChoice username={account.username} checked={showUsername} onChange={changeShowUsername} />
               )}
@@ -354,10 +360,7 @@ function PlayerScreen({ code }: { code: string }) {
             <>
               <PhotoPicker
                 hasPhoto={me.photo !== null}
-                onChange={(data) => {
-                  changePhoto(data);
-                  send({ type: "set-photo", data });
-                }}
+                onChange={changeOwnPhoto}
               />
               <NameEditor name={me.name} error={error} onSave={rename} />
             </>
@@ -389,9 +392,20 @@ function PlayerScreen({ code }: { code: string }) {
         </section>
       )}
 
-      {me && !me.account && view?.info && (
-        <div className="flex justify-center">
-          <NameEditor name={me.name} error={error} onSave={rename} />
+      {/* During the game too: a guest changes their own name and photo, an account goes to its page. */}
+      {me && view?.info && (
+        <div className="flex flex-col items-center gap-3">
+          {me.account ? (
+            <AccountLinks />
+          ) : (
+            <>
+              <PhotoPicker
+                hasPhoto={me.photo !== null}
+                onChange={changeOwnPhoto}
+              />
+              <NameEditor name={me.name} error={error} onSave={rename} />
+            </>
+          )}
         </div>
       )}
 

@@ -1,19 +1,15 @@
 "use client";
 
-import { ImagePlus } from "lucide-react";
+import { ImagePlus, UserCog } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { accountPageUrl, currentPath, markAccountVisit, useSession } from "@/lib/session";
 
-/**
- * For an account without a photo: the photo is the account's, so it's added on
- * the account page, which brings the player back here with the new photo.
- */
-export function AddAccountPhoto() {
-  const { dict, locale } = useI18n();
+/** A link to the account page, which brings the player back here afterwards. */
+function AccountPageLink({ icon: Icon, label }: { icon: typeof ImagePlus; label: string }) {
+  const { locale } = useI18n();
   const session = useSession();
-  if (!session?.account || session.account.picture) return null;
-  const href = accountPageUrl(session, locale);
-  if (!href) return null;
+  const href = session?.account && accountPageUrl(session, locale);
+  if (!session || !href) return null;
   return (
     <a
       href={href}
@@ -25,8 +21,27 @@ export function AddAccountPhoto() {
         window.location.assign(accountPageUrl(session, locale, currentPath()) ?? href);
       }}
     >
-      <ImagePlus aria-hidden className="size-4" />
-      {dict.account.addPhoto}
+      <Icon aria-hidden className="size-4" />
+      {label}
     </a>
+  );
+}
+
+/** For an account without a photo: the photo is the account's, so it's added on the account page. */
+export function AddAccountPhoto() {
+  const { dict } = useI18n();
+  const session = useSession();
+  if (!session?.account || session.account.picture) return null;
+  return <AccountPageLink icon={ImagePlus} label={dict.account.addPhoto} />;
+}
+
+/** A signed-in player's name and photo come from the account: both change there. */
+export function AccountLinks() {
+  const { dict } = useI18n();
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+      <AddAccountPhoto />
+      <AccountPageLink icon={UserCog} label={dict.account.manage} />
+    </div>
   );
 }
