@@ -36,7 +36,8 @@ export function GuidePage({
     ],
   };
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 pb-12 sm:px-6">
+    <main className="selectable mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 pb-12 sm:px-6">
+      {/* Reading pages: people quote and copy from them, so the text stays selectable. */}
       <JsonLd data={breadcrumb} />
       <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-sm text-muted-foreground">
         <Link href={`/${locale}`} className="hover:text-fg">

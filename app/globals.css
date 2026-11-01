@@ -128,6 +128,19 @@
     background: var(--bg);
     color: var(--fg);
     min-height: 100dvh;
+    /* An app, not a document: holding a button or scrolling on a phone shouldn't select
+       text or open iOS's callout. Fields, the guides and the join link opt back in. */
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+  input,
+  textarea,
+  [contenteditable],
+  .selectable {
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
   }
   :focus-visible {
     outline: 2px solid var(--primary);

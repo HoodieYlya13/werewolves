@@ -188,7 +188,8 @@ function HostContent({
         </div>
         <p className="text-sm text-muted-foreground">
           {dict.host.scanToJoin}{" "}
-          <span className="font-mono break-all text-fg">{joinUrl.replace(/^https?:\/\//, "")}</span>
+          {/* Copied to send to someone who can't scan the code. */}
+          <span className="selectable font-mono break-all text-fg">{joinUrl.replace(/^https?:\/\//, "")}</span>
         </p>
         <Button
           type="button"
