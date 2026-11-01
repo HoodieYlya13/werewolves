@@ -22,7 +22,7 @@ import {
   type Settings,
 } from "@/lib/engine";
 import type { ClientMessage, PublicPlayer } from "@/lib/protocol";
-import { themeDictionary, themeIds, themes } from "@/lib/themes";
+import { defaultTheme, isThemeId, themeDictionary, themeIds, themes } from "@/lib/themes";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -92,6 +92,8 @@ export function SetupScreen({
   useSiteTheme(settings.theme);
   // The deck summary says what's in it: the full card list only opens on demand.
   const [cardsOpen, setCardsOpen] = useState(false);
+  const [themesOpen, setThemesOpen] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
   // Esc goes back to the lobby, unless it's closing a dialog (or the browser's own UI).
   const onEscape = useEffectEvent((e: KeyboardEvent) => {
     if (e.key !== "Escape" || e.defaultPrevented || document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
@@ -223,30 +225,39 @@ export function SetupScreen({
       </Dialog>
       <main className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-[minmax(0,1fr)] gap-6 px-4 pb-10 sm:px-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <section className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <Button type="button" variant="outline" className="h-9 px-3 text-sm" onClick={onBack}>
+          <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
+            {/* On phones, just the arrow, so the three buttons share a line. */}
+            <Button
+              type="button"
+              variant="outline"
+              className="size-9 px-0 text-sm has-[>svg]:px-0 sm:w-auto sm:px-3 sm:has-[>svg]:px-3"
+              aria-label={dict.setup.back}
+              title={dict.setup.back}
+              onClick={onBack}
+            >
               <ArrowLeft aria-hidden className="size-4" />
-              {dict.setup.back}
+              <span className="sr-only sm:not-sr-only">{dict.setup.back}</span>
             </Button>
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
                 variant="outline"
-                className="h-9 px-3 text-sm"
+                className="h-9 px-2.5 text-sm has-[>svg]:px-2.5 sm:px-3 sm:has-[>svg]:px-3"
                 title={dict.setup.suggestHint}
                 onClick={() => suggest("classic")}
               >
-                <Sparkles aria-hidden className="size-4" />
+                {/* Icons only from tablets up: on phones the three buttons share one line. */}
+                <Sparkles aria-hidden className="hidden size-4 sm:block" />
                 {dict.setup.suggest}
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                className="h-9 px-3 text-sm"
+                className="h-9 px-2.5 text-sm has-[>svg]:px-2.5 sm:px-3 sm:has-[>svg]:px-3"
                 title={dict.setup.suggestSpecialsHint}
                 onClick={() => suggest("no-villagers")}
               >
-                <Dices aria-hidden className="size-4" />
+                <Dices aria-hidden className="hidden size-4 sm:block" />
                 {dict.setup.suggestSpecials}
               </Button>
             </div>
@@ -254,15 +265,36 @@ export function SetupScreen({
           {/* Let in from the lobby, or refused right here. */}
           <JoinRequests inGame={false} onLobby={onBack} />
 
+          {/* Folded to the theme picked; picking one folds it again. */}
           <section>
-            <h2 className="mb-2 text-sm font-medium tracking-wide text-muted-foreground uppercase">{dict.setup.theme}</h2>
-            <ul className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+            <h2>
+              <button
+                type="button"
+                aria-expanded={themesOpen}
+                aria-controls="theme-list"
+                className="flex w-full items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3 text-left transition-colors hover:border-fg/30"
+                onClick={() => setThemesOpen((open) => !open)}
+              >
+                <span className="text-sm font-medium tracking-wide text-muted-foreground uppercase">{dict.setup.theme}</span>
+                <span className="min-w-0 flex-1 truncate font-semibold">{themes[isThemeId(settings.theme) ? settings.theme : defaultTheme].name[locale]}</span>
+                <ChevronDown aria-hidden className={`size-5 shrink-0 transition-transform ${themesOpen ? "rotate-180" : ""}`} />
+              </button>
+            </h2>
+            <div
+              id="theme-list"
+              inert={!themesOpen}
+              className={`grid shrink-0 transition-[grid-template-rows,margin] duration-300 ease-out motion-reduce:transition-none ${themesOpen ? "mt-2 grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+            >
+            <ul className="grid min-h-0 grid-cols-2 gap-2 overflow-hidden lg:grid-cols-4">
               {themeIds.map((id) => (
                 <li key={id}>
                   <button
                     type="button"
                     aria-pressed={settings.theme === id}
-                    onClick={() => setSettings((s) => ({ ...s, theme: id }))}
+                    onClick={() => {
+                      setSettings((s) => ({ ...s, theme: id }));
+                      setThemesOpen(false);
+                    }}
                     className={`flex h-full w-full flex-col gap-1 rounded-xl border-2 p-3 text-left transition-colors ${
                       settings.theme === id ? "border-primary bg-primary/10" : "border-line bg-surface hover:border-fg/30"
                     }`}
@@ -273,6 +305,7 @@ export function SetupScreen({
                 </li>
               ))}
             </ul>
+            </div>
           </section>
 
           {/* Folded, it still has to look like the way in: a card to tap, saying what's inside. */}
@@ -388,8 +421,33 @@ export function SetupScreen({
             )}
           </section>
 
-          <section className="card flex flex-col gap-3 p-5">
-            <h2 className="font-semibold">{dict.setup.rules}</h2>
+          {/* Folded to the rules that are on. */}
+          <section className="card flex flex-col p-5">
+            <h2>
+              <button
+                type="button"
+                aria-expanded={rulesOpen}
+                aria-controls="rule-list"
+                className="flex w-full items-center gap-3 text-left"
+                onClick={() => setRulesOpen((open) => !open)}
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block font-semibold">{dict.setup.rules}</span>
+                  {!rulesOpen && (
+                    <span className="block truncate text-sm text-muted-foreground">
+                      {toggles.filter(({ key }) => settings[key]).map(({ key }) => dict.setup[key]).join(" · ") || "—"}
+                    </span>
+                  )}
+                </span>
+                <ChevronDown aria-hidden className={`size-5 shrink-0 transition-transform ${rulesOpen ? "rotate-180" : ""}`} />
+              </button>
+            </h2>
+            <div
+              id="rule-list"
+              inert={!rulesOpen}
+              className={`grid shrink-0 transition-[grid-template-rows,margin] duration-300 ease-out motion-reduce:transition-none ${rulesOpen ? "mt-3 grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+            >
+            <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
             {toggles.map(({ key, hint }) => (
               <label key={key} className="flex cursor-pointer items-start gap-3">
                 <input
@@ -404,6 +462,8 @@ export function SetupScreen({
                 </span>
               </label>
             ))}
+            </div>
+            </div>
           </section>
 
           {deck.includes("pied-piper") && (
