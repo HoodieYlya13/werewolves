@@ -10,7 +10,7 @@ import { ModelMark } from "@/components/host/player-grid";
 import { ConfirmButton } from "@/components/confirm-button";
 import { setMuted, useGameSound, useSoundMuted } from "@/hooks/use-game-sound";
 import { useGameTheme } from "@/hooks/use-game-theme";
-import { RejoinRequests } from "@/components/host/rejoin-requests";
+import { JoinRequests } from "@/components/host/join-requests";
 import { RoleName, teamColor } from "@/components/host/role-chip";
 import { Avatar, useRoomContext } from "@/components/room-context";
 import { StepPanel } from "@/components/host/step-panel";
@@ -134,7 +134,7 @@ export function GameScreen({
         </div>
 
 
-        <RejoinRequests />
+        <JoinRequests inGame />
 
         <section className="flex flex-col gap-5">
           <StepPanel

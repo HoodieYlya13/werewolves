@@ -7,7 +7,7 @@ import { GameScreen } from "@/components/host/game-screen";
 import { ThemedI18n } from "@/components/themed-i18n";
 import { CloseRoomButton } from "@/components/host/close-room-button";
 import { PlayerEditor } from "@/components/host/player-editor";
-import { RejoinRequests } from "@/components/host/rejoin-requests";
+import { JoinRequests } from "@/components/host/join-requests";
 import { SetupScreen } from "@/components/host/setup-screen";
 import { Avatar, RoomProvider } from "@/components/room-context";
 import { useI18n } from "@/components/i18n-provider";
@@ -157,7 +157,7 @@ function HostContent({
       </section>
 
       <section className="card flex flex-col gap-4 p-4 sm:p-6">
-        <RejoinRequests />
+        <JoinRequests inGame={false} />
         <div>
           <h1 className="text-xl font-semibold">{format(dict.host.players, { count: players.length })}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{dict.host.seatingHint}</p>

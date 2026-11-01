@@ -208,6 +208,9 @@ function PlayerScreen({ code }: { code: string }) {
   }
 
   const room = { code, players: view?.players ?? [], timer: view?.timer ?? null, clockOffset };
+  // A locked room or a game: joining only asks the game master (and says so).
+  const closed = view?.game ? dict.play.knock.game : view?.locked ? dict.play.knock.locked : null;
+  const knocking = view?.knock?.status === "pending";
   // What to show a phone without a seat depends on the account too: until both
   // are known, a skeleton instead of a form that may be the wrong one.
   const ready = !!view && (!!me || session !== null);
@@ -218,7 +221,7 @@ function PlayerScreen({ code }: { code: string }) {
       <ConnectionBanner status={status} />
       <p className="text-center font-mono text-sm tracking-[0.3em] text-muted-foreground">{code}</p>
 
-      {(error === "removed" || error === "signed-in-elsewhere" || error === "left-elsewhere" || error === "moved-room") && (
+      {(error === "removed" || error === "signed-in-elsewhere" || error === "left-elsewhere" || error === "moved-room" || error === "seat-given") && (
         <p role="alert" className="text-center text-primary">
           {dict.errors[error]}
         </p>
@@ -252,7 +255,9 @@ function PlayerScreen({ code }: { code: string }) {
         />
       )}
 
-      {ready && view && !me && ((!view.rejoin && !view.lockedSeat) || joinAsNew) && account && (
+      {ready && view && !me && knocking && <KnockCard name={view.knock!.name} onCancel={() => send({ type: "cancel-request" })} />}
+
+      {ready && view && !me && ((!view.rejoin && !view.lockedSeat) || joinAsNew) && !knocking && account && (
         <section className="card flex flex-col items-center gap-3 p-6 text-center">
           <Face name={expectedName ?? account.name} src={account.picture} className="size-24 text-3xl" />
           <p className="text-muted-foreground">{dict.account.fromAccount}</p>
@@ -260,12 +265,13 @@ function PlayerScreen({ code }: { code: string }) {
           {account.username && (
             <UsernameChoice username={account.username} checked={showUsername} onChange={changeShowUsername} />
           )}
+          {closed && <p className="text-sm text-muted-foreground">{closed}</p>}
           <Button type="button" className="w-full" onClick={joinWithAccount}>
-            {format(dict.account.joinAs, { name: expectedName ?? account.name })}
+            {closed ? dict.play.knock.ask : format(dict.account.joinAs, { name: expectedName ?? account.name })}
           </Button>
-          {error === "room-locked" && (
+          {view.knock?.status === "denied" && (
             <p role="alert" className="text-sm text-primary">
-              {dict.errors[error]}
+              {dict.play.knock.denied}
             </p>
           )}
           <p className="text-sm text-muted-foreground">
@@ -277,7 +283,7 @@ function PlayerScreen({ code }: { code: string }) {
         </section>
       )}
 
-      {ready && view && !me && ((!view.rejoin && !view.lockedSeat) || joinAsNew) && !account && (
+      {ready && view && !me && ((!view.rejoin && !view.lockedSeat) || joinAsNew) && !knocking && !account && (
         <form
           className="card flex flex-col gap-3 p-6"
           onSubmit={(e) => {
@@ -309,12 +315,18 @@ function PlayerScreen({ code }: { code: string }) {
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
-          <Button type="submit"  disabled={!name.trim()}>
-            {dict.play.join}
+          {closed && <p className="text-sm text-muted-foreground">{closed}</p>}
+          <Button type="submit" disabled={!name.trim()}>
+            {closed ? dict.play.knock.ask : dict.play.join}
           </Button>
-          {(error === "name-taken" || error === "invalid-name" || error === "room-locked") && (
+          {(error === "name-taken" || error === "invalid-name") && (
             <p role="alert" className="text-sm text-primary">
               {dict.errors[error]}
+            </p>
+          )}
+          {view.knock?.status === "denied" && (
+            <p role="alert" className="text-sm text-primary">
+              {dict.play.knock.denied}
             </p>
           )}
           {session?.enabled && (
@@ -679,6 +691,21 @@ function LockedSeatCard({
       <Button type="button" variant="outline" className="w-full" onClick={onJoinAsNew}>
         <UserPlus aria-hidden />
         {dict.play.rejoin.joinAsNew}
+      </Button>
+    </section>
+  );
+}
+
+/** Asked to join a locked room or a game: waiting for the game master's answer. */
+function KnockCard({ name, onCancel }: { name: string; onCancel: () => void }) {
+  const { dict } = useI18n();
+  const t = dict.play.knock;
+  return (
+    <section role="status" className="card flex flex-col items-center gap-3 p-6 text-center">
+      <p className="text-xl font-semibold">{format(t.pending, { name })}</p>
+      <p className="text-muted-foreground">{t.pendingHint}</p>
+      <Button type="button" variant="outline" onClick={onCancel}>
+        {t.cancel}
       </Button>
     </section>
   );

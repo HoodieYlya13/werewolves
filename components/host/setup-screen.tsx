@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ArrowLeft, Dices, Hand, History, Minus, Plus, Shuffle, Sparkles } from "lucide-react";
 import { I18nProvider, useI18n } from "@/components/i18n-provider";
+import { JoinRequests } from "@/components/host/join-requests";
 import { RoleName } from "@/components/host/role-chip";
 import { format } from "@/lib/i18n/config";
 import {
@@ -191,6 +192,8 @@ export function SetupScreen({
               </Button>
             </div>
           </div>
+          {/* Answered from here: no need to go back to the lobby. */}
+          <JoinRequests inGame={false} />
 
           <section>
             <h2 className="mb-2 text-sm font-medium tracking-wide text-muted-foreground uppercase">{dict.setup.theme}</h2>

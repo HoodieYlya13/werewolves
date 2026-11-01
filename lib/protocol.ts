@@ -30,8 +30,13 @@ export type PublicPlayer = {
   picture: string | null;
 };
 
-/** Someone who left and asks the game master to let them back in. */
-export type RejoinRequest = { id: string; name: string };
+/**
+ * Someone asking the game master to let them in: a player who left
+ * (`rejoin`, `id` is their seat), or a new phone at a locked room or during a
+ * game (`new`, `id` is the phone's device id). A new phone never joins a game
+ * on its own: the game master can give it a seat without an account instead.
+ */
+export type JoinRequest = { id: string; name: string; kind: "rejoin" | "new"; account: boolean };
 
 type BaseView = {
   code: string;
@@ -54,7 +59,7 @@ export type HostView = BaseView & {
   canResume: boolean;
   /** Votes cast on phones, while the game master has a ballot open. */
   ballot: Ballot | null;
-  requests: RejoinRequest[];
+  requests: JoinRequest[];
 };
 
 /** The open ballot as a phone sees it: only its own vote. */
@@ -84,6 +89,8 @@ export type PlayerView = BaseView & {
    * master's permission to come back.
    */
   rejoin: { name: string; account: boolean; status: "idle" | "pending" | "denied" } | null;
+  /** A phone without a seat that asked to join a locked room or a game (see JoinRequest). */
+  knock: { name: string; status: "pending" | "denied" } | null;
   /** This player's name was given to someone who signed in with it; they can pick another. */
   renamed: boolean;
   /**
@@ -129,7 +136,9 @@ export type ErrorCode =
   /** This seat's account signed in on another device and left the room from there. */
   | "left-elsewhere"
   /** This seat's account joined another room, leaving this one. */
-  | "moved-room";
+  | "moved-room"
+  /** The game master gave this seat to another phone. */
+  | "seat-given";
 
 export type ServerMessage =
   | { type: "view"; view: RoomView }
@@ -153,6 +162,8 @@ export type StartGame = SetupOptions &
 export type ClientMessage =
   // Phone
   /**
+   * At a locked room or during a game, a new phone only asks the game master
+   * (see JoinRequest).
    * `photo`: the photo this phone used last time, to start with (a JPEG data URL).
    * `ticket`: joins with an account (see lib/ticket.ts), whose name and photo replace `name` and `photo`.
    * `showUsername`: an account plays under its username rather than its first name.
@@ -195,7 +206,14 @@ export type ClientMessage =
   | { type: "rename-player"; playerId: string; name: string }
   /** Disconnects everyone and deletes the room. */
   | { type: "close-room" }
-  | { type: "answer-rejoin"; playerId: string; allow: boolean }
+  /**
+   * Lets someone in or not (see JoinRequest). A new phone gets a seat of its
+   * own (`allow` alone, not during a game) or takes over `seatId`, a seat
+   * without an account.
+   */
+  | { type: "answer-request"; requestId: string; allow: boolean; seatId?: string }
+  /** A phone takes back its request to join. */
+  | { type: "cancel-request" }
   /** `candidateIds`: who runs for Mayor, when the ballot is the Mayor's election. */
   | { type: "open-ballot"; candidateIds?: string[] }
   | { type: "close-ballot" }
