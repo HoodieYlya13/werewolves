@@ -443,6 +443,7 @@ const en = {
     dayZeroHint: "The Angel is in play: the game opens with a vote",
     undo: "Undo",
     endGame: "End game",
+    quit: "End the game or close the room",
     endGameConfirm: {
       title: "End this game?",
       body: "You go back to the lobby. You can resume the game from there as long as the players don't change.",

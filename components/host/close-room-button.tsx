@@ -8,18 +8,24 @@ import { useRoomContext } from "@/components/room-context";
 import { identity } from "@/lib/room";
 import { cn } from "@/lib/utils";
 
-/** Disconnects every phone and deletes the room, after a confirmation. */
-export function CloseRoomButton({ className = "" }: { className?: string }) {
-  const { dict, locale } = useI18n();
+/** Disconnects every phone, deletes the room and goes home (null for phones). */
+export function useCloseRoom() {
+  const { locale } = useI18n();
   const { code, send } = useRoomContext();
   const router = useRouter();
   if (!send) return null;
-
-  function closeRoom() {
-    send!({ type: "close-room" });
+  return () => {
+    send({ type: "close-room" });
     identity.setHost(code, null);
     router.push(`/${locale}`);
-  }
+  };
+}
+
+/** Disconnects every phone and deletes the room, after a confirmation. */
+export function CloseRoomButton({ className = "" }: { className?: string }) {
+  const { dict } = useI18n();
+  const closeRoom = useCloseRoom();
+  if (!closeRoom) return null;
 
   return (
     <ConfirmButton

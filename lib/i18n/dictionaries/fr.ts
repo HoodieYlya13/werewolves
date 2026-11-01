@@ -445,6 +445,7 @@ const fr: Dictionary = {
     dayZeroHint: "L'Ange est en jeu : la partie commence par un vote",
     undo: "Annuler",
     endGame: "Terminer la partie",
+    quit: "Terminer ou fermer la partie",
     endGameConfirm: {
       title: "Terminer cette partie ?",
       body: "Retour à la salle d'attente. Vous pourrez reprendre la partie tant que les joueurs ne changent pas.",

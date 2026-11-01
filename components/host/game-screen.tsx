@@ -1,13 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { BadgeCheck, Crown, Eye, EyeOff, Heart, Moon, Music, PawPrint, Pencil, ScrollText, Skull, Sun, Undo2, Volume2, VolumeX, X } from "lucide-react";
+import { BadgeCheck, Crown, DoorClosed, Eye, EyeOff, Heart, Moon, Music, PawPrint, Pencil, ScrollText, Skull, Sun, Undo2, Volume2, VolumeX, X } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
-import { CloseRoomButton } from "@/components/host/close-room-button";
+import { useCloseRoom } from "@/components/host/close-room-button";
 import { PhonelessPanel } from "@/components/host/phoneless-cards";
 import { PlayerEditor } from "@/components/host/player-editor";
 import { ModelMark } from "@/components/host/player-grid";
-import { ConfirmButton } from "@/components/confirm-button";
 import { setMuted, useGameSound, useSoundMuted } from "@/hooks/use-game-sound";
 import { useGameTheme } from "@/hooks/use-game-theme";
 import { JoinRequests } from "@/components/host/join-requests";
@@ -18,6 +17,17 @@ import { format } from "@/lib/i18n/config";
 import { isWolf, remainingTeams, roles, teamOf, type GameEvent, type GameState } from "@/lib/engine";
 import type { ClientMessage, HostView } from "@/lib/protocol";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const HIDE_ROLES_KEY = "ww:hide-roles";
 
@@ -99,37 +109,34 @@ export function GameScreen({
             </Button>
             <Button
               type="button"
-              variant="outline" className="h-10 px-4"
+              variant="outline"
+              className="size-10 p-0"
               aria-pressed={hideRoles}
+              title={hideRoles ? dict.game.showRoles : dict.game.hideRoles}
               onClick={toggleRoles}
             >
               {hideRoles ? <Eye aria-hidden className="size-4" /> : <EyeOff aria-hidden className="size-4" />}
-              {hideRoles ? dict.game.showRoles : dict.game.hideRoles}
+              <span className="sr-only">{hideRoles ? dict.game.showRoles : dict.game.hideRoles}</span>
             </Button>
             <Button
               type="button"
-              variant="outline" className="h-10 px-4"
+              variant="outline"
+              className="size-10 p-0"
+              title={dict.game.undo}
               disabled={view.actionCount === 0}
               onClick={() => send({ type: "undo" })}
             >
               <Undo2 aria-hidden className="size-4" />
-              {dict.game.undo}
+              <span className="sr-only">{dict.game.undo}</span>
             </Button>
-            {/* A finished game ends without asking. */}
-            <ConfirmButton
-              type="button"
-              variant="outline"
-              className="h-10 px-4"
-              skip={over}
-              title={dict.game.endGameConfirm.title}
-              description={dict.game.endGameConfirm.body}
-              action={dict.game.endGame}
-              onConfirm={() => send({ type: "end-game" })}
-            >
-              <X aria-hidden className="size-4" />
-              {over ? dict.game.steps["game-over"].newGame : dict.game.endGame}
-            </ConfirmButton>
-            <CloseRoomButton className="h-10 px-4" />
+            {/* A finished game: starting the next one is the obvious move, and needs no asking. */}
+            {over && (
+              <Button type="button" variant="outline" className="h-10 px-4" onClick={() => send({ type: "end-game" })}>
+                <X aria-hidden className="size-4" />
+                {dict.game.steps["game-over"].newGame}
+              </Button>
+            )}
+            <QuitMenu over={over} onEndGame={() => send({ type: "end-game" })} />
           </div>
         </div>
 
@@ -317,4 +324,57 @@ function EventText({ game, event }: { game: GameState; event: GameEvent }) {
     case "second-vote":
       return t["second-vote"];
   }
+}
+
+/**
+ * One red cross for leaving: end the game (back to the lobby, players kept) or
+ * close the room (everyone out). Each asks first.
+ */
+function QuitMenu({ over, onEndGame }: { over: boolean; onEndGame: () => void }) {
+  const { dict } = useI18n();
+  const closeRoom = useCloseRoom();
+  const [confirm, setConfirm] = useState<"end" | "close" | null>(null);
+  const t = confirm === "close" ? dict.host.closeRoomConfirm : dict.game.endGameConfirm;
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button type="button" variant="outline" className="size-10 p-0 text-primary" title={dict.game.quit}>
+            <X aria-hidden className="size-5" />
+            <span className="sr-only">{dict.game.quit}</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-52 rounded-xl p-1.5">
+          {/* After the game, "New game" already sits next to the cross. */}
+          {!over && (
+            <DropdownMenuItem className="gap-3 rounded-lg px-3 py-2.5 text-base" onSelect={() => setConfirm("end")}>
+              <X aria-hidden className="size-4" />
+              {dict.game.endGame}
+            </DropdownMenuItem>
+          )}
+          {closeRoom && (
+            <DropdownMenuItem variant="destructive" className="gap-3 rounded-lg px-3 py-2.5 text-base" onSelect={() => setConfirm("close")}>
+              <DoorClosed aria-hidden className="size-4" />
+              {dict.host.closeRoom}
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <AlertDialog open={confirm !== null} onOpenChange={(open) => !open && setConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.title}</AlertDialogTitle>
+            <AlertDialogDescription>{t.body}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{dict.host.cancel}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => (confirm === "close" ? closeRoom?.() : onEndGame())}>
+              {confirm === "close" ? dict.host.closeRoom : dict.game.endGame}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
 }
