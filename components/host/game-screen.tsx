@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BadgeCheck, Crown, DoorClosed, Eye, EyeOff, Heart, Moon, Music, PawPrint, Pencil, ScrollText, Skull, Sun, Undo2, Volume2, VolumeX, X } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { useCloseRoom } from "@/components/host/close-room-button";
@@ -49,6 +49,10 @@ export function GameScreen({
   useGameSound(game, view.actionCount);
   const muted = useSoundMuted();
   const over = game.step.kind === "game-over";
+  // Each step starts at the top: the next thing to read is there, not where the last button was.
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [view.actionCount]);
   const [hideRoles, setHideRoles] = useState(() => {
     try {
       return localStorage.getItem(HIDE_ROLES_KEY) === "1";
@@ -70,8 +74,9 @@ export function GameScreen({
       className="mx-auto grid w-full max-w-7xl flex-1 grid-cols-[minmax(0,1fr)] gap-6 px-4 pb-10 sm:px-6 lg:grid-cols-[minmax(0,1fr)_20rem]"
     >
       <div className="flex min-w-0 flex-col gap-5">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-3">
+        {/* On phones the four icons make a square beside the title; from tablets up, a row. */}
+        <div className={`flex items-center gap-3 sm:flex-wrap ${over ? "flex-wrap" : ""}`}>
+          <div className="flex min-w-0 flex-1 items-center gap-3 sm:flex-none">
             {prologue ? (
               <ScrollText aria-hidden className="size-7 text-moon" />
             ) : isNight ? (
@@ -96,7 +101,7 @@ export function GameScreen({
               </p>
             </div>
           </div>
-          <div className="ml-auto flex flex-wrap gap-2">
+          <div className={`ml-auto shrink-0 gap-2 sm:flex sm:flex-wrap ${over ? "flex flex-wrap" : "grid grid-cols-2"}`}>
             <Button
               type="button"
               variant="outline"
