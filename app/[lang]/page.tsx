@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BookOpen, Crown, Drama, HandHelping, ListChecks, Music, ShieldCheck, Smartphone, Trophy, Undo2, Users } from "lucide-react";
 import { CreateRoomButton } from "@/components/home/create-room-button";
+import { InstallApp } from "@/components/home/install-app";
 import { JoinForm } from "@/components/home/join-form";
 import { getGuide } from "@/lib/content/guide";
 import { locales } from "@/lib/i18n/config";
@@ -61,6 +62,8 @@ export default async function HomePage() {
             <JoinForm />
           </section>
         </div>
+
+        <InstallApp />
       </div>
 
       <section className="flex flex-col gap-6">

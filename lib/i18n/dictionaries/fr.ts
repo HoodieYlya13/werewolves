@@ -40,6 +40,14 @@ const fr: Dictionary = {
     roomCode: "Code de la partie",
     join: "Rejoindre",
   },
+  install: {
+    button: "Installer l'application",
+    hint: "Ouvrez-la depuis votre écran d'accueil comme n'importe quelle app, en plein écran.",
+    title: "Ajoutez-la à l'écran d'accueil",
+    description: "Sur iPhone et iPad, on installe une app depuis le menu Partager.",
+    stepShare: "Touchez le bouton Partager, dans la barre de Safari.",
+    stepAdd: "Faites défiler et touchez « Sur l'écran d'accueil ».",
+  },
   host: {
     lobby: "Salle d'attente",
     roomCode: "Code de la partie",

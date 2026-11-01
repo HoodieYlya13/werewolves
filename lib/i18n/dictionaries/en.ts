@@ -38,6 +38,14 @@ const en = {
     roomCode: "Room code",
     join: "Join",
   },
+  install: {
+    button: "Install the app",
+    hint: "Open it from your home screen like any other app, full screen.",
+    title: "Add it to your home screen",
+    description: "iPhones and iPads install apps from the Share menu.",
+    stepShare: "Tap the Share button, in Safari's toolbar.",
+    stepAdd: "Scroll down and tap “Add to Home Screen”.",
+  },
   host: {
     lobby: "Lobby",
     roomCode: "Room code",
