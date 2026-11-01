@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { BadgeCheck, ChevronDown, ChevronUp, GripVertical, History, Layers, Lock, LockOpen, Pencil, Smartphone, UserPlus, X } from "lucide-react";
 import { GameScreen } from "@/components/host/game-screen";
@@ -105,6 +105,27 @@ function HostContent({
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [page]);
+
+  const nameInput = useRef<HTMLInputElement>(null);
+  /** On to the cards. The table is set: the room locks, and anyone new asks first. */
+  function chooseCards() {
+    if (!view || view.game || view.players.length < MIN_PLAYERS) return;
+    if (!view.locked) send({ type: "set-locked", locked: true });
+    setScreen("setup");
+  }
+  // Enter with nothing to type into goes on to the cards too.
+  const onEnter = useEffectEvent((e: KeyboardEvent) => {
+    if (e.key !== "Enter" || e.repeat || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+    if (screen !== "lobby" || editing) return;
+    const focused = document.activeElement;
+    if (focused && focused !== document.body) return;
+    e.preventDefault();
+    chooseCards();
+  });
+  useEffect(() => {
+    window.addEventListener("keydown", onEnter);
+    return () => window.removeEventListener("keydown", onEnter);
+  }, []);
 
   useErrorToast(error, HOST_TOASTS);
   // While cards are picked, requests have their own row there instead.
@@ -273,6 +294,8 @@ function HostContent({
             if (!name.trim()) return;
             send({ type: "add-player", name });
             setName("");
+            // Clicking Add moves focus to the button: back to the name for the next one.
+            nameInput.current?.focus();
           }}
         >
           <label htmlFor="add-player" className="text-sm font-medium">
@@ -281,10 +304,18 @@ function HostContent({
           <div className="flex gap-2">
             <Input
               id="add-player"
+              ref={nameInput}
               placeholder={dict.host.addPlayerPlaceholder}
               maxLength={MAX_NAME_LENGTH}
               value={name}
               onChange={(e) => setName(e.target.value)}
+              // An empty name: Enter means "that's everyone", on to the cards.
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !name.trim()) {
+                  e.preventDefault();
+                  chooseCards();
+                }
+              }}
             />
             <Button type="submit" variant="outline" className="shrink-0" disabled={!view || !name.trim()}>
               <UserPlus aria-hidden className="size-4" />
@@ -304,7 +335,7 @@ function HostContent({
           type="button"
           className="h-12 text-base"
           disabled={!view || players.length < MIN_PLAYERS}
-          onClick={() => setScreen("setup")}
+          onClick={chooseCards}
         >
           <Layers aria-hidden className="size-5" />
           {dict.setup.start}
