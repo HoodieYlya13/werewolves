@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, DoorOpen, Undo2, UserRoundPlus, X } from "lucide-react";
+import { ArrowLeftRight, Check, DoorOpen, Undo2, UserRoundPlus, X } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { Avatar, useRoomContext } from "@/components/room-context";
 import { format } from "@/lib/i18n/config";
@@ -15,12 +15,28 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
  * being picked (`onLobby`), they're let in from the lobby, or refused here.
  */
 export function JoinRequests({ inGame, onLobby }: { inGame: boolean; onLobby?: () => void }) {
-  const { requests, send } = useRoomContext();
-  if (!send || !requests?.length) return null;
+  const { dict } = useI18n();
+  const { requests, handover, send } = useRoomContext();
+  if (!send || (!requests?.length && !handover)) return null;
 
   return (
     <ul className="flex flex-col gap-2">
-      {requests.map((request) => (
+      {/* The last seat handed over, so a misclick on the wrong player can be taken back. */}
+      {handover && (
+        <li role="status" className="flex flex-wrap items-center gap-3 rounded-xl border border-moon/40 bg-moon/10 px-4 py-3">
+          <ArrowLeftRight aria-hidden className="size-5 text-moon" />
+          <span className="min-w-0 flex-1 font-medium">{format(dict.host.handover, { name: handover.name, seat: handover.seatName })}</span>
+          <Button type="button" variant="outline" className="h-10 px-4" onClick={() => send({ type: "undo-handover" })}>
+            <Undo2 aria-hidden className="size-4" />
+            {dict.host.undoHandover}
+          </Button>
+          <Button type="button" className="h-10 px-4" onClick={() => send({ type: "keep-handover" })}>
+            <Check aria-hidden className="size-4" />
+            {dict.host.keepHandover}
+          </Button>
+        </li>
+      )}
+      {(requests ?? []).map((request) => (
         <Request key={request.id} request={request} inGame={inGame} onLobby={onLobby} />
       ))}
     </ul>

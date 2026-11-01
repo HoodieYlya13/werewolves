@@ -3,7 +3,7 @@
 import { createContext, use, useEffect, useState } from "react";
 import type { Ballot, Timer } from "@/lib/ballot";
 import { timerRemaining } from "@/lib/ballot";
-import type { ClientMessage, PublicPlayer, JoinRequest } from "@/lib/protocol";
+import type { ClientMessage, HostView, PublicPlayer, JoinRequest } from "@/lib/protocol";
 import { photoUrl } from "@/lib/room";
 
 type RoomContextValue = {
@@ -15,6 +15,7 @@ type RoomContextValue = {
   /** Game master only. */
   ballot?: Ballot | null;
   requests?: JoinRequest[];
+  handover?: HostView["handover"];
   send?: (message: ClientMessage) => void;
 };
 

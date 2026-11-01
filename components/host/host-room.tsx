@@ -42,6 +42,7 @@ function HostLobby({ code }: { code: string }) {
     clockOffset,
     ballot: view?.ballot ?? null,
     requests: view?.requests ?? [],
+    handover: view?.handover ?? null,
     send,
   };
   return (
@@ -105,6 +106,7 @@ function HostContent({
     return (
       <>
         <ConnectionBanner status={status} />
+        <RoomCode code={code} />
         <ThemedI18n theme={view.game.setup.settings.theme}>
           <GameScreen view={view} game={view.game} send={send} />
         </ThemedI18n>
@@ -116,6 +118,7 @@ function HostContent({
     return (
       <>
         <ConnectionBanner status={status} />
+        <RoomCode code={code} />
         <SetupScreen
           players={view.players}
           canResume={view.canResume}
@@ -278,6 +281,16 @@ function HostContent({
         {view && <CloseRoomButton className="self-center" />}
       </section>
     </main>
+  );
+}
+
+/** The room code, out of the lobby too, for anyone who needs it again (like on phones). */
+function RoomCode({ code }: { code: string }) {
+  const { dict } = useI18n();
+  return (
+    <p className="text-center font-mono text-sm tracking-[0.3em] text-muted-foreground" aria-label={`${dict.host.roomCode} ${code}`}>
+      {code}
+    </p>
   );
 }
 

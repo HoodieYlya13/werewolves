@@ -100,6 +100,11 @@ type RoomState = {
   requests?: StoredRequest[];
   /** Players and phones whose last request the game master refused, so their phone can say so. */
   deniedIds?: string[];
+  /**
+   * The last seat handed to a new phone mid-game, kept so a misclick can be
+   * undone: the seat as it was, the request, and the phones that lost it.
+   */
+  handover?: { before: StoredPlayer; request: StoredRequest; kicked: string[] } | null;
 };
 
 const PHOTO_PREFIX = "photo:";
@@ -423,6 +428,16 @@ export class RoomServer extends Server<Env> {
         this.state.deniedIds = (this.state.deniedIds ?? []).filter((id) => id !== playerId);
         break;
       }
+      case "undo-handover": {
+        if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
+        await this.undoHandover();
+        break;
+      }
+      case "keep-handover": {
+        if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
+        this.state.handover = null;
+        break;
+      }
       case "cancel-request": {
         const id = sender.state?.kind === "guest" ? sender.state.deviceId : sender.state?.kind === "returning" ? sender.state.playerId : undefined;
         if (!id) return;
@@ -557,6 +572,7 @@ export class RoomServer extends Server<Env> {
           this.game = replay(setup, []);
           this.state.game = { setup, log: [], id: crypto.randomUUID(), startedAt: Date.now(), engine: ENGINE_VERSION };
           this.state.endedGame = null;
+          this.state.handover = null;
           this.state.locked = true;
         } catch (e) {
           return this.sendEngineError(sender, e, "invalid-setup");
@@ -585,6 +601,7 @@ export class RoomServer extends Server<Env> {
         if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
         this.state.endedGame = this.state.game;
         this.state.game = null;
+        this.state.handover = null;
         this.game = null;
         break;
       }
@@ -1164,12 +1181,15 @@ export class RoomServer extends Server<Env> {
     let player: StoredPlayer;
     if (seat) {
       player = seat;
+      const before = { ...seat };
+      const kicked: string[] = [];
       // Whoever had this seat loses it, their request to come back too.
       for (const c of this.getConnections<ConnState>()) {
         const state = c.state;
         if ((state?.kind === "player" || state?.kind === "returning" || state?.kind === "locked") && state.playerId === seat.id) {
           this.send(c, { type: "error", code: "seat-given" });
           c.setState({ kind: "guest" });
+          kicked.push(c.id);
         }
       }
       s.requests = s.requests.filter((r) => r.id !== seat.id);
@@ -1177,7 +1197,10 @@ export class RoomServer extends Server<Env> {
       seat.deviceId = request.id;
       seat.manual = false;
       seat.left = false;
+      // The seat takes the new player's name (an account's comes with linking it).
       if (account) await this.linkSeat(seat, account);
+      else this.renamePlayer(seat, this.isNameFree(request.name, seat.id) ? request.name : this.uniqueName(request.name, seat.id));
+      s.handover = { before, request, kicked };
     } else {
       const name = account
         ? this.claimAccountName({ accountName: account.name, username: account.username, showUsername: request.showUsername })
@@ -1200,6 +1223,35 @@ export class RoomServer extends Server<Env> {
     for (const phone of phones) {
       phone.setState({ kind: "player", playerId: player.id });
       this.send(phone, { type: "joined", playerId: player.id, token: player.token! });
+    }
+  }
+
+  /** A misclicked handover: the seat goes back to who had it, the new phone back to waiting. */
+  private async undoHandover() {
+    const s = this.state!;
+    const handover = s.handover;
+    s.handover = null;
+    const index = s.players.findIndex((p) => p.id === handover?.before.id);
+    if (!handover || index === -1) return;
+    const { before, request, kicked } = handover;
+    const seat = s.players[index];
+    for (const c of this.getConnections<ConnState>()) {
+      if (c.state?.kind === "player" && c.state.playerId === seat.id) {
+        c.setState({ kind: "guest", deviceId: request.id, token: request.token });
+      }
+    }
+    if (seat.sub && seat.sub !== before.sub) await this.tellAccount(seat.sub, false);
+    const restored: StoredPlayer = { ...before, seat: seat.seat, connected: false };
+    s.players[index] = restored;
+    this.renamePlayer(restored, before.name);
+    s.requests = [...(s.requests ?? []).filter((r) => r.id !== request.id), request];
+    // The phone that lost the seat gets it back, if it's still here.
+    for (const c of this.getConnections<ConnState>()) {
+      const state = c.state;
+      if (state?.kind !== "guest" || !(kicked.includes(c.id) || state.deviceId === before.id || (!!before.deviceId && state.deviceId === before.deviceId))) continue;
+      c.setState({ kind: before.left ? "returning" : "player", playerId: before.id });
+      if (before.token) this.send(c, { type: "joined", playerId: before.id, token: before.token });
+      restored.connected = !before.left;
     }
   }
 
@@ -1235,6 +1287,9 @@ export class RoomServer extends Server<Env> {
         canResume: !!s.endedGame,
         ballot: s.ballot ?? null,
         requests: (s.requests ?? []).map(({ id, name, kind, account }) => ({ id, name, kind: kind ?? "rejoin", account: !!account })),
+        handover: s.handover
+          ? { name: s.players.find((p) => p.id === s.handover!.before.id)?.name ?? "", seatName: s.handover.before.name }
+          : null,
       };
     }
     const state = conn.state;

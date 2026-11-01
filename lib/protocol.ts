@@ -60,6 +60,8 @@ export type HostView = BaseView & {
   /** Votes cast on phones, while the game master has a ballot open. */
   ballot: Ballot | null;
   requests: JoinRequest[];
+  /** The last seat handed to a new phone mid-game, until kept or undone. */
+  handover: { name: string; seatName: string } | null;
 };
 
 /** The open ballot as a phone sees it: only its own vote. */
@@ -212,6 +214,9 @@ export type ClientMessage =
    * without an account.
    */
   | { type: "answer-request"; requestId: string; allow: boolean; seatId?: string }
+  /** Takes the last seat handover back (a misclick), or keeps it and hides it. */
+  | { type: "undo-handover" }
+  | { type: "keep-handover" }
   /** A phone takes back its request to join. */
   | { type: "cancel-request" }
   /** `candidateIds`: who runs for Mayor, when the ballot is the Mayor's election. */
