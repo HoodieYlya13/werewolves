@@ -16,8 +16,9 @@ export function TimerDisplay({ className = "" }: { className?: string }) {
   return (
     <p
       role="timer"
-      className={`flex items-center justify-center gap-2 rounded-xl px-4 py-2 font-mono text-2xl font-bold tabular-nums ${
-        done ? "animate-pulse bg-primary text-primary-foreground" : "bg-surface-2"
+      // "Time's up!" in the sans font and a size smaller: it's words, not digits, and fits beside the buttons.
+      className={`flex min-h-12 items-center justify-center gap-2 rounded-xl px-4 py-2 font-bold ${
+        done ? "animate-pulse bg-primary text-lg text-primary-foreground" : "bg-surface-2 font-mono text-2xl tabular-nums"
       } ${className}`}
     >
       <TimerIcon aria-hidden className="size-5" />
