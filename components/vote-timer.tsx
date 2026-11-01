@@ -36,9 +36,10 @@ export function TimerControls() {
   if (!timer || remaining === null) {
     return (
       <div className="flex flex-wrap items-center gap-2">
-        <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          <TimerIcon aria-hidden className="size-4" />
-          {dict.timer.start}
+        {/* The icon says it's a countdown; the label stays for screen readers. */}
+        <span className="text-muted-foreground" title={dict.timer.start}>
+          <TimerIcon aria-hidden className="size-5" />
+          <span className="sr-only">{dict.timer.start}</span>
         </span>
         {PRESETS.map((seconds) => (
           <Button
@@ -61,11 +62,13 @@ export function TimerControls() {
       {remaining > 0 && (
         <Button
           type="button"
-          variant="outline" className="h-10 px-3"
+          variant="outline"
+          className="size-10 p-0"
+          title={running ? dict.timer.pause : dict.timer.resume}
           onClick={() => send({ type: running ? "pause-timer" : "resume-timer" })}
         >
           {running ? <Pause aria-hidden className="size-4" /> : <Play aria-hidden className="size-4" />}
-          {running ? dict.timer.pause : dict.timer.resume}
+          <span className="sr-only">{running ? dict.timer.pause : dict.timer.resume}</span>
         </Button>
       )}
       <Button
@@ -76,9 +79,15 @@ export function TimerControls() {
         <Plus aria-hidden className="size-4" />
         {dict.timer.add30}
       </Button>
-      <Button type="button" variant="outline" className="h-10 px-3" onClick={() => send({ type: "set-timer", seconds: null })}>
+      <Button
+        type="button"
+        variant="outline"
+        className="size-10 p-0"
+        title={dict.timer.clear}
+        onClick={() => send({ type: "set-timer", seconds: null })}
+      >
         <X aria-hidden className="size-4" />
-        {dict.timer.clear}
+        <span className="sr-only">{dict.timer.clear}</span>
       </Button>
     </div>
   );

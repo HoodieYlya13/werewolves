@@ -645,7 +645,7 @@ const fr: Dictionary = {
         say: "Place au vote. Qui voulez-vous éliminer ?",
         do: "Touchez le joueur qui a le plus de voix.",
         mayor: "La voix de {name} compte double et départage les égalités.",
-        nobody: "Personne n'est éliminé",
+        nobody: "Aucun éliminé",
         tie: "Égalité",
         tieScapegoat: "Égalité : le Bouc Émissaire meurt",
         raven: "2 voix sont déjà comptées contre {name} (Corbeau).",

@@ -142,7 +142,7 @@ function ContinueButton({ act, label }: { act: Props<"lovers">["act"]; label?: s
 function ConfirmButton({ disabled, onClick }: { disabled: boolean; onClick: () => void }) {
   const { dict } = useI18n();
   return (
-    <Button type="button" className="h-12 px-8 text-base" disabled={disabled} onClick={onClick}>
+    <Button type="button" className="h-12 px-5 text-base sm:px-8" disabled={disabled} onClick={onClick}>
       {dict.game.confirm}
     </Button>
   );
@@ -603,14 +603,16 @@ function VoteStep({ game, step, act }: Props<"vote">) {
         onConfirm={([targetId]) => act({ type: "vote", targetId })}
         extra={
           <>
+            {/* Tighter on phones, so Validate, Tie and No elimination share a line. */}
             <Button
               type="button"
-              variant="outline" className="h-12"
+              variant="outline"
+              className="h-12 px-3 sm:px-5"
               onClick={() => act({ type: "vote", targetId: null, tie: true })}
             >
               {step.scapegoatId ? t.tieScapegoat : t.tie}
             </Button>
-            <Button type="button" variant="outline" className="h-12" onClick={() => act({ type: "vote", targetId: null })}>
+            <Button type="button" variant="outline" className="h-12 px-3 sm:px-5" onClick={() => act({ type: "vote", targetId: null })}>
               {t.nobody}
             </Button>
           </>
