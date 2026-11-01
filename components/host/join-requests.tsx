@@ -33,15 +33,18 @@ function Request({ request, inGame, onLobby }: { request: JoinRequest; inGame: b
   const [seatId, setSeatId] = useState("");
   const answer = (allow: boolean, seat?: string) => send?.({ type: "answer-request", requestId: request.id, allow, seatId: seat });
   const isNew = request.kind === "new";
-  // A new phone may take over a seat, never an account's: that one only goes back to its account.
-  const seats = isNew && !onLobby ? players.filter((p) => !p.account) : [];
+  // During a game, a new phone can only play instead of someone (a lost phone,
+  // another browser), never an account: that seat only goes back to its account.
+  // In the lobby it's let in like anyone, and seated with the arrows.
+  const seats = isNew && inGame ? players.filter((p) => !p.account) : [];
   const text = isNew ? dict.host.joinRequest : dict.host.rejoinRequest;
 
   return (
     <li role="status" className="flex flex-wrap items-center gap-3 rounded-xl border border-moon/40 bg-moon/10 px-4 py-3">
       <DoorOpen aria-hidden className="size-5 text-moon" />
       <Avatar playerId={request.id} name={request.name} />
-      <span className="min-w-0 flex-1 font-medium">{format(text, { name: request.name })}</span>
+      {/* Next to the seat list, the text keeps room to read; the controls wrap instead. */}
+      <span className={`${seats.length > 0 ? "min-w-40" : "min-w-0"} flex-1 font-medium`}>{format(text, { name: request.name })}</span>
       {onLobby ? (
         <Button type="button" className="h-10 px-4" onClick={onLobby}>
           <Undo2 aria-hidden className="size-4" />
@@ -74,7 +77,7 @@ function Request({ request, inGame, onLobby }: { request: JoinRequest; inGame: b
               </NativeSelectOption>
             ))}
           </NativeSelect>
-          <Button type="submit" variant={inGame ? "default" : "outline"} className="h-10 px-4" disabled={!seatId}>
+          <Button type="submit" className="h-10 px-4" disabled={!seatId}>
             <UserRoundPlus aria-hidden className="size-4" />
             {dict.host.giveSeat}
           </Button>

@@ -22,7 +22,7 @@ export function useErrorToast(error: ErrorCode | null, codes: readonly ErrorCode
 export function useHostToasts(view: HostView | null, quiet = false) {
   const { dict } = useI18n();
   const seen = useRef<{ requests: Set<string>; left: Set<string> } | null>(null);
-  const say = useEffectEvent((key: "toastRejoin" | "toastLeft", name: string) => toast(format(dict.host[key], { name })));
+  const say = useEffectEvent((key: "toastRejoin" | "joinRequest" | "toastLeft", name: string) => toast(format(dict.host[key], { name })));
   const isQuiet = useEffectEvent(() => quiet);
   useEffect(() => {
     if (!view) return;
@@ -35,7 +35,7 @@ export function useHostToasts(view: HostView | null, quiet = false) {
     if (!previous) return;
     if (!isQuiet()) {
       for (const r of view.requests) {
-        if (!previous.requests.has(r.id)) say("toastRejoin", r.name);
+        if (!previous.requests.has(r.id)) say(r.kind === "new" ? "joinRequest" : "toastRejoin", r.name);
       }
     }
     for (const p of view.players) {
