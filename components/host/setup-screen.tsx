@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import { ArrowLeft, ChevronDown, Dices, Eraser, Hand, History, Minus, Pencil, Plus, Shuffle, Sparkles } from "lucide-react";
 import { I18nProvider, useI18n } from "@/components/i18n-provider";
 import { JoinRequests } from "@/components/host/join-requests";
@@ -92,6 +92,16 @@ export function SetupScreen({
   useSiteTheme(settings.theme);
   // The deck summary says what's in it: the full card list only opens on demand.
   const [cardsOpen, setCardsOpen] = useState(false);
+  // Esc goes back to the lobby, unless it's closing a dialog (or the browser's own UI).
+  const onEscape = useEffectEvent((e: KeyboardEvent) => {
+    if (e.key !== "Escape" || e.defaultPrevented || document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+    onBack();
+  });
+  useEffect(() => {
+    window.addEventListener("keydown", onEscape);
+    return () => window.removeEventListener("keydown", onEscape);
+  }, []);
+
   function openCards() {
     setCardsOpen(true);
     document.getElementById("card-picker")?.scrollIntoView({ behavior: "smooth", block: "start" });

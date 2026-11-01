@@ -26,6 +26,8 @@ export function JoinForm() {
         placeholder={"•".repeat(CODE_LENGTH)}
         autoComplete="off"
         autoCapitalize="characters"
+        // iOS would "correct" a code like HNPQ into a word.
+        autoCorrect="off"
         spellCheck={false}
         value={code}
         onChange={(e) => setCode(normalizeRoomCode(e.target.value))}
