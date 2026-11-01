@@ -159,11 +159,14 @@ function ShowCard({
   );
 }
 
-/** Each player without a phone, whether they've seen their card, and the button to show it. */
-export function PhonelessCards({ game, compact }: { game: GameState; compact?: boolean }) {
+/**
+ * Each player without a phone, whether they've seen their card, and the button
+ * to show it. `toShow`: only those who haven't seen it yet, without a status.
+ */
+export function PhonelessCards({ game, compact, toShow }: { game: GameState; compact?: boolean; toShow?: boolean }) {
   const { dict } = useI18n();
-  const players = usePhonelessPlayers(game);
   const { status, markSeen } = useCards(game);
+  const players = usePhonelessPlayers(game).filter((p) => !toShow || status(p.id) !== "seen");
   if (players.length === 0) return null;
   return (
     <ul className="flex flex-col gap-2">
@@ -173,13 +176,17 @@ export function PhonelessCards({ game, compact }: { game: GameState; compact?: b
           <li key={p.id} className="flex items-center gap-2">
             <Avatar playerId={p.id} name={p.name} className="size-7" />
             <span className={`min-w-0 flex-1 truncate font-medium ${p.alive ? "" : "line-through opacity-60"}`}>{p.name}</span>
-            {/* Hidden with the roles: "card changed" would tell onlookers something happened to them. */}
-            {s === "seen" ? (
-              <Check aria-label={dict.game.cards.seen} className="secret-role size-4 shrink-0 text-ok" />
+            {/* "Card changed" would tell onlookers something happened to them: with roles hidden it reads
+                "not seen yet", which is just as true (they haven't seen the new one). */}
+            {toShow ? null : s === "seen" ? (
+              <Check aria-label={dict.game.cards.seen} className="size-4 shrink-0 text-ok" />
+            ) : s === "changed" ? (
+              <>
+                <span className="roles-shown-only shrink-0 text-xs text-primary">{dict.game.cards.changed}</span>
+                <span className="roles-hidden-only shrink-0 text-xs text-muted-foreground">{dict.game.cards.unseen}</span>
+              </>
             ) : (
-              <span className={`secret-role secret-text shrink-0 text-xs ${s === "changed" ? "text-primary" : "text-muted-foreground"}`}>
-                {s === "changed" ? dict.game.cards.changed : dict.game.cards.unseen}
-              </span>
+              <span className="shrink-0 text-xs text-muted-foreground">{dict.game.cards.unseen}</span>
             )}
             <ShowCard game={game} playerId={p.id} onSeen={() => markSeen(p.id)} compact={compact} />
           </li>
@@ -189,14 +196,18 @@ export function PhonelessCards({ game, compact }: { game: GameState; compact?: b
   );
 }
 
-/** Before the story: everyone sees their card first, phone or not. */
+/**
+ * Before the story: everyone sees their card first, phone or not. Whoever has
+ * seen theirs leaves the list (the side panel shows it again); then the list goes.
+ */
 export function PhonelessIntro({ game }: { game: GameState }) {
   const { dict } = useI18n();
-  if (usePhonelessPlayers(game).length === 0) return null;
+  const { status } = useCards(game);
+  if (usePhonelessPlayers(game).every((p) => status(p.id) === "seen")) return null;
   return (
     <section className="card flex flex-col gap-3 p-4">
       <p className="text-muted-foreground">{dict.game.cards.prologue}</p>
-      <PhonelessCards game={game} />
+      <PhonelessCards game={game} toShow />
     </section>
   );
 }

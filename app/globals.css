@@ -189,6 +189,14 @@
     color: transparent !important;
     filter: none;
   }
+  /* What reads differently with roles hidden (see PhonelessCards). */
+  .roles-hidden-only,
+  [data-hide-roles] .roles-shown-only {
+    display: none;
+  }
+  [data-hide-roles] .roles-hidden-only {
+    display: inline;
+  }
   /* Lover hearts, team counts and the timeline can't be blurred safely: hide them. */
   [data-hide-roles] svg.secret-role,
   [data-hide-roles] ul.secret-role,
