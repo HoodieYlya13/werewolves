@@ -13,9 +13,20 @@ function isInstalled() {
   return matchMedia("(display-mode: standalone)").matches || (navigator as { standalone?: boolean }).standalone === true;
 }
 
-/** iPads ask for the desktop site, so they look like a Mac with a touch screen. */
-function isIos() {
-  return /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+type IosBrowser = "safari" | "chrome" | "edge" | "firefox";
+
+/**
+ * Which iPhone or iPad browser this is, or null elsewhere. They all install
+ * from their Share menu, but it isn't in the same place. iPads ask for the
+ * desktop site, so they look like a Mac with a touch screen.
+ */
+function iosBrowser(): IosBrowser | null {
+  const ua = navigator.userAgent;
+  if (!/iPhone|iPad|iPod/.test(ua) && !(/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return null;
+  if (/CriOS/.test(ua)) return "chrome";
+  if (/EdgiOS/.test(ua)) return "edge";
+  if (/FxiOS/.test(ua)) return "firefox";
+  return "safari";
 }
 
 const noSubscribe = () => () => {};
@@ -30,7 +41,7 @@ export function InstallApp() {
   const t = dict.install;
   const [prompt, setPrompt] = useState<InstallPrompt | null>(null);
   // Only known in the browser: the server renders no button.
-  const ios = useSyncExternalStore(noSubscribe, () => isIos() && !isInstalled(), () => false);
+  const ios = useSyncExternalStore(noSubscribe, () => (isInstalled() ? null : iosBrowser()), () => null);
   const [guide, setGuide] = useState(false);
 
   useEffect(() => {
@@ -78,7 +89,7 @@ export function InstallApp() {
               <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-2 text-moon">
                 <Share aria-hidden className="size-5" />
               </span>
-              <span>{t.stepShare}</span>
+              <span>{t.stepShare[ios ?? "safari"]}</span>
             </li>
             <li className="flex items-center gap-3">
               <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-2 text-moon">

@@ -42,8 +42,13 @@ const en = {
     button: "Install the app",
     hint: "Open it from your home screen like any other app, full screen.",
     title: "Add it to your home screen",
-    description: "iPhones and iPads install apps from the Share menu.",
-    stepShare: "Tap the Share button, in Safari's toolbar.",
+    description: "On iPhone and iPad, apps are installed from the browser's Share menu.",
+    stepShare: {
+      safari: "Tap the Share button at the bottom of Safari (in the ••• menu if you don't see it).",
+      chrome: "Tap the Share button in Chrome's address bar, at the top right.",
+      edge: "Open the ••• menu at the bottom of Edge, then tap Share.",
+      firefox: "Open the ••• menu in Firefox, then tap Share.",
+    },
     stepAdd: "Scroll down and tap “Add to Home Screen”.",
   },
   host: {

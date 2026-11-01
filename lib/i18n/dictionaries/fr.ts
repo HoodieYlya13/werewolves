@@ -44,8 +44,13 @@ const fr: Dictionary = {
     button: "Installer l'application",
     hint: "Ouvrez-la depuis votre écran d'accueil comme n'importe quelle app, en plein écran.",
     title: "Ajoutez-la à l'écran d'accueil",
-    description: "Sur iPhone et iPad, on installe une app depuis le menu Partager.",
-    stepShare: "Touchez le bouton Partager, dans la barre de Safari.",
+    description: "Sur iPhone et iPad, on installe une app depuis le menu Partager du navigateur.",
+    stepShare: {
+      safari: "Touchez le bouton Partager en bas de Safari (dans le menu ••• si vous ne le voyez pas).",
+      chrome: "Touchez le bouton Partager dans la barre d'adresse de Chrome, en haut à droite.",
+      edge: "Ouvrez le menu ••• en bas d'Edge, puis touchez Partager.",
+      firefox: "Ouvrez le menu ••• de Firefox, puis touchez Partager.",
+    },
     stepAdd: "Faites défiler et touchez « Sur l'écran d'accueil ».",
   },
   host: {
