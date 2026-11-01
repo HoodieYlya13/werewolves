@@ -495,7 +495,7 @@ function DeathsStep({ game, step, act }: Props<"deaths">) {
                   )}
                 </p>
                 {dawn && d.cause !== "grief" && (
-                  <p className="secret-role text-sm text-muted-foreground">
+                  <p className="secret-role secret-text text-sm text-muted-foreground">
                     {format(t.secret, { cause: dict.game.causes[d.cause] })}
                   </p>
                 )}

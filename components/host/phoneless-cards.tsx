@@ -177,7 +177,7 @@ export function PhonelessCards({ game, compact }: { game: GameState; compact?: b
             {s === "seen" ? (
               <Check aria-label={dict.game.cards.seen} className="secret-role size-4 shrink-0 text-ok" />
             ) : (
-              <span className={`secret-role shrink-0 text-xs ${s === "changed" ? "text-primary" : "text-muted-foreground"}`}>
+              <span className={`secret-role secret-text shrink-0 text-xs ${s === "changed" ? "text-primary" : "text-muted-foreground"}`}>
                 {s === "changed" ? dict.game.cards.changed : dict.game.cards.unseen}
               </span>
             )}
@@ -206,9 +206,11 @@ export function PhonelessPanel({ game }: { game: GameState }) {
   const { dict } = useI18n();
   if (usePhonelessPlayers(game).length === 0) return null;
   return (
-    <section className="card p-4">
-      <h2 className="mb-3 text-sm font-medium tracking-wide text-muted-foreground uppercase">{dict.game.cards.title}</h2>
-      <PhonelessCards game={game} compact />
-    </section>
+    <details className="card p-4">
+      <summary className="cursor-pointer text-sm font-medium tracking-wide text-muted-foreground uppercase">{dict.game.cards.title}</summary>
+      <div className="mt-3">
+        <PhonelessCards game={game} compact />
+      </div>
+    </details>
   );
 }

@@ -6,11 +6,11 @@ import { teamColor } from "@/lib/team-colors";
 
 export { teamColor };
 
-/** `secret` roles blur when the game master turns on "Hide roles". */
+/** `secret` roles turn into a plain bar when the game master turns on "Hide roles". */
 export function RoleName({ role, className = "", secret = false }: { role: RoleId; className?: string; secret?: boolean }) {
   const { dict } = useI18n();
   return (
-    <span className={`${teamColor[roles[role].team]} ${secret ? "secret-role" : ""} ${className}`}>
+    <span className={`${teamColor[roles[role].team]} ${secret ? "secret-role secret-text" : ""} ${className}`}>
       {dict.roles[role].name}
     </span>
   );

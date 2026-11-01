@@ -157,7 +157,9 @@ export function GameScreen({
         </section>
       </div>
 
-      <aside className="flex flex-col gap-4 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:self-start lg:overflow-y-auto lg:pb-1">
+      {/* Folded cards. Under the game, with roles hidden, they'd only show bars: gone until shown again.
+          Beside it, they stay, so nothing moves. */}
+      <aside className={`${hideRoles ? "hidden lg:flex" : "flex"} flex-col gap-4 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:self-start lg:overflow-y-auto lg:pb-1`}>
         <Remaining game={game} />
         <PlayersPanel game={game} />
         <PhonelessPanel game={game} />
@@ -171,17 +173,17 @@ function Remaining({ game }: { game: GameState }) {
   const { dict } = useI18n();
   const living = game.players.filter((p) => p.alive);
   return (
-    <section className="card p-4">
-      <h2 className="mb-2 text-sm font-medium tracking-wide text-muted-foreground uppercase">{dict.game.remaining}</h2>
-      {game.villagePowersLost && <p className="mb-2 text-sm text-primary">{dict.game.powersLost}</p>}
-      <ul className="secret-role flex flex-wrap gap-2">
+    <details className="card p-4">
+      <summary className="cursor-pointer text-sm font-medium tracking-wide text-muted-foreground uppercase">{dict.game.remaining}</summary>
+      {game.villagePowersLost && <p className="mt-3 text-sm text-primary">{dict.game.powersLost}</p>}
+      <ul className="secret-role mt-3 flex flex-wrap gap-2">
         {remainingTeams(game).map((team) => (
           <li key={team} className={`rounded-full bg-surface-2 px-3 py-1 text-sm font-semibold ${teamColor[team]}`}>
             {dict.teams[team]} · {living.filter((p) => teamOf(game, p) === team).length}
           </li>
         ))}
       </ul>
-    </section>
+    </details>
   );
 }
 
@@ -192,9 +194,9 @@ function PlayersPanel({ game }: { game: GameState }) {
   const leftIds = new Set(roomPlayers.filter((p) => p.left).map((p) => p.id));
   const accountIds = new Set(roomPlayers.filter((p) => p.account).map((p) => p.id));
   return (
-    <section className="card p-4">
-      <h2 className="mb-2 text-sm font-medium tracking-wide text-muted-foreground uppercase">{dict.game.players}</h2>
-      <ol className="flex flex-col gap-1">
+    <details className="card p-4">
+      <summary className="cursor-pointer text-sm font-medium tracking-wide text-muted-foreground uppercase">{dict.game.players}</summary>
+      <ol className="mt-3 flex flex-col gap-1">
         {game.players.map((p, i) => (
           <li key={p.id} className={`flex items-center gap-2 text-sm ${p.alive ? "" : "opacity-45"}`}>
             <span className="w-5 text-right font-mono text-xs text-muted-foreground">{i + 1}</span>
@@ -232,7 +234,7 @@ function PlayersPanel({ game }: { game: GameState }) {
         ))}
       </ol>
       {editing && <PlayerEditor playerId={editing} onClose={() => setEditing(null)} />}
-    </section>
+    </details>
   );
 }
 

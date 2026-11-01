@@ -173,6 +173,22 @@
     color: var(--muted-foreground) !important;
     user-select: none;
   }
+  /* Blurred text still shows its length, and a role's name by its length: a bar of the same size for all. */
+  [data-hide-roles] .secret-text {
+    display: inline-block;
+    width: 5em;
+    height: 0.9em;
+    overflow: hidden;
+    vertical-align: middle;
+    white-space: nowrap;
+    border-radius: 9999px;
+    background: color-mix(in oklab, var(--muted-foreground) 35%, transparent);
+    /* Padding (to line up under a name) stays empty: the bar is the text's place only. */
+    box-sizing: content-box;
+    background-clip: content-box;
+    color: transparent !important;
+    filter: none;
+  }
   /* Lover hearts, team counts and the timeline can't be blurred safely: hide them. */
   [data-hide-roles] svg.secret-role,
   [data-hide-roles] ul.secret-role,
