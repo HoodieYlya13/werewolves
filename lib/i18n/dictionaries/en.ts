@@ -363,6 +363,9 @@ const en = {
   },
   setup: {
     title: "Choose the cards",
+    cardsUnfold: "Tap to add or remove cards ({count} roles).",
+    cardsFold: "Tap to fold the list.",
+    editCards: "Change the cards",
     theme: "Theme",
     start: "Choose the cards",
     needPlayers: "At least {min} players are needed.",

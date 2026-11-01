@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowLeft, ChevronDown, Dices, Eraser, Hand, History, Minus, Plus, Shuffle, Sparkles } from "lucide-react";
+import { ArrowLeft, ChevronDown, Dices, Eraser, Hand, History, Minus, Pencil, Plus, Shuffle, Sparkles } from "lucide-react";
 import { I18nProvider, useI18n } from "@/components/i18n-provider";
 import { JoinRequests } from "@/components/host/join-requests";
 import { useSiteTheme } from "@/components/site-title";
@@ -92,6 +92,10 @@ export function SetupScreen({
   useSiteTheme(settings.theme);
   // The deck summary says what's in it: the full card list only opens on demand.
   const [cardsOpen, setCardsOpen] = useState(false);
+  function openCards() {
+    setCardsOpen(true);
+    document.getElementById("card-picker")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
   const [mode, setMode] = useState<"random" | "manual">("random");
   const [assignment, setAssignment] = useState<Record<string, RoleId>>({});
   const [actorCards, setActorCards] = useState<RoleId[]>(initial.actorCards);
@@ -253,24 +257,32 @@ export function SetupScreen({
             </ul>
           </section>
 
-          <div className="flex items-center gap-2">
+          {/* Folded, it still has to look like the way in: a card to tap, saying what's inside. */}
+          <div id="card-picker" className="flex scroll-mt-4 items-center gap-2">
             <h1 className="min-w-0 flex-1">
               <button
                 type="button"
                 aria-expanded={cardsOpen}
                 aria-controls="card-list"
-                className="flex w-full items-center gap-2 text-left font-display text-2xl font-bold"
+                className={`card flex w-full items-center gap-3 p-4 text-left transition-colors hover:border-fg/40 ${cardsOpen ? "" : "border-primary/60"}`}
                 onClick={() => setCardsOpen((open) => !open)}
               >
-                {dict.setup.title}
-                <ChevronDown aria-hidden className={`size-5 shrink-0 transition-transform ${cardsOpen ? "rotate-180" : ""}`} />
+                <span className="min-w-0 flex-1">
+                  <span className="block font-display text-xl font-bold sm:text-2xl">{dict.setup.title}</span>
+                  <span className="mt-1 block text-sm text-muted-foreground">
+                    {cardsOpen ? dict.setup.cardsFold : format(dict.setup.cardsUnfold, { count: pickerOrder.length })}
+                  </span>
+                </span>
+                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-surface-2">
+                  <ChevronDown aria-hidden className={`size-5 transition-transform ${cardsOpen ? "rotate-180" : ""}`} />
+                </span>
               </button>
             </h1>
             <button
               type="button"
               aria-label={dict.setup.clear}
               title={dict.setup.clear}
-              className="grid size-9 shrink-0 place-items-center rounded-lg border border-line text-muted-foreground hover:text-fg disabled:opacity-30"
+              className="grid size-10 shrink-0 place-items-center rounded-lg border border-line text-muted-foreground hover:text-fg disabled:opacity-30"
               disabled={deck.length === 0}
               onClick={() => setCounts({})}
             >
@@ -327,6 +339,12 @@ export function SetupScreen({
             </p>
             {/* The whole deck at a glance, without scrolling through every card. */}
             {deck.length > 0 && <DeckChips counts={counts} />}
+            {!cardsOpen && (
+              <Button type="button" variant="outline" className="h-9 self-start px-3 text-sm" onClick={openCards}>
+                <Pencil aria-hidden className="size-4" />
+                {dict.setup.editCards}
+              </Button>
+            )}
             {deck.includes("thief") && <p className="text-sm text-muted-foreground">{dict.setup.thiefNote}</p>}
             {problems.length > 0 && (
               <ul className="flex flex-col gap-1 text-sm text-primary">
