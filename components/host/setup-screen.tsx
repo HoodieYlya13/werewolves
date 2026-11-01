@@ -290,7 +290,14 @@ export function SetupScreen({
             </button>
           </div>
 
-          <ul id="card-list" hidden={!cardsOpen} className="grid gap-3 sm:grid-cols-2">
+          {/* Opens and folds smoothly: the row grows from 0fr to 1fr. Folded, it's out of the tab order. */}
+          <div
+            id="card-list"
+            inert={!cardsOpen}
+            className={`grid shrink-0 transition-[grid-template-rows,margin] duration-300 ease-out motion-reduce:transition-none ${cardsOpen ? "grid-rows-[1fr]" : "-mt-4 grid-rows-[0fr]"}`}
+          >
+          {/* The padding keeps focus rings from being cut off by the overflow. */}
+          <ul className="-m-1 grid min-h-0 gap-3 overflow-hidden p-1 sm:grid-cols-2">
             {pickerOrder.map((role) => {
               const count = counts[role] ?? 0;
               const max = roles[role].max;
@@ -328,23 +335,30 @@ export function SetupScreen({
               );
             })}
           </ul>
+          </div>
         </section>
 
         <aside className="flex flex-col gap-4 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:self-start lg:overflow-y-auto lg:pb-1">
           <section className="card flex flex-col gap-2 p-5">
-            <p
-              className={`font-mono text-3xl font-bold tabular-nums ${deck.length === needed ? "text-ok" : "text-primary"}`}
-            >
-              {format(dict.setup.cards, { count: deck.length, needed })}
-            </p>
+            <div className="flex items-start justify-between gap-3">
+              <p
+                className={`font-mono text-3xl font-bold tabular-nums ${deck.length === needed ? "text-ok" : "text-primary"}`}
+              >
+                {format(dict.setup.cards, { count: deck.length, needed })}
+              </p>
+              {/* Always there, so nothing moves when the list opens. */}
+              <button
+                type="button"
+                aria-label={dict.setup.editCards}
+                title={dict.setup.editCards}
+                className="grid size-10 shrink-0 place-items-center rounded-lg border border-line text-muted-foreground hover:text-fg"
+                onClick={openCards}
+              >
+                <Pencil aria-hidden className="size-4" />
+              </button>
+            </div>
             {/* The whole deck at a glance, without scrolling through every card. */}
             {deck.length > 0 && <DeckChips counts={counts} />}
-            {!cardsOpen && (
-              <Button type="button" variant="outline" className="h-9 self-start px-3 text-sm" onClick={openCards}>
-                <Pencil aria-hidden className="size-4" />
-                {dict.setup.editCards}
-              </Button>
-            )}
             {deck.includes("thief") && <p className="text-sm text-muted-foreground">{dict.setup.thiefNote}</p>}
             {problems.length > 0 && (
               <ul className="flex flex-col gap-1 text-sm text-primary">
