@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowLeft, Dices, Hand, History, Minus, Plus, Shuffle, Sparkles } from "lucide-react";
+import { ArrowLeft, ChevronDown, Dices, Eraser, Hand, History, Minus, Plus, Shuffle, Sparkles } from "lucide-react";
 import { I18nProvider, useI18n } from "@/components/i18n-provider";
 import { JoinRequests } from "@/components/host/join-requests";
+import { useSiteTheme } from "@/components/site-title";
 import { RoleName } from "@/components/host/role-chip";
 import { format } from "@/lib/i18n/config";
 import {
@@ -88,6 +89,9 @@ export function SetupScreen({
   const [settings, setSettings] = useState<Settings>(initial.settings);
   // Role names follow the chosen theme as soon as it's picked.
   const dict = themeDictionary(baseDict, settings.theme, locale);
+  useSiteTheme(settings.theme);
+  // The deck summary says what's in it: the full card list only opens on demand.
+  const [cardsOpen, setCardsOpen] = useState(false);
   const [mode, setMode] = useState<"random" | "manual">("random");
   const [assignment, setAssignment] = useState<Record<string, RoleId>>({});
   const [actorCards, setActorCards] = useState<RoleId[]>(initial.actorCards);
@@ -223,9 +227,6 @@ export function SetupScreen({
                 <Dices aria-hidden className="size-4" />
                 {dict.setup.suggestSpecials}
               </Button>
-              <Button type="button" variant="outline" className="h-9 px-3 text-sm" onClick={() => setCounts({})}>
-                {dict.setup.clear}
-              </Button>
             </div>
           </div>
           {/* Let in from the lobby, or refused right here. */}
@@ -252,9 +253,32 @@ export function SetupScreen({
             </ul>
           </section>
 
-          <h1 className="font-display text-2xl font-bold">{dict.setup.title}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="min-w-0 flex-1">
+              <button
+                type="button"
+                aria-expanded={cardsOpen}
+                aria-controls="card-list"
+                className="flex w-full items-center gap-2 text-left font-display text-2xl font-bold"
+                onClick={() => setCardsOpen((open) => !open)}
+              >
+                {dict.setup.title}
+                <ChevronDown aria-hidden className={`size-5 shrink-0 transition-transform ${cardsOpen ? "rotate-180" : ""}`} />
+              </button>
+            </h1>
+            <button
+              type="button"
+              aria-label={dict.setup.clear}
+              title={dict.setup.clear}
+              className="grid size-9 shrink-0 place-items-center rounded-lg border border-line text-muted-foreground hover:text-fg disabled:opacity-30"
+              disabled={deck.length === 0}
+              onClick={() => setCounts({})}
+            >
+              <Eraser aria-hidden className="size-4" />
+            </button>
+          </div>
 
-          <ul className="grid gap-3 sm:grid-cols-2">
+          <ul id="card-list" hidden={!cardsOpen} className="grid gap-3 sm:grid-cols-2">
             {pickerOrder.map((role) => {
               const count = counts[role] ?? 0;
               const max = roles[role].max;

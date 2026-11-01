@@ -378,7 +378,7 @@ const en = {
       keep: "Keep this deck",
       newDeck: "New deck",
     },
-    clear: "Clear",
+    clear: "Clear the deck",
     add: "Add a {role}",
     removeOne: "Remove a {role}",
     rules: "Rules",

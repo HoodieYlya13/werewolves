@@ -315,7 +315,7 @@ function HostContent({
 function RoomCode({ code }: { code: string }) {
   const { dict } = useI18n();
   return (
-    <p className="text-center font-mono text-sm tracking-[0.3em] text-muted-foreground" aria-label={`${dict.host.roomCode} ${code}`}>
+    <p className="mb-4 text-center font-mono text-sm tracking-[0.3em] text-muted-foreground" aria-label={`${dict.host.roomCode} ${code}`}>
       {code}
     </p>
   );

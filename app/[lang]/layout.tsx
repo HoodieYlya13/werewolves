@@ -7,6 +7,7 @@ import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { ResumeRooms } from "@/components/resume-rooms";
 import { SessionGuard } from "@/components/session-guard";
+import { SiteTitle } from "@/components/site-title";
 import { Toaster } from "@/components/ui/sonner";
 import { locales } from "@/lib/i18n/config";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
@@ -61,9 +62,7 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
         <I18nProvider locale={locale} dict={dict}>
           <div className="flex min-h-dvh flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
             <header className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
-              <Link href={`/${locale}`} className="font-display text-lg font-bold tracking-wide">
-                {dict.app.name}
-              </Link>
+              <SiteTitle />
               <div className="flex items-center gap-2">
                 <LocaleSwitcher />
                 <AccountButton accounts={!!process.env.AUTH_CLIENT_ID && !!process.env.AUTH_CLIENT_SECRET} />

@@ -380,7 +380,7 @@ const fr: Dictionary = {
       keep: "Garder ce paquet",
       newDeck: "Nouveau paquet",
     },
-    clear: "Vider",
+    clear: "Vider le paquet",
     add: "Ajouter : {role}",
     removeOne: "Retirer : {role}",
     rules: "Règles",
