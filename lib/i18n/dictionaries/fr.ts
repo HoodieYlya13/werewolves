@@ -432,6 +432,7 @@ const fr: Dictionary = {
     players: "Joueurs",
     remaining: "Peuvent encore gagner",
     timeline: "Historique",
+    timelineHidden: "Masqué tant que les rôles sont masqués : il les dévoilerait. Touchez « Afficher les rôles » pour le voir.",
     lover: "Amoureux",
     model: "Modèle de {name} (Enfant Sauvage)",
     charmed: "Charmé",

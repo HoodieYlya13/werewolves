@@ -430,6 +430,7 @@ const en = {
     players: "Players",
     remaining: "Can still win",
     timeline: "Timeline",
+    timelineHidden: "Hidden while roles are hidden: it gives them away. Tap “Show roles” to see it.",
     lover: "Lover",
     charmed: "Charmed",
     model: "{name}'s role model (Wild Child)",

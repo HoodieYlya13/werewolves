@@ -149,7 +149,7 @@ export function GameScreen({
         <Remaining game={game} />
         <PlayersPanel game={game} />
         <PhonelessPanel game={game} />
-        <Timeline game={game} />
+        <Timeline game={game} rolesHidden={hideRoles} />
       </aside>
     </main>
   );
@@ -224,9 +224,20 @@ function PlayersPanel({ game }: { game: GameState }) {
   );
 }
 
-function Timeline({ game }: { game: GameState }) {
+function Timeline({ game, rolesHidden }: { game: GameState; rolesHidden: boolean }) {
   const { dict } = useI18n();
   if (game.events.length === 0) return null;
+  // Every line gives roles away: say why it's empty rather than leave a blank card.
+  if (rolesHidden) {
+    return (
+      <details className="card p-4">
+        <summary className="cursor-pointer text-sm font-medium tracking-wide text-muted-foreground uppercase">
+          {dict.game.timeline}
+        </summary>
+        <p className="mt-3 text-sm text-muted-foreground">{dict.game.timelineHidden}</p>
+      </details>
+    );
+  }
   return (
     <details className="card p-4">
       <summary className="cursor-pointer text-sm font-medium tracking-wide text-muted-foreground uppercase">
