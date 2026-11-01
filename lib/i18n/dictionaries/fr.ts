@@ -365,7 +365,7 @@ const fr: Dictionary = {
   },
   setup: {
     title: "Choisir les cartes",
-    cardsUnfold: "Touchez pour ajouter ou retirer des cartes ({count} rôles).",
+    cardsUnfold: "Touchez pour voir les {count} rôles.",
     cardsFold: "Touchez pour replier la liste.",
     editCards: "Modifier les cartes",
     theme: "Thème",

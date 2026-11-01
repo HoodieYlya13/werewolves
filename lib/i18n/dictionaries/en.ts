@@ -363,7 +363,7 @@ const en = {
   },
   setup: {
     title: "Choose the cards",
-    cardsUnfold: "Tap to add or remove cards ({count} roles).",
+    cardsUnfold: "Tap to see all {count} roles.",
     cardsFold: "Tap to fold the list.",
     editCards: "Change the cards",
     theme: "Theme",
