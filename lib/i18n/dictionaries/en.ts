@@ -378,6 +378,7 @@ const en = {
     tableChanged: {
       title: "The table changed",
       body: "There are {players} players now, and this deck has {cards} cards for {needed} needed. Keep it and adjust the cards yourself, start from a new deck, or go back to the lobby.",
+      lobby: "Back to lobby",
       keep: "Keep this deck",
       newDeck: "New deck",
     },

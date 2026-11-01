@@ -173,7 +173,15 @@ export function SetupScreen({
   return (
     <I18nProvider locale={locale} dict={dict}>
       <Dialog open={asking && deck.length !== needed} onOpenChange={(open) => !open && setAsking(false)}>
-        <DialogContent closeLabel={dict.host.close} className="max-w-[min(34rem,calc(100vw-2rem))] sm:max-w-[34rem]">
+        <DialogContent
+          closeLabel={dict.host.close}
+          className="max-w-[min(38rem,calc(100vw-2rem))] sm:max-w-[38rem]"
+          // Keeping the deck is the likely answer: Enter does it.
+          onOpenAutoFocus={(e) => {
+            e.preventDefault();
+            document.getElementById("keep-deck")?.focus();
+          }}
+        >
           <DialogHeader>
             <DialogTitle>{dict.setup.tableChanged.title}</DialogTitle>
             <DialogDescription>
@@ -184,7 +192,7 @@ export function SetupScreen({
           <DialogFooter className="flex-col gap-2 sm:flex-row sm:flex-wrap">
             <Button type="button" variant="outline" onClick={onBack}>
               <ArrowLeft aria-hidden className="size-4" />
-              {dict.setup.back}
+              {dict.setup.tableChanged.lobby}
             </Button>
             <Button
               type="button"
@@ -197,7 +205,7 @@ export function SetupScreen({
               <Sparkles aria-hidden className="size-4" />
               {dict.setup.tableChanged.newDeck}
             </Button>
-            <Button type="button" onClick={() => setAsking(false)}>
+            <Button id="keep-deck" type="button" onClick={() => setAsking(false)}>
               {dict.setup.tableChanged.keep}
             </Button>
           </DialogFooter>

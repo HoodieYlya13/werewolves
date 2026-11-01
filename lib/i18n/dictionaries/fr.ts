@@ -380,6 +380,7 @@ const fr: Dictionary = {
     tableChanged: {
       title: "La table a changé",
       body: "Il y a maintenant {players} joueurs, et ce paquet compte {cards} cartes pour {needed} nécessaires. Gardez-le et ajustez les cartes vous-même, repartez d'un nouveau paquet, ou retournez à la salle d'attente.",
+      lobby: "Salle d'attente",
       keep: "Garder ce paquet",
       newDeck: "Nouveau paquet",
     },
