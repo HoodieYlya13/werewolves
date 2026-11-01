@@ -5,6 +5,7 @@ import {
   deckProblems,
   defaultSettings,
   EngineError,
+  growDeck,
   remainingTeams,
   playerInfo,
   publicGame,
@@ -389,6 +390,21 @@ describe("setup", () => {
     expect(a).toEqual(b);
     expect(a.extraCards).toHaveLength(2);
     expect([...Object.values(a.roles), ...a.extraCards].sort()).toEqual([...deck].sort());
+  });
+});
+
+describe("growing a deck for new players", () => {
+  it("keeps the roles picked and adds Werewolves, then Villagers", () => {
+    const deck = ["werewolf", "seer", "witch", "hunter", "cupid"] as const;
+    // 5 → 7 players: a second wolf is due from 6, then a Villager.
+    expect(growDeck(7, [...deck])).toEqual([...deck, "werewolf", "villager"]);
+    expect(growDeck(5, [...deck])).toEqual([...deck]);
+  });
+
+  it("counts the Thief's two extra cards", () => {
+    const deck = ["werewolf", "werewolf", "thief", "seer", "witch", "villager", "villager", "villager"] as const;
+    expect(growDeck(7, [...deck])).toHaveLength(9);
+    expect(deckProblems(7, growDeck(7, [...deck]))).toEqual([]);
   });
 });
 

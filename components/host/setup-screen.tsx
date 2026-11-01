@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, Dices, Hand, History, Minus, Plus, Shuffle, Sparkles } from "lucide-react";
 import { I18nProvider, useI18n } from "@/components/i18n-provider";
 import { JoinRequests } from "@/components/host/join-requests";
@@ -11,6 +11,7 @@ import {
   defaultSettings,
   deckProblems,
   deckSize,
+  growDeck,
   MIN_PLAYERS,
   roleIds,
   roles,
@@ -43,9 +44,9 @@ function toDeck(counts: Counts): RoleId[] {
 }
 
 /**
- * The last deck and rules are remembered, since groups tend to replay them.
- * A deck for another number of players is replaced by a suggested one, in the
- * style picked last time.
+ * The deck and rules are remembered as they're picked, since groups tend to
+ * replay them (and a trip to the lobby shouldn't lose them). A deck short of
+ * cards for the table gets Werewolves or Villagers added (see growDeck).
  */
 function loadSaved(playerCount: number) {
   let saved: { counts?: Counts; settings?: Partial<Settings>; actorCards?: RoleId[]; style?: DeckStyle } | null = null;
@@ -54,14 +55,14 @@ function loadSaved(playerCount: number) {
   } catch {}
   const style: DeckStyle = saved?.style === "no-villagers" ? "no-villagers" : "classic";
   const savedDeck = saved?.counts ? toDeck(saved.counts) : null;
-  const fits = !!savedDeck && savedDeck.length === deckSize(playerCount, savedDeck);
+  const deck = savedDeck?.length ? growDeck(playerCount, savedDeck) : suggestedDeck(playerCount, style);
   return {
-    counts: fits ? saved!.counts! : toCounts(suggestedDeck(playerCount, style)),
+    counts: toCounts(deck),
     settings: { ...defaultSettings, ...saved?.settings },
     actorCards: saved?.actorCards ?? [],
     style,
-    /** The size of a remembered deck that didn't fit, to say why it changed. */
-    resizedFrom: savedDeck && !fits ? savedDeck.length : null,
+    /** Cards added for players who joined since, to say so. */
+    added: savedDeck?.length ? deck.length - savedDeck.length : 0,
   };
 }
 
@@ -82,7 +83,7 @@ export function SetupScreen({
   const [initial] = useState(() => loadSaved(players.length));
   const [counts, setCountsState] = useState<Counts>(initial.counts);
   const [style, setStyle] = useState<DeckStyle>(initial.style);
-  const [resizedFrom, setResizedFrom] = useState(initial.resizedFrom);
+  const [added, setAdded] = useState(initial.added);
   const [settings, setSettings] = useState<Settings>(initial.settings);
   // Role names follow the chosen theme as soon as it's picked.
   const dict = themeDictionary(baseDict, settings.theme, locale);
@@ -92,7 +93,23 @@ export function SetupScreen({
   const [groups, setGroups] = useState<Record<string, "a" | "b">>({});
 
   const deck = toDeck(counts);
+  // Players joined while picking: their cards are added right away.
+  const [sizedFor, setSizedFor] = useState(players.length);
+  if (players.length !== sizedFor) {
+    setSizedFor(players.length);
+    const grown = growDeck(players.length, deck);
+    if (grown.length > deck.length) {
+      setCountsState(toCounts(grown));
+      setAdded(grown.length - deck.length);
+    }
+  }
   const needed = deckSize(players.length, deck);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ counts, settings, actorCards, style }));
+    } catch {}
+  }, [counts, settings, actorCards, style]);
   const problems = deckProblems(players.length, deck);
   const needs = setupNeeds(deck);
   const actorReady = !needs.actorCards || (actorCards.length === 3 && actorCards.every((r) => actorRoles.includes(r)));
@@ -115,10 +132,10 @@ export function SetupScreen({
   const everyoneAssigned = players.every((p) => holds.has(p.id));
   const canStart = problems.length === 0 && actorReady && groupsReady && (mode === "random" || everyoneAssigned);
 
-  /** Any change to the deck makes the note about the remembered one moot. */
+  /** Any change to the deck makes the note about added cards moot. */
   function setCounts(next: Counts | ((c: Counts) => Counts)) {
     setCountsState(next);
-    setResizedFrom(null);
+    setAdded(0);
   }
 
   function suggest(next: DeckStyle) {
@@ -136,9 +153,6 @@ export function SetupScreen({
   }
 
   function start() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ counts, settings, actorCards, style }));
-    } catch {}
     const options = {
       actorCards: needs.actorCards ? actorCards : undefined,
       groups: needs.groups ? groups : undefined,
@@ -265,8 +279,18 @@ export function SetupScreen({
             >
               {format(dict.setup.cards, { count: deck.length, needed })}
             </p>
-            {resizedFrom !== null && (
-              <p className="text-sm text-muted-foreground">{format(dict.setup.resized, { count: resizedFrom, needed })}</p>
+            {added > 0 && deck.length === needed && (
+              <p className="text-sm text-muted-foreground">{format(dict.setup.added, { count: added })}</p>
+            )}
+            {/* Players left: the game master takes cards out, or starts over. */}
+            {deck.length > needed && (
+              <div className="flex flex-col items-start gap-2">
+                <p className="text-sm text-primary">{format(dict.setup.tooMany, { count: deck.length - needed, players: players.length })}</p>
+                <Button type="button" variant="outline" className="h-9 px-3 text-sm" onClick={() => suggest(style)}>
+                  <Sparkles aria-hidden className="size-4" />
+                  {dict.setup.newDeck}
+                </Button>
+              </div>
             )}
             {/* The whole deck at a glance, without scrolling through every card. */}
             {deck.length > 0 && (

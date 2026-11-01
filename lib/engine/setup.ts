@@ -66,8 +66,23 @@ const villageSets: RoleId[] = ["two-sisters", "three-brothers"];
  * the rest with villagers; "no-villagers" with a random mix of village powers,
  * different on each call.
  */
+/** How many wolves a suggested deck has. */
+const wolfCount = (playerCount: number) => (playerCount <= 5 ? 1 : playerCount <= 11 ? 2 : playerCount <= 17 ? 3 : 4);
+
+/**
+ * A deck short of cards after players joined, filled up: Werewolves until it
+ * has as many wolves as a suggested deck, then Villagers. The roles picked
+ * stay, so a deck chosen with care survives a late arrival.
+ */
+export function growDeck(playerCount: number, deck: RoleId[]): RoleId[] {
+  const missing = deckSize(playerCount, deck) - deck.length;
+  let wolves = deck.filter((r) => roles[r].team === "wolves").length;
+  const added = Array.from({ length: Math.max(0, missing) }, (): RoleId => (wolves++ < wolfCount(playerCount) ? "werewolf" : "villager"));
+  return [...deck, ...added];
+}
+
 export function suggestedDeck(playerCount: number, style: DeckStyle = "classic", random: () => number = Math.random): RoleId[] {
-  const wolves = playerCount <= 5 ? 1 : playerCount <= 11 ? 2 : playerCount <= 17 ? 3 : 4;
+  const wolves = wolfCount(playerCount);
   const specials: [RoleId, number][] = [
     ["seer", 3],
     ["witch", 4],

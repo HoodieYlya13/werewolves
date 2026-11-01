@@ -9,6 +9,7 @@ export {
   assignRoles,
   deckProblems,
   deckSize,
+  growDeck,
   setupNeeds,
   suggestedDeck,
   validateSetup,
