@@ -373,10 +373,10 @@ function PhaseEndStep({ game, step, act }: Props<"phase-end">) {
   const { dict } = useI18n();
   const t = dict.game.story;
   const toDay = step.next.kind === "day";
-  // A wolf the village killed today (vote, Hunter…) cheers the ghost up.
-  const wolfDown = game.players.some(
-    (p) => p.death && p.death.phase.kind === game.phase.kind && p.death.phase.number === game.phase.number && isWolf(p),
-  );
+  // A wolf the village killed today (vote, Hunter…) cheers the ghost up, when the cards are shown (else it gives the wolf away).
+  const wolfDown =
+    game.setup.settings.revealRoleOnDeath &&
+    game.players.some((p) => p.death && p.death.phase.kind === game.phase.kind && p.death.phase.number === game.phase.number && isWolf(p));
   const lines = toDay ? t.nightEnds : wolfDown ? t.dayEndsWolfDown : t.dayEnds;
   return (
     <>

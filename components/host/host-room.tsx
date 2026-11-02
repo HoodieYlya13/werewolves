@@ -117,7 +117,7 @@ function HostContent({
 
   // Each screen starts at its top, not where the last one was scrolled to
   // (the lobby's "Choose the cards" sits at the bottom, on phones especially).
-  const page = view?.game ? "game" : screen;
+  const page = view?.game || view?.seat?.game ? "game" : screen;
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [page]);
@@ -282,23 +282,18 @@ function HostContent({
               <li
                 key={p.id}
                 style={seats.rowStyle(i)}
-                className={`flex items-center gap-2 rounded-xl bg-surface-2 py-2 pr-1 pl-1 sm:gap-3 sm:pr-2 sm:pl-2 ${seats.dragging === i ? "shadow-lg ring-1 ring-moon/50" : ""}`}
+                className={`flex items-center gap-1.5 rounded-xl bg-surface-2 py-2 pr-1 pl-1 sm:gap-3 sm:pr-2 sm:pl-2 ${seats.dragging === i ? "shadow-lg ring-1 ring-moon/50" : ""}`}
               >
                 <button
                   type="button"
                   aria-label={format(dict.host.dragSeat, { name: p.name })}
                   title={format(dict.host.dragSeat, { name: p.name })}
-                  className={`grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-surface hover:text-fg ${seats.dragging === i ? "cursor-grabbing" : "cursor-grab"}`}
+                  className={`grid size-7 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-surface hover:text-fg sm:size-8 ${seats.dragging === i ? "cursor-grabbing" : "cursor-grab"}`}
                   {...seats.handleProps(i)}
                 >
                   <GripVertical className="size-4" />
                 </button>
                 <span className="w-4 shrink-0 text-right font-mono text-sm text-muted-foreground sm:w-5">{i + 1}</span>
-                {/* The creator's own seat, without a game master. */}
-                <span
-                  className={`size-2.5 shrink-0 rounded-full ${p.manual ? "bg-transparent" : p.connected ? "bg-ok" : "bg-muted-foreground/40"}`}
-                  title={p.manual ? undefined : p.connected ? dict.host.online : dict.host.offline}
-                />
                 <button
                   type="button"
                   className="flex min-w-0 flex-1 items-center gap-2 text-left"
@@ -307,7 +302,16 @@ function HostContent({
                   title={p.account ? dict.host.accountPlayer : undefined}
                   onClick={() => setEditing(p.id)}
                 >
-                  <Avatar playerId={p.id} name={p.name} />
+                  {/* Online or not, as a dot on the face: the row keeps its width for the name. */}
+                  <span className="relative shrink-0">
+                    <Avatar playerId={p.id} name={p.name} />
+                    {!p.manual && (
+                      <span
+                        className={`absolute -right-0.5 -bottom-0.5 size-3 rounded-full ring-2 ring-surface-2 ${p.connected ? "bg-ok" : "bg-muted-foreground"}`}
+                        title={p.connected ? dict.host.online : dict.host.offline}
+                      />
+                    )}
+                  </span>
                   <span className="min-w-0 truncate font-medium">{p.name}</span>
                   {p.account && <BadgeCheck aria-label={dict.host.accountPlayer} className="size-3.5 shrink-0 text-ok" />}
                   {p.id === view.seatId && <span className="shrink-0 rounded-full bg-moon/15 px-2 py-0.5 text-xs text-moon">{dict.lead.you}</span>}
@@ -575,7 +579,7 @@ function IconButton({
       type="button"
       aria-label={label}
       title={label}
-      className={`${className} size-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-surface hover:text-fg disabled:opacity-30`}
+      className={`${className} size-7 shrink-0 place-items-center rounded-lg sm:size-8 text-muted-foreground hover:bg-surface hover:text-fg disabled:opacity-30`}
       {...props}
     >
       {children}

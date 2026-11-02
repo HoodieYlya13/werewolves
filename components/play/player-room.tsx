@@ -659,6 +659,10 @@ function PhoneBallotCard({ view, onVote }: { view: PlayerView; onVote: (targetId
   const ballot = view.ballot!;
   const me = view.me!;
   const nameOf = (id: string) => view.players.find((p) => p.id === id)?.name ?? "?";
+  // A vote counts once confirmed. undefined: nothing picked; null: "no one".
+  const [draft, setDraft] = useState<string | null | undefined>(undefined);
+  const current = ballot.voted ? ballot.targetId : undefined;
+  const picked = draft === undefined ? current : draft;
 
   if (!ballot.canVote) {
     return (
@@ -692,13 +696,13 @@ function PhoneBallotCard({ view, onVote }: { view: PlayerView; onVote: (targetId
       </p>
       <ul className="flex flex-col gap-2">
         {choices.map((choice) => {
-          const selected = ballot.voted && ballot.targetId === choice.id;
+          const selected = picked === choice.id;
           return (
             <li key={choice.id ?? "nobody"}>
               <button
                 type="button"
                 aria-pressed={selected}
-                onClick={() => onVote(choice.id)}
+                onClick={() => setDraft(choice.id)}
                 className={`flex min-h-14 w-full items-center gap-3 rounded-xl border-2 px-3 py-2 text-left text-lg font-semibold ${
                   selected ? "border-primary bg-primary/10" : "border-line bg-surface-2"
                 }`}
@@ -717,6 +721,18 @@ function PhoneBallotCard({ view, onVote }: { view: PlayerView; onVote: (targetId
           );
         })}
       </ul>
+      <Button
+        type="button"
+        className="h-12 text-base"
+        disabled={picked === undefined || picked === current}
+        onClick={() => {
+          onVote(picked!);
+          setDraft(undefined);
+        }}
+      >
+        <Check aria-hidden className="size-5" />
+        {dict.game.confirm}
+      </Button>
       <p className="text-center text-sm text-muted-foreground">
         {format(t.progress, { answered: ballot.answered, voters: ballot.voters })}
       </p>

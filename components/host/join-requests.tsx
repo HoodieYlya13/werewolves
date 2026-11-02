@@ -56,11 +56,14 @@ function Request({ request, inGame, onLobby }: { request: JoinRequest; inGame: b
   const text = isNew ? dict.host.joinRequest : dict.host.rejoinRequest;
 
   return (
-    <li role="status" className="flex flex-wrap items-center gap-3 rounded-xl border border-moon/40 bg-moon/10 px-4 py-3">
-      <DoorOpen aria-hidden className="size-5 text-moon" />
-      <Avatar playerId={request.id} name={request.name} />
-      {/* Next to the seat list, the text keeps room to read; the controls wrap instead. */}
-      <span className={`${seats.length > 0 ? "min-w-40" : "min-w-0"} flex-1 font-medium`}>{format(text, { name: request.name })}</span>
+    <li role="status" className="flex flex-col gap-3 rounded-xl border border-moon/40 bg-moon/10 px-4 py-3">
+      {/* Who's asking on a line of its own, the answers below: the text never gets squeezed by the buttons. */}
+      <p className="flex items-center gap-3 font-medium">
+        <DoorOpen aria-hidden className="size-5 shrink-0 text-moon" />
+        <Avatar playerId={request.id} name={request.name} />
+        <span className="min-w-0 flex-1">{format(text, { name: request.name })}</span>
+      </p>
+      <div className="flex flex-wrap items-center gap-2 [&>*]:grow">
       {onLobby ? (
         <Button type="button" className="h-10 px-4" onClick={onLobby}>
           <Undo2 aria-hidden className="size-4" />
@@ -103,6 +106,7 @@ function Request({ request, inGame, onLobby }: { request: JoinRequest; inGame: b
         <X aria-hidden className="size-4" />
         {dict.host.refuse}
       </Button>
+      </div>
     </li>
   );
 }

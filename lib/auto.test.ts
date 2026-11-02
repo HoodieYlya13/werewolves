@@ -189,4 +189,12 @@ describe("games without a game master", () => {
     expect(auto.phoneTurn(g.r, "p1", en)).toMatchObject({ kind: "pick", step: "seer" });
     expect(g.r.auto.deadline - g.ctx().now).toBeGreaterThan(auto.TIMING.skip - 5_000);
   });
+
+  it("speaks to a lone wolf as to a pack", () => {
+    const g = room(["werewolf", "villager", "villager", "villager", "villager"], { revealRoleOnDeath: false });
+    g.turn("wolves");
+    g.advance(auto.TIMING.reminder);
+    auto.tick(g.r, g.ctx());
+    expect(g.r.auto.cue?.lines[0]).toBe("Werewolves, it's still your turn.");
+  });
 });

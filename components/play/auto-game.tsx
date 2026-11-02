@@ -430,64 +430,11 @@ export function TurnPanel({ view, turn, send }: { view: PlayerView; turn: PhoneT
       body = <WitchTurn turn={turn} onConfirm={(heal, poisonId) => act({ type: "witch", heal, poisonId })} />;
       break;
     case "cards":
-      body = (
-        <>
-          <p className="text-muted-foreground">{turn.step === "thief" ? t.thiefHint : t.actorHint}</p>
-          <div className={`grid gap-3 ${turn.cards.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
-            {turn.cards.map((role, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => act(turn.step === "thief" ? { type: "thief", pick: i } : { type: "choose", value: i })}
-                className="card flex aspect-[3/4] items-center justify-center p-3 text-center text-lg font-semibold hover:border-fg/40"
-              >
-                <RoleName role={role} />
-              </button>
-            ))}
-          </div>
-          {turn.canKeep && (
-            <Button
-              type="button"
-              variant="outline"
-              className="h-12"
-              onClick={() => act(turn.step === "thief" ? { type: "thief", pick: null } : { type: "choose", value: null })}
-            >
-              {turn.step === "thief" ? t.keep : t.noPower}
-            </Button>
-          )}
-        </>
-      );
+      body = <CardsTurn turn={turn} onConfirm={(pick) => act(turn.step === "thief" ? { type: "thief", pick } : { type: "choose", value: pick })} />;
       break;
-    case "choice": {
-      const steps = dict.game.steps;
-      const [question, options]: [string, { label: string; value: string | boolean }[]] =
-        turn.step === "wolf-hound"
-          ? [steps["wolf-hound"].say, [{ label: steps["wolf-hound"].village, value: "village" }, { label: steps["wolf-hound"].wolves, value: "wolves" }]]
-          : [
-              turn.step === "infect"
-                ? format(t.infect, { name: name(turn.victimId!) })
-                : turn.step === "servant"
-                  ? format(t.servantChoice, { name: name(turn.victimId!) })
-                  : t.judge,
-              [
-                { label: t.yes, value: true },
-                { label: t.no, value: false },
-              ],
-            ];
-      body = (
-        <>
-          <p className="text-xl font-semibold">{question}</p>
-          <div className="grid grid-cols-2 gap-2">
-            {options.map((o) => (
-              <Button key={String(o.value)} type="button" className="h-14 text-base" variant={o.value === false || o.value === "village" ? "outline" : "default"} onClick={() => act({ type: "choose", value: o.value })}>
-                {o.label}
-              </Button>
-            ))}
-          </div>
-        </>
-      );
+    case "choice":
+      body = <ChoiceTurn turn={turn} onConfirm={(value) => act({ type: "choose", value })} />;
       break;
-    }
     case "seer-result":
       body = (
         <div className="flex flex-col items-center gap-2 py-4 text-center">
@@ -540,32 +487,117 @@ export function TurnPanel({ view, turn, send }: { view: PlayerView; turn: PhoneT
   );
 }
 
-/** After the last call: the time left, and "one more minute" once. */
+/** The time left before the turn is skipped; after the last call, "one more minute" once. */
 function TurnClock({ view, send }: { view: PlayerView; send: Send }) {
   const { dict } = useI18n();
   const { clockOffset } = useRoomContext();
   const clock = view.auto?.clock;
   const [now, setNow] = useState(() => Date.now());
-  const lastCall = !!clock?.lastCall;
+  const ticking = !!clock;
   useEffect(() => {
-    if (!lastCall) return;
+    if (!ticking) return;
     const id = setInterval(() => setNow(Date.now()), 500);
     return () => clearInterval(id);
-  }, [lastCall]);
-  if (!clock?.lastCall) return null;
+  }, [ticking]);
+  if (!clock) return null;
   const left = Math.max(0, clock.endsAt - (now + clockOffset));
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-xl bg-primary/10 px-3 py-2">
-      <p className="min-w-0 flex-1 text-sm text-primary">
-        {dict.auto.lastCallHint} {format(dict.auto.timeLeft, { time: formatDuration(left) })}
+    <div className={`flex flex-col gap-2 rounded-xl px-3 py-2 ${clock.lastCall ? "bg-primary/10" : "bg-surface-2"}`}>
+      <p className={`flex items-start gap-2 text-sm ${clock.lastCall ? "text-primary" : "text-muted-foreground"}`}>
+        <Clock aria-hidden className="mt-0.5 size-4 shrink-0" />
+        <span>
+          {clock.lastCall && `${dict.auto.lastCallHint} `}
+          {format(dict.auto.skipIn, { time: formatDuration(left) })}
+        </span>
       </p>
       {clock.canExtend && (
-        <Button type="button" variant="outline" className="h-9" onClick={() => send({ type: "more-time" })}>
+        <Button type="button" variant="outline" className="h-10" onClick={() => send({ type: "more-time" })}>
           <Clock aria-hidden className="size-4" />
           {dict.auto.moreTime}
         </Button>
       )}
     </div>
+  );
+}
+
+/** A choice only counts once confirmed: one stray tap never plays a turn. */
+function PlayButton({ ready, onClick, label }: { ready: boolean; onClick: () => void; label?: string }) {
+  const { dict } = useI18n();
+  return (
+    <Button type="button" className="h-12 text-base" disabled={!ready} onClick={onClick}>
+      <Check aria-hidden className="size-5" />
+      {label ?? dict.game.confirm}
+    </Button>
+  );
+}
+
+/** A plain option that's picked, then confirmed. */
+function OptionButton({ on, onClick, children, className = "" }: { on: boolean; onClick: () => void; children: React.ReactNode; className?: string }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      onClick={onClick}
+      className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border-2 px-3 py-2 text-center font-semibold ${on ? "border-primary bg-primary/10" : "border-line bg-surface-2"} ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function CardsTurn({ turn, onConfirm }: { turn: Extract<PhoneTurn, { kind: "cards" }>; onConfirm: (pick: number | null) => void }) {
+  const { dict } = useI18n();
+  const t = dict.auto;
+  // undefined: nothing picked yet; null: keeping one's card (or no power).
+  const [pick, setPick] = useState<number | null | undefined>(undefined);
+  return (
+    <>
+      <p className="text-muted-foreground">{turn.step === "thief" ? t.thiefHint : t.actorHint}</p>
+      <div className={`grid gap-3 ${turn.cards.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+        {turn.cards.map((role, i) => (
+          <OptionButton key={i} on={pick === i} onClick={() => setPick(i)} className="aspect-[3/4] p-3 text-lg">
+            <RoleName role={role} />
+          </OptionButton>
+        ))}
+      </div>
+      {turn.canKeep && (
+        <OptionButton on={pick === null} onClick={() => setPick(null)}>
+          {turn.step === "thief" ? t.keep : t.noPower}
+        </OptionButton>
+      )}
+      <PlayButton ready={pick !== undefined} onClick={() => onConfirm(pick ?? null)} />
+    </>
+  );
+}
+
+function ChoiceTurn({ turn, onConfirm }: { turn: Extract<PhoneTurn, { kind: "choice" }>; onConfirm: (value: string | boolean) => void }) {
+  const { dict } = useI18n();
+  const name = useName();
+  const t = dict.auto;
+  const steps = dict.game.steps;
+  const [value, setValue] = useState<string | boolean | null>(null);
+  const [question, options]: [string, { label: string; value: string | boolean }[]] =
+    turn.step === "wolf-hound"
+      ? [steps["wolf-hound"].say, [{ label: steps["wolf-hound"].village, value: "village" }, { label: steps["wolf-hound"].wolves, value: "wolves" }]]
+      : [
+          turn.step === "infect" ? format(t.infect, { name: name(turn.victimId!) }) : turn.step === "servant" ? format(t.servantChoice, { name: name(turn.victimId!) }) : t.judge,
+          [
+            { label: t.yes, value: true },
+            { label: t.no, value: false },
+          ],
+        ];
+  return (
+    <>
+      <p className="text-xl font-semibold">{question}</p>
+      <div className="grid grid-cols-2 gap-2">
+        {options.map((o) => (
+          <OptionButton key={String(o.value)} on={value === o.value} onClick={() => setValue(o.value)} className="min-h-14 text-base">
+            {o.label}
+          </OptionButton>
+        ))}
+      </div>
+      <PlayButton ready={value !== null} onClick={() => onConfirm(value!)} />
+    </>
   );
 }
 
@@ -604,21 +636,32 @@ function PickTurn({ turn, onConfirm }: { turn: Extract<PhoneTurn, { kind: "pick"
   const { dict } = useI18n();
   const name = useName();
   const [selected, setSelected] = useState<string[]>([]);
+  const [nobody, setNobody] = useState(false);
   const skipLabel = (dict.game.steps as Record<string, { skip?: string }>)[turn.step]?.skip;
+  const valid = selected.length >= turn.min && selected.length <= turn.max;
   return (
     <>
       {turn.lastId && <p className="text-sm text-muted-foreground">{format(dict.auto.lastProtected, { name: name(turn.lastId) })}</p>}
-      <PickList targets={turn.targets} selected={selected} onToggle={(id) => setSelected((s) => toggle(s, id, turn.max))} />
-      <div className="flex flex-wrap gap-2 [&>*]:grow">
-        <Button type="button" className="h-12 text-base" disabled={selected.length < turn.min || selected.length > turn.max} onClick={() => onConfirm(selected)}>
-          {dict.game.confirm}
-        </Button>
-        {turn.skip && (
-          <Button type="button" variant="outline" className="h-12" onClick={() => onConfirm([])}>
-            {skipLabel ?? dict.auto.no}
-          </Button>
-        )}
-      </div>
+      <PickList
+        targets={turn.targets}
+        selected={selected}
+        onToggle={(id) => {
+          setNobody(false);
+          setSelected((s) => toggle(s, id, turn.max));
+        }}
+      />
+      {turn.skip && (
+        <OptionButton
+          on={nobody}
+          onClick={() => {
+            setNobody(!nobody);
+            setSelected([]);
+          }}
+        >
+          {skipLabel ?? dict.auto.no}
+        </OptionButton>
+      )}
+      <PlayButton ready={nobody || valid} onClick={() => onConfirm(nobody ? [] : selected)} />
     </>
   );
 }
@@ -627,6 +670,8 @@ function WolvesTurn({ turn, me, send }: { turn: Extract<PhoneTurn, { kind: "wolv
   const { dict } = useI18n();
   const name = useName();
   const mine = turn.picks[me] ?? null;
+  // The pick only reaches the pack once confirmed.
+  const [draft, setDraft] = useState<string | null>(mine);
   return (
     <>
       <p className="text-sm text-muted-foreground">{dict.auto.wolvesHint}</p>
@@ -637,9 +682,9 @@ function WolvesTurn({ turn, me, send }: { turn: Extract<PhoneTurn, { kind: "wolv
             <li key={id}>
               <button
                 type="button"
-                aria-pressed={mine === id}
-                onClick={() => send({ type: "wolf-pick", targetId: mine === id ? null : id })}
-                className={`flex min-h-14 w-full flex-col items-start gap-1 rounded-xl border-2 px-2 py-2 text-left font-semibold ${mine === id ? "border-primary bg-primary/10" : "border-line bg-surface-2"}`}
+                aria-pressed={draft === id}
+                onClick={() => setDraft(draft === id ? null : id)}
+                className={`flex min-h-14 w-full flex-col items-start gap-1 rounded-xl border-2 px-2 py-2 text-left font-semibold ${draft === id ? "border-primary bg-primary/10" : mine === id ? "border-dashed border-primary/60" : "border-line bg-surface-2"}`}
               >
                 <span className="flex w-full items-center gap-2">
                   <Avatar playerId={id} name={name(id)} className="size-8" />
@@ -657,6 +702,7 @@ function WolvesTurn({ turn, me, send }: { turn: Extract<PhoneTurn, { kind: "wolv
           );
         })}
       </ul>
+      <PlayButton ready={draft !== mine} onClick={() => send({ type: "wolf-pick", targetId: draft })} label={draft === null && mine ? dict.auto.withdrawPick : undefined} />
       {turn.wolves.length > 1 && (
         <div className="text-sm">
           <p className="mb-1 font-medium">{dict.auto.wolvesPicks}</p>
@@ -679,13 +725,22 @@ function WitchTurn({ turn, onConfirm }: { turn: Extract<PhoneTurn, { kind: "witc
   const t = dict.game.steps.witch;
   const [heal, setHeal] = useState(false);
   const [poison, setPoison] = useState<string[]>([]);
+  const [nothing, setNothing] = useState(false);
   const victim = turn.victimId ? name(turn.victimId) : null;
   return (
     <>
       <p className="text-2xl font-semibold">{victim ? format(t.victim, { name: victim }) : t.noVictim}</p>
       {turn.canHeal && victim && (
         <label className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 px-4 py-3 ${heal ? "border-ok" : "border-line"}`}>
-          <input type="checkbox" className="size-5 accent-[var(--ok)]" checked={heal} onChange={(e) => setHeal(e.target.checked)} />
+          <input
+            type="checkbox"
+            className="size-5 accent-[var(--ok)]"
+            checked={heal}
+            onChange={(e) => {
+              setHeal(e.target.checked);
+              setNothing(false);
+            }}
+          />
           <FlaskConical aria-hidden className="size-5 text-ok" />
           {format(t.heal, { name: victim })}
         </label>
@@ -697,14 +752,29 @@ function WitchTurn({ turn, onConfirm }: { turn: Extract<PhoneTurn, { kind: "witc
             <Skull aria-hidden className="size-5 text-primary" />
             {t.poison}
           </p>
-          <PickList targets={turn.targets} selected={poison} onToggle={(id) => setPoison((s) => toggle(s, id, 1))} />
+          <PickList
+            targets={turn.targets}
+            selected={poison}
+            onToggle={(id) => {
+              setPoison((s) => toggle(s, id, 1));
+              setNothing(false);
+            }}
+          />
         </>
       ) : (
         <p className="text-sm text-muted-foreground line-through">{t.poisonUsed}</p>
       )}
-      <Button type="button" className="h-12 text-base" onClick={() => onConfirm(heal, poison[0] ?? null)}>
-        {heal || poison.length ? dict.game.confirm : t.nothing}
-      </Button>
+      <OptionButton
+        on={nothing}
+        onClick={() => {
+          setNothing(!nothing);
+          setHeal(false);
+          setPoison([]);
+        }}
+      >
+        {t.nothing}
+      </OptionButton>
+      <PlayButton ready={nothing || heal || poison.length > 0} onClick={() => onConfirm(heal, poison[0] ?? null)} />
     </>
   );
 }

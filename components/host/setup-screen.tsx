@@ -226,20 +226,11 @@ export function SetupScreen({
         <DialogContent closeLabel={dict.host.close}>
           <DialogHeader>
             <DialogTitle>{dict.setup.removed.remoteTitle}</DialogTitle>
-            <DialogDescription>
-              {format(dict.setup.removed.remoteBody, { roles: REMOTE_UNPLAYABLE.map((r) => dict.roles[r].name).join(", ") })}
-            </DialogDescription>
+            <DialogDescription>{dict.setup.removed.remoteBody}</DialogDescription>
           </DialogHeader>
-          <DialogFooter className="flex-col gap-2 sm:flex-row">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                removeRoles(REMOTE_UNPLAYABLE);
-                setRemoteAsk(false);
-              }}
-            >
-              {dict.setup.removed.remoteOnly}
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <Button type="button" variant="outline" onClick={() => setRemoteAsk(false)}>
+              {dict.host.cancel}
             </Button>
             <Button
               type="button"
@@ -477,15 +468,15 @@ export function SetupScreen({
                   className={`card flex gap-3 p-4 transition-colors ${count > 0 ? "border-fg/30" : "opacity-80"}`}
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-start gap-1">
-                      <RoleName role={role} className="min-w-0 flex-1 font-semibold" />
+                    <div className="flex items-center gap-1">
+                      <RoleName role={role} className="min-w-0 font-semibold" />
                       {/* Out of the group's games: folded away at the bottom of the list. */}
                       {removable(role) && (
                         <button
                           type="button"
                           aria-label={format(dict.setup.removed.remove, { role: dict.roles[role].name })}
                           title={format(dict.setup.removed.remove, { role: dict.roles[role].name })}
-                          className="-mt-1 -mr-1 grid size-7 shrink-0 place-items-center rounded-lg text-muted-foreground/70 hover:bg-surface-2 hover:text-primary"
+                          className="-my-1 grid size-7 shrink-0 place-items-center rounded-lg text-muted-foreground/70 hover:bg-surface-2 hover:text-primary"
                           onClick={() => removeRoles([...removed, role])}
                         >
                           <Trash2 aria-hidden className="size-3.5" />

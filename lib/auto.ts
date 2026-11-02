@@ -188,7 +188,7 @@ function turnRole(step: Step): RoleId | "wolves" | "mayor" {
     case "judge":
       return "stuttering-judge";
     case "bluff":
-      return step.role;
+      return step.turn === "wolves" ? "wolves" : step.role;
     default:
       return step.kind as RoleId;
   }
@@ -287,9 +287,10 @@ export function beatsOf(room: AutoRoom, dict: Dictionary): Beat[] {
       break;
     case "phase-end": {
       const story = dict.game.story;
-      const wolfDown = game.players.some(
-        (p) => p.death && p.death.phase.kind === game.phase.kind && p.death.phase.number === game.phase.number && isWolf(p),
-      );
+      // Only when the cards are shown: otherwise the line would tell the village a wolf fell.
+      const wolfDown =
+        game.setup.settings.revealRoleOnDeath &&
+        game.players.some((p) => p.death && p.death.phase.kind === game.phase.kind && p.death.phase.number === game.phase.number && isWolf(p));
       const lines = step.next.kind === "day" ? story.nightEnds : wolfDown ? story.dayEndsWolfDown : story.dayEnds;
       beats.push({ say: [pick(lines, `${game.phase.kind}${game.phase.number}`)], wait: { kind: "hold", ms: 2_000 } });
       break;
@@ -320,7 +321,16 @@ export function beatsOf(room: AutoRoom, dict: Dictionary): Beat[] {
       // Exactly like the real turn, with nobody playing it.
       if (step.turn === "lovers" || step.turn === "charmed") beats.push(...groupBeats(dict, step.turn, true));
       else if (step.turn === "two-sisters" || step.turn === "three-brothers") beats.push(...groupBeats(dict, step.turn, false));
-      else beats.push({ say: [wakeLine(dict, game, step.turn)], wait: { kind: "hold", ms: 12_000 + (hash(seed) % 13_000) } });
+      else {
+        // Some bluffs drag on like a slow player's turn, reminders included.
+        const h = hash(seed);
+        const reminders = h % 10 < 2 ? 2 : h % 10 < 5 ? 1 : 0;
+        const tail = 3_000 + (h % 22_000);
+        beats.push({ say: [wakeLine(dict, game, step.turn)], wait: { kind: "hold", ms: reminders ? TIMING.reminder : 9_000 + tail } });
+        const role = roleName(dict, turnRole(step));
+        if (reminders) beats.push({ say: [format(reminderLine(dict, step, "reminder"), { role })], wait: { kind: "hold", ms: reminders > 1 ? TIMING.lastCall - TIMING.reminder : tail } });
+        if (reminders > 1) beats.push({ say: [format(reminderLine(dict, step, "lastCall"), { role })], wait: { kind: "hold", ms: tail } });
+      }
       break;
     }
     case "bear":
@@ -558,16 +568,22 @@ export function agreedVictim(step: Extract<Step, { kind: "wolves" }>, picks: Rec
   return chosen.length > 0 && chosen.every((id) => id && id === chosen[0]) ? chosen[0] : null;
 }
 
+/** The pack is always spoken to as many, however many are left. */
+function reminderLine(dict: Dictionary, step: Step, kind: "reminder" | "lastCall") {
+  const pack = turnRole(step) === "wolves";
+  return kind === "reminder" ? (pack ? dict.auto.reminderPack : dict.auto.reminder) : pack ? dict.auto.lastCallPack : dict.auto.lastCall;
+}
+
 function remind(room: AutoRoom, ctx: AutoContext) {
   const { auto, game } = room;
   const elapsed = ctx.now - auto.since;
   const role = roleName(ctx.dict, turnRole(game.step));
   if (auto.reminded === 0 && elapsed >= TIMING.reminder) {
     auto.reminded = 1;
-    say(auto, [format(ctx.dict.auto.reminder, { role })]);
+    say(auto, [format(reminderLine(ctx.dict, game.step, "reminder"), { role })]);
   } else if (auto.reminded === 1 && elapsed >= TIMING.lastCall) {
     auto.reminded = 2;
-    say(auto, [format(ctx.dict.auto.lastCall, { role })]);
+    say(auto, [format(reminderLine(ctx.dict, game.step, "lastCall"), { role })]);
   }
 }
 
