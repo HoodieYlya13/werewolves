@@ -12,6 +12,7 @@ import { SiteTitle } from "@/components/site-title";
 import { Toaster } from "@/components/ui/sonner";
 import { PasskeyReminder } from "@/components/passkey-reminder";
 import { ClaimGuestGames } from "@/components/guest-games";
+import { PushReminder } from "@/components/friends/push-reminder";
 import { locales } from "@/lib/i18n/config";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { SITE_URL } from "@/lib/seo";
@@ -95,6 +96,7 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
           {/* It reads the URL, which only exists at runtime: kept out of the prerendered shell. */}
           <Suspense fallback={null}>
             <PasskeyReminder />
+            <PushReminder />
           </Suspense>
           <ClaimGuestGames />
         </I18nProvider>

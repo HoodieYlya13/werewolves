@@ -411,6 +411,8 @@ const fr: Dictionary = {
     notificationsInstall: "Sur iPhone et iPad, installez d'abord l'application (Partager, puis Sur l'écran d'accueil), puis activez les notifications depuis celle-ci.",
     notificationsUnsupported: "Ce navigateur ne peut pas recevoir de notifications.",
     notificationsFailed: "Impossible d'activer les notifications. Réessayez.",
+    pushPromptTitle: "Sachez quand vos amis vous invitent",
+    pushPromptNever: "Ne plus me demander",
     addLinkTitle: "Demande d'ami",
     addLinkSignIn: "Connectez-vous pour devenir amis.",
     sending: "Envoi de la demande…",

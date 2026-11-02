@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ChartColumn, LogIn, LogOut, UserCog, Users } from "lucide-react";
 import { forgetPasskeyReminder } from "@/components/passkey-reminder";
+import { forgetPushPrompt } from "@/components/friends/push-reminder";
 import { useI18n } from "@/components/i18n-provider";
 import { Face } from "@/components/room-context";
 import { Skeleton } from "@/components/skeletons";
@@ -40,7 +41,10 @@ import {
 
 /** Full-page redirect to sign in or out through the auth server, then back to `returnTo` (this page by default). */
 export function goToAuth(to: "in" | "out", returnTo = window.location.pathname + window.location.search) {
-  if (to === "out") forgetPasskeyReminder();
+  if (to === "out") {
+    forgetPasskeyReminder();
+    forgetPushPrompt();
+  }
   window.location.assign((to === "in" ? signInUrl : signOutUrl)(returnTo));
 }
 

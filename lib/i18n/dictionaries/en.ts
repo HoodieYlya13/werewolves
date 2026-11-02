@@ -410,6 +410,8 @@ const en = {
     notificationsInstall: "On iPhone and iPad, install the app first (Share, then Add to Home Screen), then turn notifications on from it.",
     notificationsUnsupported: "This browser can't receive notifications.",
     notificationsFailed: "Couldn't turn notifications on. Try again.",
+    pushPromptTitle: "Know when friends invite you",
+    pushPromptNever: "Don't ask me again",
     addLinkTitle: "Friend request",
     addLinkSignIn: "Sign in to become friends.",
     sending: "Sending the request…",

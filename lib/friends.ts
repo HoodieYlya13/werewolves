@@ -94,13 +94,24 @@ export async function removeFriend(url: string, me: string, other: string) {
     WHERE (requester = ${me} AND addressee = ${other}) OR (requester = ${other} AND addressee = ${me})`;
 }
 
-/** Accounts whose username starts with `query` (not `me`), for adding friends. */
+/**
+ * Accounts (not `me`) whose username or name contains `query`, for adding
+ * friends: the exact username first, then usernames and names that start with
+ * it, then the rest. Only accounts that opened the app since friends exist are
+ * known (see saveAccount).
+ */
 export async function searchAccounts(url: string, me: string, query: string): Promise<Person[]> {
-  const prefix = `${query.toLowerCase().replace(/[\\%_]/g, "\\$&")}%`;
+  const q = query.toLowerCase();
+  const escaped = q.replace(/[\\%_]/g, "\\$&");
+  const anywhere = `%${escaped}%`;
+  const start = `${escaped}%`;
   const rows = await neon(url)`
     SELECT sub, name, username, picture, friend_code AS code FROM accounts
-    WHERE lower(username) LIKE ${prefix} AND sub <> ${me}
-    ORDER BY lower(username) LIMIT 10`;
+    WHERE sub <> ${me} AND (lower(username) LIKE ${anywhere} OR lower(name) LIKE ${anywhere})
+    ORDER BY lower(username) = ${q} DESC,
+             (lower(username) LIKE ${start} OR lower(name) LIKE ${start} OR lower(name) LIKE ${`% ${escaped}%`}) DESC,
+             lower(coalesce(username, name))
+    LIMIT 10`;
   return rows as Person[];
 }
 
