@@ -16,6 +16,10 @@ type RoomContextValue = {
   ballot?: Ballot | null;
   requests?: JoinRequest[];
   handover?: HostView["handover"];
+  /** Game master only: choices players made on their phones for the current step. */
+  phonePlays?: HostView["phonePlays"];
+  /** Players running for Mayor. */
+  candidates?: string[];
   send?: (message: ClientMessage) => void;
 };
 

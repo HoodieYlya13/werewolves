@@ -555,3 +555,30 @@ describe("going back to sleep", () => {
     expect(state.backToSleep).toBe("seer");
   });
 });
+
+describe("sudden death", () => {
+  const roles5: RoleId[] = ["werewolf", "hunter", "villager", "villager", "villager"];
+  it("announces it, lets the Hunter shoot, then the step goes on", () => {
+    const s = setup(roles5);
+    let state = play(s, [{ type: "wolves", targetId: "p2" }, go]);
+    expect(state.step.kind).toBe("vote");
+    state = engine.applyAction(state, { type: "sudden-death", playerId: "p1" });
+    expect(state.step).toEqual({ kind: "deaths", context: "sudden", deaths: [{ playerId: "p1", cause: "sudden" }] });
+    state = engine.applyAction(state, go);
+    expect(state.step).toEqual({ kind: "hunter", playerId: "p1" });
+    state = engine.applyAction(state, { type: "hunter", targetId: "p3" });
+    state = engine.applyAction(state, go);
+    expect(state.step).toMatchObject({ kind: "vote" });
+  });
+  it("drops a turn the dead player had to play, and ends a won game", () => {
+    const s = setup(["werewolf", "seer", "villager", "villager", "villager"]);
+    let state = createGame(s);
+    expect(state.step.kind).toBe("seer");
+    state = engine.applyAction(state, { type: "sudden-death", playerId: "p1" });
+    state = engine.applyAction(state, go);
+    expect(state.step.kind).toBe("wolves");
+    state = engine.applyAction(state, { type: "sudden-death", playerId: "p0" });
+    state = engine.applyAction(state, go);
+    expect(state.step.kind).toBe("game-over");
+  });
+});

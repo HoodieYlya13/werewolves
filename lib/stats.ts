@@ -17,7 +17,12 @@ export type GameResult = {
   playerCount: number;
   /** How long the game lasted, in days (see daysBy in the engine). */
   days: number;
+  /** The game master who ran it to the end (null without one, or when they handed it over). */
   masterSub: string | null;
+  /** Whoever started it, game master or (without one) the player whose device led it. */
+  organiserSub: string | null;
+  /** Played without a game master. */
+  auto: boolean;
   /** Signed-in players. */
   players: ({ sub: string; role: string; team: string; won: boolean; survived: boolean; left: boolean } & PlayerDetails)[];
   /** Who eliminated whom, between signed-in players (see killersOf in the engine). */
@@ -77,16 +82,17 @@ export async function saveResult(url: string, game: GameResult) {
     sql`DELETE FROM guest_seats WHERE claimed_sub IS NULL AND expires_at < now()`,
     sql`
       DELETE FROM games g
-      WHERE g.master_sub IS NULL AND g.ended_at < now() - make_interval(days => ${GUEST_SEAT_DAYS})
+      WHERE g.master_sub IS NULL AND g.organiser_sub IS NULL AND g.ended_at < now() - make_interval(days => ${GUEST_SEAT_DAYS})
         AND NOT EXISTS (SELECT 1 FROM game_players p WHERE p.game_id = g.id)
         AND NOT EXISTS (SELECT 1 FROM guest_seats s WHERE s.game_id = g.id)`,
     sql`
-      INSERT INTO games (id, room, theme, started_at, ended_at, winner_team, player_count, master_sub, days)
+      INSERT INTO games (id, room, theme, started_at, ended_at, winner_team, player_count, master_sub, days, organiser_sub, auto)
       VALUES (${game.id}, ${game.room}, ${game.theme}, to_timestamp(${game.startedAt / 1000}), now(),
-              ${game.winnerTeam}, ${game.playerCount}, ${game.masterSub}, ${game.days})
+              ${game.winnerTeam}, ${game.playerCount}, ${game.masterSub}, ${game.days}, ${game.organiserSub ?? null}, ${game.auto ?? false})
       ON CONFLICT (id) DO UPDATE SET
         ended_at = now(), winner_team = EXCLUDED.winner_team,
-        player_count = EXCLUDED.player_count, master_sub = EXCLUDED.master_sub, days = EXCLUDED.days`,
+        player_count = EXCLUDED.player_count, master_sub = EXCLUDED.master_sub, days = EXCLUDED.days,
+        organiser_sub = EXCLUDED.organiser_sub, auto = EXCLUDED.auto`,
     sql`DELETE FROM game_players WHERE game_id = ${game.id}`,
     sql`
       INSERT INTO game_players (game_id, sub, role, team, won, survived, left_game, days_alive, death_cause, was_mayor, lover)
@@ -165,8 +171,10 @@ export type AccountStats = {
   played: number;
   won: number;
   survived: number;
-  /** Games run as the game master. */
+  /** Games run as the game master, to the end. */
   mastered: number;
+  /** Games started, with or without a game master (`auto`: without). */
+  organised: { total: number; auto: number };
   /**
    * How long the account lives in a game, from games that recorded it (null
    * before any): mean, shortest and longest days alive; `share`, the mean of
@@ -221,7 +229,7 @@ export function streaks(results: boolean[]): AccountStats["streaks"] {
 /** Everything the stats page shows for one account, in one round trip. */
 export async function accountStats(url: string, sub: string): Promise<AccountStats> {
   const sql = neon(url);
-  const [totals, mastered, days, teams, roles, recent, sizes, results, deaths, titles, master, masterSides, partners, nemeses] = await sql.transaction(
+  const [totals, mastered, days, teams, roles, recent, sizes, results, deaths, titles, master, masterSides, partners, nemeses, organised] = await sql.transaction(
     [
       sql`SELECT count(*)::int AS played, count(*) FILTER (WHERE won)::int AS won, count(*) FILTER (WHERE survived)::int AS survived
           FROM game_players WHERE sub = ${sub}`,
@@ -266,6 +274,7 @@ export async function accountStats(url: string, sub: string): Promise<AccountSta
           FROM game_kills k JOIN accounts a ON a.sub = k.killer_sub
           WHERE k.victim_sub = ${sub}
           GROUP BY a.sub ORDER BY count DESC, lower(a.name) LIMIT 3`,
+      sql`SELECT count(*)::int AS total, count(*) FILTER (WHERE auto)::int AS auto FROM games WHERE organiser_sub = ${sub}`,
     ],
     { readOnly: true },
   );
@@ -274,6 +283,7 @@ export async function accountStats(url: string, sub: string): Promise<AccountSta
     won: totals[0].won,
     survived: totals[0].survived,
     mastered: mastered[0].mastered,
+    organised: { total: organised[0].total, auto: organised[0].auto },
     days: days[0].counted > 0 ? (days[0] as NonNullable<AccountStats["days"]>) : null,
     byPlayers: sizes as AccountStats["byPlayers"],
     streaks: streaks(results[0].results as boolean[]),

@@ -13,6 +13,7 @@ export {
   suggestedDeck,
   validateSetup,
   MIN_PLAYERS,
+  REMOTE_UNPLAYABLE,
   type DeckProblem,
   type DeckStyle,
   type SetupOptions,

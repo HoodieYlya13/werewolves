@@ -11,6 +11,7 @@ import {
   teamOf,
   daysBy,
   killersOf,
+  suggestedDeck,
   upgradeLog,
   type Action,
   type GameSetup,
@@ -23,6 +24,12 @@ import type { Ballot, Timer } from "../lib/ballot";
 import { deleteResult, hashClaimCode, saveResult, type GameResult } from "../lib/stats";
 import { friendsAmong, recordInvites, requestFriend, saveAccount } from "../lib/friends";
 import { sendPushes } from "./push";
+import * as auto from "../lib/auto";
+import { sceneFor } from "../lib/soundtrack";
+import { themeDictionary } from "../lib/themes";
+import en from "../lib/i18n/dictionaries/en";
+import fr from "../lib/i18n/dictionaries/fr";
+import { isLocale, type Locale } from "../lib/i18n/config";
 import {
   MAX_NAME_LENGTH,
   MAX_PLAYERS,
@@ -38,6 +45,7 @@ import {
   type ServerMessage,
   type StartGame,
   type FriendFace,
+  type RoomMode,
 } from "../lib/protocol";
 
 /** Rooms with nobody connected are wiped after this, freeing the code. */
@@ -83,6 +91,12 @@ type StoredGame = {
   claims?: Record<string, string>;
   /** The engine the log was written for (missing: 1). See upgradeLog. */
   engine?: number;
+  /** Played without a game master. */
+  auto?: auto.AutoConfig;
+  /** Who started it (their account): the game master, or the leader without one. */
+  organiser?: string | null;
+  /** The game master handed the game over: nobody ran it from start to end. */
+  masterChanged?: boolean;
 };
 
 /** A game saved by an older engine, rewritten for this one; null if it no longer fits. */
@@ -105,7 +119,7 @@ type RoomState = {
   /** The game master's account, when they're signed in. */
   hostSub?: string;
   /** The game master's account name and photo, for their invites and friend requests. */
-  hostFace?: { name: string; picture: string | null };
+  hostFace?: { name: string; picture: string | null; username?: string | null };
   locked: boolean;
   players: StoredPlayer[];
   game: StoredGame | null;
@@ -124,7 +138,34 @@ type RoomState = {
    * undone: the seat as it was, the request, and the phones that lost it.
    */
   handover?: { before: StoredPlayer; request: StoredRequest; kicked: string[] } | null;
+  /** Without a game master (missing: with one). */
+  mode?: RoomMode;
+  /** Without a game master: the creator's own seat. */
+  hostSeatId?: string | null;
+  /** The creator's language: the narrator reads the game in it. */
+  locale?: Locale;
+  /** The game run by the room, without a game master. */
+  auto?: auto.AutoState | null;
+  /** Players running for Mayor. */
+  candidates?: string[];
+  /** When the room is wiped if nobody is here (see onAlarm). */
+  expiresAt?: number;
+  /** Devices watching the game: game masters who handed it over. */
+  spectators?: { id: string; token: string }[];
+  /** Without a game master: paused by the leader, or because their device is gone. */
+  paused?: "manual" | "leader" | null;
+  /** When the leader's device went away (without a game master). */
+  leaderLostAt?: number | null;
+  /** The next phone said the leader will be back: stop asking. */
+  leaderAwaited?: boolean;
+  /** With a game master: the dead player who took the game over, whose seat goes once it ends. */
+  masterSeatId?: string | null;
+  /** With a game master: what phones chose for the step at `at` (players may play on their phones). */
+  phonePlays?: { at: number; actions: Record<string, Action>; wolfPicks: Record<string, string> } | null;
 };
+
+/** How long the leader's device may be away before the game pauses for it. */
+const LEADER_GRACE_MS = 20_000;
 
 const PHOTO_PREFIX = "photo:";
 const MAX_TIMER_SECONDS = 60 * 60;
@@ -143,8 +184,8 @@ type ConnState =
   | { kind: "returning"; playerId: string }
   /** An account's seat, on a phone that hasn't proved the account yet (see `unlock`). */
   | { kind: "locked"; playerId: string }
-  /** Not a player yet. Keeps the device's id, used as the player id if they join. */
-  | { kind: "guest"; deviceId?: string; token?: string };
+  /** Not a player yet. Keeps the device's id, used as the player id if they join. `spectator`: watches the game. */
+  | { kind: "guest"; deviceId?: string; token?: string; spectator?: boolean };
 
 const isDeviceId = (value: string | null): value is string => !!value && /^[\w-]{16,64}$/.test(value);
 
@@ -213,6 +254,14 @@ export class RoomServer extends Server<Env> {
         return this.reject(conn, params.get("create") === "1" ? "room-taken" : "not-host");
       }
       conn.setState({ kind: "host" });
+      // Without a game master the creator's seat is online again, and their device may read the game out loud.
+      const seat = this.hostSeat();
+      if (seat) {
+        seat.connected = true;
+        this.runAuto();
+        await this.persist();
+        return this.broadcastViews();
+      }
       return this.send(conn, { type: "view", view: this.viewFor(conn) });
     }
 
@@ -238,6 +287,12 @@ export class RoomServer extends Server<Env> {
       await this.persist();
       return this.broadcastViews();
     }
+    // A game master who handed the game over watches it.
+    const spectator = this.state.spectators?.find((x) => x.id === id && x.token === token);
+    if (spectator) {
+      conn.setState({ kind: "guest", deviceId: spectator.id, token: spectator.token, spectator: true });
+      return this.send(conn, { type: "view", view: this.viewFor(conn) });
+    }
     const former = this.state.formerPlayers?.find((p) => p.id === id);
     if (former && token && former.token === token) {
       conn.setState({ kind: "returning", playerId: former.id });
@@ -254,6 +309,14 @@ export class RoomServer extends Server<Env> {
 
   async onClose(conn: Conn) {
     this.rates.delete(conn.id);
+    const seat = conn.state?.kind === "host" ? this.hostSeat() : null;
+    if (seat && ![...this.getConnections<ConnState>()].some((c) => c.id !== conn.id && c.state?.kind === "host")) {
+      seat.connected = false;
+      if (this.state?.auto && this.game) this.state.leaderLostAt = Date.now();
+      await this.persist();
+      // Another device takes over reading the game out loud.
+      return this.broadcastViews();
+    }
     // Players stay in the game when their phone disconnects; they're just shown offline.
     if (!this.state || conn.state?.kind !== "player") return;
     const { playerId } = conn.state;
@@ -280,9 +343,14 @@ export class RoomServer extends Server<Env> {
 
     const isHost = sender.state?.kind === "host";
     const logLength = this.state.game?.log.length;
-    const lobbyOnly = ["add-player", "remove-player", "move-player", "start-game", "resume-game"];
+    const lobbyOnly = ["add-player", "remove-player", "move-player", "start-game", "resume-game", "set-mode"];
     if (lobbyOnly.includes(msg.type) && this.state.game) {
       return this.send(sender, { type: "error", code: "game-in-progress" });
+    }
+    // Without a game master, nobody runs the game by hand.
+    const masterOnly = ["game-action", "undo", "open-ballot", "close-ballot", "set-vote", "set-timer", "pause-timer", "resume-timer"];
+    if (masterOnly.includes(msg.type) && this.state.game && this.state.auto) {
+      return this.send(sender, { type: "error", code: "invalid-action" });
     }
 
     switch (msg.type) {
@@ -538,6 +606,7 @@ export class RoomServer extends Server<Env> {
         if (msg.ticket === null) {
           delete this.state.hostSub;
           delete this.state.hostFace;
+          this.syncHostSeat();
           await this.tellAccount(previous, false);
           await this.completePendingLinks();
           break;
@@ -545,19 +614,131 @@ export class RoomServer extends Server<Env> {
         const account = await this.verifyAccount(sender, msg.ticket);
         if (!account || !this.state) return;
         // Playing in this room already: one role per account.
-        if (this.state.players.some((p) => p.sub === account.sub && !p.left)) {
+        if (this.state.players.some((p) => p.sub === account.sub && !p.left && p.id !== this.state!.hostSeatId && p.id !== this.state!.masterSeatId)) {
           return this.send(sender, { type: "error", code: "account-in-use" });
         }
         this.state.hostSub = account.sub;
-        this.state.hostFace = { name: account.name, picture: account.picture };
+        this.state.hostFace = { name: account.name, picture: account.picture, username: account.username };
+        this.syncHostSeat();
         if (previous !== account.sub) await this.tellAccount(previous, false);
         // The account server knows the master's room too, to ask a new device about it.
         await this.tellAccount(account.sub, true);
         await this.completePendingLinks();
         break;
       }
+      case "set-mode": {
+        if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
+        if (isLocale(msg.locale)) this.state.locale = msg.locale;
+        if (msg.mode === "auto") {
+          if (!this.hostSeat()) {
+            if (!this.addHostSeat(sender, msg.name)) return;
+            const seat = this.hostSeat()!;
+            if (!seat.sub && msg.photo) await this.storePhoto(seat, msg.photo);
+          }
+          // Everyone plays on their own phone: no seats without one.
+          for (const p of this.state.players.filter((p) => p.manual)) await this.dropSeat(p.id);
+          this.state.mode = "auto";
+        } else {
+          await this.removeHostSeat();
+          delete this.state.mode;
+        }
+        // The ended game was played the other way.
+        this.state.endedGame = null;
+        break;
+      }
+      case "stand": {
+        const id = this.seatOf(sender);
+        const game = this.game;
+        if (!id || !game || game.winner || !game.setup.settings.mayor || game.mayorElected) return;
+        if (!game.players.find((p) => p.id === id)?.alive) return;
+        const others = (this.state.candidates ?? []).filter((c) => c !== id);
+        this.state.candidates = msg.value ? [...others, id] : others;
+        break;
+      }
+      case "give-lead": {
+        if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
+        if (!(await this.transferLead(msg.playerId))) return this.send(sender, { type: "error", code: "invalid-action" });
+        break;
+      }
+      case "pause": {
+        const room = this.autoRoom();
+        if (!isHost || !room || this.game!.winner) return;
+        const now = Date.now();
+        if (msg.value) {
+          // By day only: a night stopped halfway would leave everyone with their eyes closed.
+          if (this.state.paused || (this.game!.phase.kind === "night" && this.game!.step.kind !== "prologue")) return;
+          auto.pause(room, now);
+          this.state.paused = "manual";
+        } else {
+          if (this.state.paused !== "manual") return;
+          auto.resume(room, now);
+          this.state.paused = null;
+        }
+        this.keepAuto(room);
+        break;
+      }
+      case "sudden-death": {
+        if (!isHost || !this.autoRoom() || !this.game?.players.find((p) => p.id === msg.playerId)?.alive) return;
+        this.suddenDeath(msg.playerId);
+        break;
+      }
+      case "succession": {
+        const id = this.seatOf(sender);
+        if (this.state.paused !== "leader" || !id || id !== this.successorId()) return;
+        if (!msg.dead) {
+          this.state.leaderAwaited = true;
+          break;
+        }
+        // The leader is out for good: announced like any sudden death, and this phone leads.
+        const leader = this.hostSeat();
+        if (leader && this.game?.players.find((p) => p.id === leader.id)?.alive) this.suddenDeath(leader.id);
+        await this.transferLead(id, true);
+        break;
+      }
+      case "play":
+      case "wolf-pick":
+        // With a game master, phones may play too: the game master validates.
+        if (!this.state.auto && this.game && this.state.game) {
+          const id = this.seatOf(sender);
+          const game = this.game;
+          if (!id || !auto.actorsOf(game.step).includes(id)) return;
+          const at = this.state.game.log.length;
+          const plays = this.state.phonePlays?.at === at ? this.state.phonePlays : (this.state.phonePlays = { at, actions: {}, wolfPicks: {} });
+          if (msg.type === "wolf-pick") {
+            if (!auto.setWolfPick(game, plays.wolfPicks, id, msg.targetId)) return;
+            break;
+          }
+          if (game.step.kind === "wolves" || msg.action.type === "continue") return;
+          try {
+            applyAction(game, msg.action);
+          } catch {
+            return this.send(sender, { type: "error", code: "invalid-action" });
+          }
+          plays.actions[id] = msg.action;
+          break;
+        }
+      // falls through: without a game master, the room plays it.
+      case "more-time":
+      case "ready":
+      case "cue-done": {
+        const room = this.autoRoom();
+        const id = this.seatOf(sender);
+        if (!room) return;
+        const ctx = this.autoContext();
+        let done = false;
+        if (msg.type === "cue-done") done = sender.id === this.speakerId() && auto.cueDone(room, msg.id, ctx);
+        else if (!id) return;
+        else if (msg.type === "play") done = auto.answer(room, id, msg.action, ctx);
+        else if (msg.type === "wolf-pick") done = auto.wolfPick(room, id, msg.targetId, ctx);
+        else if (msg.type === "more-time") done = auto.moreTime(room, id, ctx);
+        else done = auto.setReady(room, id, msg.value === true, ctx);
+        if (!done) return msg.type === "play" ? this.send(sender, { type: "error", code: "invalid-action" }) : undefined;
+        break;
+      }
       case "add-player": {
         if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
+        // Without a game master everyone needs a phone.
+        if (this.state.mode === "auto") return;
         // The ended game no longer matches the table.
         this.state.endedGame = null;
         const name = this.validateName(sender, msg.name);
@@ -567,18 +748,10 @@ export class RoomServer extends Server<Env> {
       }
       case "remove-player": {
         if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
+        // The creator's own seat goes with the game master's mode.
+        if (msg.playerId === this.state.hostSeatId) return;
         this.state.endedGame = null;
-        await this.tellAccount(this.state.players.find((p) => p.id === msg.playerId)?.sub, false);
-        this.state.players = this.state.players.filter((p) => p.id !== msg.playerId);
-        this.state.requests = this.state.requests?.filter((r) => r.id !== msg.playerId);
-        await this.ctx.storage.delete(PHOTO_PREFIX + msg.playerId);
-        this.reseat();
-        for (const c of this.getConnections<ConnState>()) {
-          if ((c.state?.kind === "player" || c.state?.kind === "returning") && c.state.playerId === msg.playerId) {
-            this.send(c, { type: "error", code: "removed" });
-            c.setState({ kind: "guest" });
-          }
-        }
+        await this.dropSeat(msg.playerId, true);
         break;
       }
       case "move-player": {
@@ -602,12 +775,22 @@ export class RoomServer extends Server<Env> {
       case "start-game": {
         if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
         try {
-          const setup = this.buildSetup(msg);
+          const config = this.state.mode === "auto" ? auto.cleanAutoConfig(msg.auto) : undefined;
+          const setup = this.buildSetup(msg, config);
           this.game = replay(setup, []);
-          this.state.game = { setup, log: [], id: crypto.randomUUID(), startedAt: Date.now(), engine: ENGINE_VERSION };
+          this.state.game = { setup, log: [], id: crypto.randomUUID(), startedAt: Date.now(), engine: ENGINE_VERSION, auto: config };
           this.state.endedGame = null;
           this.state.handover = null;
           this.state.locked = true;
+          this.state.candidates = [];
+          this.state.auto = config ? auto.startAuto(config, { random: secureRandom, now: Date.now() }) : null;
+          this.state.game.organiser = this.state.hostSub ?? null;
+          this.state.spectators = [];
+          this.state.paused = null;
+          this.state.leaderLostAt = null;
+          this.state.leaderAwaited = false;
+          this.state.masterSeatId = null;
+          this.state.phonePlays = null;
         } catch (e) {
           return this.sendEngineError(sender, e, "invalid-setup");
         }
@@ -636,6 +819,17 @@ export class RoomServer extends Server<Env> {
         this.state.endedGame = this.state.game;
         this.state.game = null;
         this.state.handover = null;
+        this.state.auto = null;
+        this.state.paused = null;
+        this.state.spectators = [];
+        // A dead player who took the game over runs the room now: they don't play the next one.
+        if (this.state.masterSeatId) {
+          await this.dropSeat(this.state.masterSeatId);
+          this.state.masterSeatId = null;
+          this.state.endedGame = null;
+        }
+        this.state.ballot = null;
+        this.state.timer = null;
         this.game = null;
         break;
       }
@@ -645,6 +839,9 @@ export class RoomServer extends Server<Env> {
         this.state.game = this.state.endedGame;
         this.state.endedGame = null;
         this.game = replay(this.state.game.setup, this.state.game.log);
+        // Picked up again at the start of the step it stopped on.
+        const config = this.state.game.auto;
+        this.state.auto = config ? auto.startAuto(config, { random: secureRandom, now: Date.now() }) : null;
         break;
       }
       case "rename-player": {
@@ -706,8 +903,9 @@ export class RoomServer extends Server<Env> {
           if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
           voterId = msg.voterId;
         } else {
-          if (sender.state?.kind !== "player") return;
-          voterId = sender.state.playerId;
+          const seat = this.seatOf(sender);
+          if (!seat) return;
+          voterId = seat;
         }
         if (!ballot.voterIds.includes(voterId)) return;
         if (msg.type === "set-vote" && msg.clear) {
@@ -752,8 +950,11 @@ export class RoomServer extends Server<Env> {
         return;
     }
 
-    // A ballot and its countdown belong to one vote: any change to the game ends them.
-    if (this.state.game?.log.length !== logLength) {
+    if (this.state.auto && this.game) {
+      // The room plays the game on, as far as it can go now.
+      this.runAuto();
+    } else if (this.state.game?.log.length !== logLength) {
+      // A ballot and its countdown belong to one vote: any change to the game ends them.
       this.state.ballot = null;
       this.state.timer = null;
     }
@@ -802,9 +1003,18 @@ export class RoomServer extends Server<Env> {
   }
 
   async onAlarm() {
+    // A game without a game master moves on by the clock too.
+    if (this.state?.auto && this.game) {
+      this.runAuto();
+      await this.persist(false);
+      this.broadcastViews();
+      this.recordResult();
+    }
+    if (this.state && Date.now() < (this.state.expiresAt ?? 0)) return this.scheduleAlarm();
     const anyoneHere = [...this.getConnections()].length > 0;
     if (anyoneHere) {
-      await this.ctx.storage.setAlarm(Date.now() + ROOM_TTL_MS);
+      if (this.state) await this.persist();
+      else await this.ctx.storage.setAlarm(Date.now() + ROOM_TTL_MS);
       return;
     }
     await this.releaseAccounts();
@@ -958,7 +1168,7 @@ export class RoomServer extends Server<Env> {
     stored.id ??= crypto.randomUUID();
     const result = this.game.winner ? await this.resultOf(stored) : null;
     // A game with nobody signed in and no guest phone has no one's stats to count.
-    const worth = result && (result.players.length > 0 || result.guests.length > 0 || result.masterSub);
+    const worth = result && (result.players.length > 0 || result.guests.length > 0 || result.masterSub || result.organiserSub);
     const signature = worth ? JSON.stringify(result) : "";
     if (signature === (stored.recorded ?? "")) return;
     if (worth) await saveResult(url, result);
@@ -982,10 +1192,14 @@ export class RoomServer extends Server<Env> {
     const s = this.state!;
     const game = this.game!;
     const winners = new Set(game.winner!.playerIds);
+    // Without a game master the creator plays, and nobody mastered the game. A
+    // game master counts only if they ran it to the end; whoever started it organised it.
+    const masterSub = stored.auto || stored.masterChanged ? null : (stored.organiser ?? s.hostSub ?? null);
+    const organiserSub = stored.organiser ?? (stored.masterChanged ? null : (s.hostSub ?? null));
     // A seat's account, as counted in the stats (the master's own account never plays).
     const subOf = (id: string) => {
       const sub = seats.find((x) => x.id === id)?.sub;
-      return sub && sub !== s.hostSub ? sub : null;
+      return sub && sub !== masterSub ? sub : null;
     };
     const days = daysBy(stored.setup, game.phase);
     const details = (p: (typeof game.players)[number]) => ({
@@ -998,7 +1212,7 @@ export class RoomServer extends Server<Env> {
     const players = new Map<string, GameResult["players"][number]>();
     for (const p of game.players) {
       const seat = seats.find((x) => x.id === p.id);
-      if (!seat?.sub || seat.sub === s.hostSub) continue;
+      if (!seat?.sub || seat.sub === masterSub) continue;
       players.set(seat.sub, { sub: seat.sub, role: p.role, team: teamOf(game, p), won: winners.has(p.id), survived: p.alive, left: !!seat.left, ...details(p) });
     }
     // Phones without an account: the seat waits for its phone to sign in and claim it.
@@ -1026,7 +1240,9 @@ export class RoomServer extends Server<Env> {
       winnerTeam: game.winner!.team,
       playerCount: game.players.length,
       days,
-      masterSub: s.hostSub ?? null,
+      masterSub,
+      organiserSub,
+      auto: !!stored.auto,
       players: [...players.values()],
       guests,
       kills: game.players.flatMap((victim) => {
@@ -1043,9 +1259,15 @@ export class RoomServer extends Server<Env> {
 
   // --- helpers ---
 
-  private buildSetup(start: StartGame): GameSetup {
+  private buildSetup(start: StartGame, config?: auto.AutoConfig): GameSetup {
     const players = this.state!.players.map(({ id, name, seat }) => ({ id, name, seat }));
     const options = { actorCards: start.actorCards, groups: start.groups };
+    if (config) {
+      // Without a game master nobody may know who got what: always dealt at random.
+      if (start.mode !== "random") throw new EngineError("invalid-setup", "Cards are dealt at random without a game master");
+      const deck = config.deck === "hidden" ? suggestedDeck(players.length, config.style, secureRandom, config.exclude) : start.deck;
+      return dealRoles(players, deck, start.settings, config.deck === "hidden" ? {} : options, secureRandom);
+    }
     return start.mode === "random"
       ? dealRoles(players, start.deck, start.settings, options, secureRandom)
       : assignRoles(players, start.assignment, start.extraCards, start.settings, options);
@@ -1419,7 +1641,7 @@ export class RoomServer extends Server<Env> {
     this.state!.players.forEach((p, i) => (p.seat = i));
   }
 
-  private viewFor(conn: Conn): RoomView {
+  private viewFor(conn: Conn, speakerId = this.speakerId()): RoomView {
     const s = this.state!;
     const players = s.players
       .map(
@@ -1437,15 +1659,31 @@ export class RoomServer extends Server<Env> {
       )
       .sort((a, b) => a.seat - b.seat);
     const phase = !this.game ? "lobby" : this.game.winner ? "ended" : "playing";
-    const base = { code: s.code, phase, locked: s.locked, players, timer: s.timer ?? null, serverNow: Date.now() } as const;
+    const base = {
+      code: s.code,
+      phase,
+      locked: s.locked,
+      players,
+      timer: s.timer ?? null,
+      serverNow: Date.now(),
+      mode: s.mode ?? "master",
+      candidates: this.game && !this.game.mayorElected ? (s.candidates ?? []) : [],
+    } as const;
     if (conn.state?.kind === "host") {
+      const seatId = this.hostSeat()?.id ?? null;
+      // Without a game master the creator plays: once the game is on, they see only their own seat.
+      const playing = !!seatId && !!this.game && !!s.auto;
       return {
         ...base,
         kind: "host",
-        game: this.game,
+        game: playing ? null : this.game,
+        seatId,
+        seat: seatId && this.game ? this.phoneView(base, players, seatId, conn.id === speakerId) : null,
         actionCount: s.game?.log.length ?? 0,
         canResume: !!s.endedGame,
-        ballot: s.ballot ?? null,
+        ballot: playing ? null : (s.ballot ?? null),
+        phonePlays: !s.auto && s.phonePlays && s.phonePlays.at === s.game?.log.length ? { actions: s.phonePlays.actions, wolfPicks: s.phonePlays.wolfPicks } : null,
+        paused: s.paused === "manual",
         requests: (s.requests ?? []).map(({ id, name, kind, account }) => ({ id, name, kind: kind ?? "rejoin", account: !!account })),
         handover: s.handover
           ? { name: s.players.find((p) => p.id === s.handover!.before.id)?.name ?? "", seatName: s.handover.before.name }
@@ -1453,21 +1691,7 @@ export class RoomServer extends Server<Env> {
       };
     }
     const state = conn.state;
-    const me = state?.kind === "player" ? players.find((p) => p.id === state.playerId) : undefined;
-    const info = me && this.game ? playerInfo(this.game, me.id) : null;
-    const ballot = s.ballot;
-    const phoneBallot =
-      ballot && me
-        ? {
-            kind: ballot.kind ?? "vote",
-            candidateIds: ballot.candidateIds,
-            canVote: ballot.voterIds.includes(me.id),
-            voted: me.id in ballot.votes,
-            targetId: ballot.votes[me.id] ?? null,
-            answered: ballot.voterIds.filter((id) => id in ballot.votes).length,
-            voters: ballot.voterIds.length,
-          }
-        : null;
+    const view = this.phoneView(base, players, state?.kind === "player" ? state.playerId : null, conn.id === speakerId, state?.kind === "guest" && !!state.spectator);
     let rejoin: PlayerView["rejoin"] = null;
     if (state?.kind === "returning") {
       const request = s.requests?.find((r) => r.id === state.playerId);
@@ -1485,26 +1709,68 @@ export class RoomServer extends Server<Env> {
       else if (s.deniedIds?.includes(state.deviceId)) knock = { name: "", status: "denied" };
     }
     const seat = state?.kind === "locked" ? s.players.find((p) => p.id === state.playerId) : null;
+    return { ...view, rejoin, knock, lockedSeat: seat ? { name: seat.name, picture: seat.picture ?? null } : null };
+  }
+
+  /** How one seat sees the room: public info, its own card, its turn. */
+  private phoneView(base: Pick<PlayerView, "code" | "phase" | "locked" | "players" | "timer" | "serverNow" | "mode" | "candidates">, players: PublicPlayer[], playerId: string | null, speaking: boolean, spectator = false): PlayerView {
+    const s = this.state!;
+    const me = playerId ? players.find((p) => p.id === playerId) : undefined;
+    const game = this.game;
+    const info = me && game ? playerInfo(game, me.id) : null;
+    const ballot = s.ballot;
+    const phoneBallot =
+      ballot && me
+        ? {
+            kind: ballot.kind ?? "vote",
+            candidateIds: ballot.candidateIds,
+            canVote: ballot.voterIds.includes(me.id),
+            voted: me.id in ballot.votes,
+            targetId: ballot.votes[me.id] ?? null,
+            answered: ballot.voterIds.filter((id) => id in ballot.votes).length,
+            voters: ballot.voterIds.length,
+          }
+        : null;
+    const room = this.autoRoom();
+    const dict = room ? this.narration() : null;
+    const config = s.game?.auto;
     return {
       ...base,
       kind: "player",
       me: me ?? null,
-      lockedSeat: seat ? { name: seat.name, picture: seat.picture ?? null } : null,
+      lockedSeat: null,
       info,
-      game: this.game ? publicGame(this.game) : null,
+      game: game ? publicGame(game) : null,
       ballot: phoneBallot,
-      rejoin,
-      knock,
+      rejoin: null,
+      knock: null,
       renamed: !!(me && s.players.find((p) => p.id === me.id)?.renamed),
       claim: me ? this.claimFor(me.id) : null,
-      host: s.hostSub ? (s.hostFace ?? null) : null,
+      host: s.hostSub && !s.hostSeatId ? (s.hostFace ?? null) : null,
+      turn: me && game ? (room && dict ? auto.phoneTurn(room, me.id, dict) : this.masterTurn(game, me.id)) : null,
+      pause: room && s.paused ? { reason: s.paused, leader: this.hostSeat()?.name ?? "" } : null,
+      succession: !!room && s.paused === "leader" && !s.leaderAwaited && !!me && me.id === this.successorId(),
+      auto: room && dict ? auto.autoPublic(room, me?.id ?? null, dict) : null,
+      speaker: room && speaking ? { cue: room.auto.cue, scene: game!.winner ? null : sceneFor(game!), locale: s.locale ?? "en" } : null,
+      // The dead see everything, without a game master: there's nobody else to watch the game with.
+      spectate: (room && info && !info.alive) || (spectator && game) ? game : null,
+      canStand: !!game && !!info?.alive && !game.winner && game.setup.settings.mayor && !game.mayorElected,
+      deck: game && config?.deck === "open" ? [...game.setup.players.map((p) => game.setup.roles[p.id]), ...game.setup.extraCards].sort() : null,
     };
+  }
+
+  /** With a game master: what a phone may play for the current step, if its player likes. */
+  private masterTurn(game: GameState, playerId: string) {
+    const s = this.state!;
+    const plays = s.phonePlays?.at === s.game?.log.length ? s.phonePlays : null;
+    return auto.turnFor(game, playerId, auto.masterShow(game.step), !!plays?.actions[playerId], plays?.wolfPicks ?? {});
   }
 
   /** Every socket gets its own filtered view, so secrets never reach the wrong phone. */
   private broadcastViews() {
+    const speakerId = this.speakerId();
     for (const conn of this.getConnections<ConnState>()) {
-      this.send(conn, { type: "view", view: this.viewFor(conn) });
+      this.send(conn, { type: "view", view: this.viewFor(conn, speakerId) });
     }
   }
 
@@ -1550,9 +1816,265 @@ export class RoomServer extends Server<Env> {
     conn.close();
   }
 
-  private async persist() {
+  /** Saves the room. `active`: someone did something, so the room lives another day. */
+  private async persist(active = true) {
+    if (this.state && active) this.state.expiresAt = Date.now() + ROOM_TTL_MS;
     await this.ctx.storage.put(STORAGE_KEY, this.state);
-    await this.ctx.storage.setAlarm(Date.now() + ROOM_TTL_MS);
+    await this.scheduleAlarm();
+  }
+
+  /** Wakes the room when it expires, or sooner when a game without a game master has to move on. */
+  private async scheduleAlarm() {
+    const s = this.state;
+    if (!s) return;
+    const expires = s.expiresAt ?? Date.now() + ROOM_TTL_MS;
+    const room = this.autoRoom();
+    let next = room ? auto.nextWake(room, this.narration()) : null;
+    // The leader's device away: check again when its grace runs out.
+    if (room && s.leaderLostAt && s.paused !== "leader") next = Math.min(next ?? Infinity, s.leaderLostAt + LEADER_GRACE_MS);
+    await this.ctx.storage.setAlarm(Math.max(Date.now() + 50, Math.min(expires, next ?? Infinity)));
+  }
+
+  // --- without a game master ---
+
+  /** The creator's seat, without a game master. */
+  private hostSeat() {
+    const id = this.state?.hostSeatId;
+    return id ? (this.state!.players.find((p) => p.id === id) ?? null) : null;
+  }
+
+  /** The seat a connection plays: a phone's, or the creator's without a game master. */
+  private seatOf(conn: Conn): string | null {
+    if (conn.state?.kind === "player") return conn.state.playerId;
+    if (conn.state?.kind === "host") return this.hostSeat()?.id ?? null;
+    return null;
+  }
+
+  /** The creator takes a seat: their account's name, or the one they typed. */
+  private addHostSeat(conn: Conn, name: unknown) {
+    const s = this.state!;
+    const face = s.hostSub ? s.hostFace : undefined;
+    const seatName = face ? this.claimAccountName({ accountName: face.name, username: face.username ?? null }) : this.validateName(conn, name);
+    if (!seatName || this.isFull(conn)) return false;
+    const seat = this.addPlayer(seatName, false);
+    seat.token = null;
+    s.hostSeatId = seat.id;
+    // Seated first: the creator usually starts the circle.
+    s.players = [seat, ...s.players.filter((p) => p !== seat)];
+    this.reseat();
+    this.syncHostSeat();
+    return true;
+  }
+
+  private async removeHostSeat() {
+    const s = this.state!;
+    const id = s.hostSeatId;
+    if (!id) return;
+    s.players = s.players.filter((p) => p.id !== id);
+    s.hostSeatId = null;
+    await this.ctx.storage.delete(PHOTO_PREFIX + id);
+    this.reseat();
+  }
+
+  /** The creator's seat follows the account they're signed in with. */
+  private syncHostSeat() {
+    const s = this.state!;
+    const seat = this.hostSeat();
+    if (!seat) return;
+    seat.connected = [...this.getConnections<ConnState>()].some((c) => c.state?.kind === "host");
+    if (!s.hostSub || !s.hostFace) {
+      delete seat.sub;
+      seat.picture = null;
+      return;
+    }
+    seat.sub = s.hostSub;
+    seat.picture = s.hostFace.picture;
+    seat.accountName = s.hostFace.name;
+    seat.username = s.hostFace.username ?? null;
+    const name = this.claimAccountName({ ...seat, accountName: s.hostFace.name }, seat.id);
+    if (name !== seat.name) this.renamePlayer(seat, name);
+  }
+
+  /** The game as lib/auto.ts plays it; null with a game master. Changes go back with `keepAuto`. */
+  private autoRoom(): auto.AutoRoom | null {
+    const s = this.state;
+    if (!s?.auto || !s.game || !this.game) return null;
+    return { game: this.game, log: s.game.log, auto: s.auto, ballot: s.ballot ?? null, timer: s.timer ?? null, candidates: s.candidates ?? [] };
+  }
+
+  private keepAuto(room: auto.AutoRoom) {
+    this.game = room.game;
+    this.state!.ballot = room.ballot;
+    this.state!.timer = room.timer;
+  }
+
+  private runAuto() {
+    const room = this.autoRoom();
+    if (!room) return;
+    this.checkLeader(room);
+    auto.tick(room, this.autoContext());
+    this.keepAuto(room);
+  }
+
+  /**
+   * The leader's device away for a while pauses the game, until it's back or
+   * the next phone says it won't be (see "succession"). Back, it resumes.
+   */
+  private checkLeader(room: auto.AutoRoom) {
+    const s = this.state!;
+    const now = Date.now();
+    if (this.hostSeat()?.connected) {
+      s.leaderLostAt = null;
+      s.leaderAwaited = false;
+      if (s.paused === "leader") {
+        auto.resume(room, now);
+        s.paused = null;
+      }
+      return;
+    }
+    s.leaderLostAt ??= now;
+    if (room.game.winner || now - s.leaderLostAt < LEADER_GRACE_MS || s.paused === "leader") return;
+    auto.pause(room, now);
+    s.paused = "leader";
+  }
+
+  /** The phone asked about a leader who's gone: the next one connected around the table. */
+  private successorId(): string | null {
+    const s = this.state!;
+    const leader = this.hostSeat();
+    const online = new Set(
+      [...this.getConnections<ConnState>()].flatMap((c) => (c.state?.kind === "player" ? [c.state.playerId] : [])),
+    );
+    const seats = [...s.players].sort((a, b) => a.seat - b.seat);
+    const from = leader ? seats.findIndex((p) => p.id === leader.id) : -1;
+    for (let i = 1; i <= seats.length; i++) {
+      const p = seats[(from + i + seats.length) % seats.length];
+      if (p.id !== leader?.id && online.has(p.id)) return p.id;
+    }
+    return null;
+  }
+
+  /** A player out for good, without a game master: the room announces it and goes on. */
+  private suddenDeath(playerId: string) {
+    const room = this.autoRoom();
+    if (!room) return;
+    try {
+      room.game = applyAction(room.game, { type: "sudden-death", playerId });
+    } catch {
+      return;
+    }
+    room.log.push({ type: "sudden-death", playerId });
+    room.ballot = null;
+    room.timer = null;
+    // The step starts over after the announcement: no pause left hanging over it.
+    room.auto.pausedAt = null;
+    if (this.state!.paused === "manual") this.state!.paused = null;
+    this.keepAuto(room);
+  }
+
+  /** Removes a seat from the room (and tells its phone). */
+  private async dropSeat(playerId: string, tell = false) {
+    const s = this.state!;
+    await this.tellAccount(s.players.find((p) => p.id === playerId)?.sub, false);
+    s.players = s.players.filter((p) => p.id !== playerId);
+    s.requests = s.requests?.filter((r) => r.id !== playerId);
+    await this.ctx.storage.delete(PHOTO_PREFIX + playerId);
+    this.reseat();
+    for (const c of this.getConnections<ConnState>()) {
+      if ((c.state?.kind === "player" || c.state?.kind === "returning") && c.state.playerId === playerId) {
+        if (tell) this.send(c, { type: "error", code: "removed" });
+        c.setState({ kind: "guest" });
+      }
+    }
+  }
+
+  /**
+   * The room goes to a player's device: it gets the master key and opens the
+   * game master's screen. The device that had it plays its seat again
+   * (without a game master), watches the game (a game master mid-game), or
+   * is a visitor who may ask to join (a game master in the lobby). Without
+   * a game master, anyone may lead; with one, during a game, only the dead.
+   * `away`: the leader's device is gone (it's told nothing).
+   */
+  private async transferLead(targetId: string, away = false): Promise<boolean> {
+    const s = this.state!;
+    const target = s.players.find((p) => p.id === targetId && !p.left && !p.manual);
+    const conns = [...this.getConnections<ConnState>()];
+    const phones = conns.filter((c) => c.state?.kind === "player" && c.state.playerId === targetId);
+    const autoMode = s.mode === "auto";
+    const game = s.game ? this.game : null;
+    if (!target || phones.length === 0 || target.id === s.hostSeatId) return false;
+    if (game && !autoMode && game.players.find((p) => p.id === targetId)?.alive) return false;
+
+    const oldSub = s.hostSub;
+    const oldSeat = this.hostSeat();
+    s.hostToken = crypto.randomUUID();
+    for (const c of conns.filter((c) => c.state?.kind === "host")) {
+      if (away) continue;
+      if (autoMode && oldSeat) {
+        // Back to playing their own seat, from the phone page.
+        oldSeat.token = crypto.randomUUID();
+        this.send(c, { type: "become", as: "player", id: oldSeat.id, token: oldSeat.token });
+        c.setState({ kind: "player", playerId: oldSeat.id });
+      } else if (game) {
+        const watcher = { id: crypto.randomUUID(), token: crypto.randomUUID() };
+        s.spectators = [...(s.spectators ?? []), watcher];
+        this.send(c, { type: "become", as: "player", id: watcher.id, token: watcher.token });
+        c.setState({ kind: "guest", deviceId: watcher.id, token: watcher.token, spectator: true });
+      } else {
+        this.send(c, { type: "become", as: "guest" });
+        c.setState({ kind: "guest" });
+      }
+    }
+    if (autoMode && oldSeat && away) oldSeat.token = null;
+    if (oldSeat) oldSeat.connected = conns.some((c) => c.state?.kind === "player" && c.state.playerId === oldSeat.id);
+
+    if (target.sub) {
+      s.hostSub = target.sub;
+      s.hostFace = { name: target.accountName ?? target.name, picture: target.picture ?? null, username: target.username ?? null };
+    } else {
+      delete s.hostSub;
+      delete s.hostFace;
+    }
+    if (autoMode) s.hostSeatId = target.id;
+    else if (game) s.masterSeatId = target.id;
+    // A game master doesn't play: their seat goes.
+    else await this.dropSeat(target.id);
+    if (game && !autoMode && s.game) s.game.masterChanged = true;
+    for (const phone of phones) this.send(phone, { type: "become", as: "host", token: s.hostToken });
+
+    if (oldSub && oldSub !== s.hostSub) await this.tellAccount(oldSub, autoMode && !!oldSeat);
+    if (s.hostSub) await this.tellAccount(s.hostSub, true);
+    s.leaderLostAt = null;
+    s.leaderAwaited = false;
+    const room = this.autoRoom();
+    if (room && s.paused === "leader") {
+      auto.resume(room, Date.now());
+      s.paused = null;
+      this.keepAuto(room);
+    }
+    return true;
+  }
+
+  /** The narrator's words, in the room's language and the game's theme. */
+  private narration() {
+    const locale = this.state?.locale ?? "en";
+    return themeDictionary(locale === "fr" ? fr : en, this.game?.setup.settings.theme, locale);
+  }
+
+  private autoContext(): auto.AutoContext {
+    return { dict: this.narration(), random: secureRandom, now: Date.now() };
+  }
+
+  /** The device that reads the game out loud: the creator's, or else the first phone connected. */
+  private speakerId(): string | null {
+    if (!this.state?.auto || !this.game) return null;
+    const conns = [...this.getConnections<ConnState>()];
+    const host = conns.find((c) => c.state?.kind === "host");
+    if (host) return host.id;
+    const seats = new Map(this.state.players.map((p) => [p.id, p.seat]));
+    const phones = conns.filter((c) => c.state?.kind === "player").sort((a, b) => (seats.get((a.state as { playerId: string }).playerId) ?? 0) - (seats.get((b.state as { playerId: string }).playerId) ?? 0));
+    return phones[0]?.id ?? null;
   }
 }
 

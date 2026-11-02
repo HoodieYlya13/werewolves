@@ -1,5 +1,5 @@
 import type { GameState } from "./engine";
-import type { Scene } from "./sound";
+import type { Scene } from "./sound-types";
 
 /**
  * The music for each night turn, by step kind or by the turn a bluff stands

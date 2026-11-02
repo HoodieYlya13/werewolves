@@ -130,6 +130,7 @@ export function createGame(setup: GameSetup): GameState {
 export function applyAction(prev: GameState, action: Action): GameState {
   if (prev.step.kind === "game-over") throw new EngineError("game-over", "The game is over");
   const state = structuredClone(prev);
+  if (action.type === "sudden-death") return suddenDeath(state, action.playerId);
   const done = state.step;
   resolve(state, state.step, action);
   advance(state);
@@ -168,6 +169,30 @@ function backToSleep(done: Step, next: Step): GameState["backToSleep"] {
     default:
       return null;
   }
+}
+
+/**
+ * Kills a player outside the rules, whatever the step: the death is announced
+ * (with what it sets off: grief, the Hunter…), then the step that was on
+ * comes back, updated, unless it was theirs to play.
+ */
+function suddenDeath(state: GameState, playerId: string): GameState {
+  const victim = getAlive(state, playerId);
+  const step = state.step;
+  let resumed: Step | null = step;
+  if (step.kind === "vote") resumed = voteStep(state, step.second);
+  else if (step.kind === "wolves") resumed = { ...step, playerIds: step.playerIds.filter((id) => id !== victim.id) };
+  if ("playerId" in step && step.playerId === victim.id && step.kind !== "mayor-succession") resumed = null;
+  if (step.kind === "wolves" && resumed?.kind === "wolves" && resumed.playerIds.length === 0) resumed = null;
+  const before = state.pending.length;
+  kill(state, [{ playerId: victim.id, cause: "sudden" }], "sudden");
+  // The vote's lists were made before the death: rebuilt now that it happened.
+  if (resumed?.kind === "vote") resumed = voteStep(state, resumed.second);
+  // Announced first (with its triggers), then the step that was on, then what was already queued.
+  if (resumed && !getWinner(state)) state.pending.splice(state.pending.length - before, 0, resumed);
+  advance(state);
+  state.backToSleep = null;
+  return state;
 }
 
 /** Rebuilds the state from scratch. Undo = replay without the last action. */
@@ -285,7 +310,9 @@ function resolve(state: GameState, step: Step, action: Action) {
     }
 
     case "seer": {
-      const target = getAlive(state, expect("seer").targetId);
+      const { targetId } = expect("seer");
+      if (targetId === null) return;
+      const target = getAlive(state, targetId);
       if (target.id === step.playerId) throw new EngineError("invalid-target", "The Seer can't look at their own card");
       state.pending.unshift({ kind: "seer-result", playerId: step.playerId, targetId: target.id, role: target.role });
       log(state, { type: "seer", playerId: step.playerId, targetId: target.id, role: target.role });
@@ -293,7 +320,9 @@ function resolve(state: GameState, step: Step, action: Action) {
     }
 
     case "fox": {
-      const [center] = picked(1, 1);
+      // Nobody: the Fox didn't choose in time (no game master).
+      const [center] = picked(0, 1);
+      if (!center) return;
       const n = livingNeighbours(state, center);
       const group = [...new Map([n?.right, center, n?.left].filter(Boolean).map((p) => [p!.id, p!])).values()];
       const hasWolf = group.some(isWolf);
@@ -305,7 +334,9 @@ function resolve(state: GameState, step: Step, action: Action) {
     }
 
     case "wolves": {
-      const target = getAlive(state, expect("wolves").targetId);
+      const { targetId } = expect("wolves");
+      if (targetId === null) return;
+      const target = getAlive(state, targetId);
       if (isWolf(target)) throw new EngineError("invalid-target", "Wolves can't eat a wolf");
       state.night.wolvesTargetId = target.id;
       log(state, { type: "wolves-target", targetId: target.id });
@@ -364,7 +395,8 @@ function resolve(state: GameState, step: Step, action: Action) {
     }
 
     case "piper": {
-      const targets = picked(step.min, step.count);
+      // Nobody: the Piper didn't choose in time (no game master).
+      const targets = expect("pick").targetIds.length === 0 ? [] : picked(step.min, step.count);
       if (targets.some((t) => t.id === step.playerId || t.flags.charmed)) {
         throw new EngineError("invalid-target", "Pick players who aren't charmed yet");
       }
@@ -382,7 +414,9 @@ function resolve(state: GameState, step: Step, action: Action) {
     }
 
     case "hunter": {
-      const target = getAlive(state, expect("hunter").targetId);
+      const { targetId } = expect("hunter");
+      if (targetId === null) return;
+      const target = getAlive(state, targetId);
       kill(state, [{ playerId: target.id, cause: "hunter" }], "hunter");
       return;
     }
@@ -552,7 +586,7 @@ function endDay(state: GameState) {
  * Kills players, follows lovers into grief, turns Wild Children whose model
  * died, then queues the announcement and death triggers at the front.
  */
-function kill(state: GameState, victims: Death[], context: "dawn" | "vote" | "hunter") {
+function kill(state: GameState, victims: Death[], context: "dawn" | "vote" | "hunter" | "sudden") {
   const deaths: Death[] = [];
   const queue = [...victims];
   for (let death = queue.shift(); death; death = queue.shift()) {

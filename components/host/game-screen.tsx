@@ -13,6 +13,7 @@ import { JoinRequests } from "@/components/host/join-requests";
 import { RoleName, teamColor } from "@/components/host/role-chip";
 import { Avatar, useRoomContext } from "@/components/room-context";
 import { StepPanel } from "@/components/host/step-panel";
+import { GiveLeadDialog } from "@/components/play/auto-game";
 import { format } from "@/lib/i18n/config";
 import { isWolf, remainingTeams, roles, teamOf, type GameEvent, type GameState } from "@/lib/engine";
 import type { ClientMessage, HostView } from "@/lib/protocol";
@@ -53,6 +54,7 @@ export function GameScreen({
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [view.actionCount]);
+  const [giving, setGiving] = useState(false);
   const [hideRoles, setHideRoles] = useState(() => {
     try {
       return localStorage.getItem(HIDE_ROLES_KEY) === "1";
@@ -141,7 +143,20 @@ export function GameScreen({
                 {dict.game.steps["game-over"].newGame}
               </Button>
             )}
-            <QuitMenu over={over} onEndGame={() => send({ type: "end-game" })} />
+            <QuitMenu
+              over={over}
+              onEndGame={() => send({ type: "end-game" })}
+              onGiveLead={() => setGiving(true)}
+              giveLabel={dict.lead.giveMaster}
+            />
+            <GiveLeadDialog
+              open={giving}
+              onClose={() => setGiving(false)}
+              hint={dict.lead.masterHint}
+              // Only the dead may take the game over: the living are playing it.
+              eligible={(id) => !game.players.find((p) => p.id === id)?.alive}
+              send={send}
+            />
           </div>
         </div>
 
@@ -238,7 +253,7 @@ function PlayersPanel({ game }: { game: GameState }) {
   );
 }
 
-function Timeline({ game, rolesHidden }: { game: GameState; rolesHidden: boolean }) {
+export function Timeline({ game, rolesHidden }: { game: GameState; rolesHidden: boolean }) {
   const { dict } = useI18n();
   if (game.events.length === 0) return null;
   // Every line gives roles away: say why it's empty rather than leave a blank card.
@@ -337,7 +352,18 @@ function EventText({ game, event }: { game: GameState; event: GameEvent }) {
  * One red cross for leaving: end the game (back to the lobby, players kept) or
  * close the room (everyone out). Each asks first.
  */
-function QuitMenu({ over, onEndGame }: { over: boolean; onEndGame: () => void }) {
+export function QuitMenu({
+  over,
+  onEndGame,
+  onGiveLead,
+  giveLabel,
+}: {
+  over: boolean;
+  onEndGame: () => void;
+  /** Hands the game over to another player's device. */
+  onGiveLead?: () => void;
+  giveLabel?: string;
+}) {
   const { dict } = useI18n();
   const closeRoom = useCloseRoom();
   const [confirm, setConfirm] = useState<"end" | "close" | null>(null);
@@ -358,6 +384,12 @@ function QuitMenu({ over, onEndGame }: { over: boolean; onEndGame: () => void })
             <DropdownMenuItem className="gap-3 rounded-lg px-3 py-2.5 text-base" onSelect={() => setConfirm("end")}>
               <X aria-hidden className="size-4" />
               {dict.game.endGame}
+            </DropdownMenuItem>
+          )}
+          {onGiveLead && !over && (
+            <DropdownMenuItem className="gap-3 rounded-lg px-3 py-2.5 text-base" onSelect={onGiveLead}>
+              <Crown aria-hidden className="size-4" />
+              {giveLabel}
             </DropdownMenuItem>
           )}
           {closeRoom && (

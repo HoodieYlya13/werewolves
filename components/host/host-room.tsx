@@ -2,7 +2,13 @@
 
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { BadgeCheck, ChevronDown, ChevronUp, Copy, GripVertical, History, Layers, Lock, LockOpen, Pencil, Share2, Smartphone, UserPlus, X } from "lucide-react";
+import { BadgeCheck, ChevronDown, ChevronUp, Copy, Crown, GripVertical, History, Layers, Lock, LockOpen, Pencil, Share2, Smartphone, UserPlus, Users, X } from "lucide-react";
+import { GiveLeadDialog, LeaderBar } from "@/components/play/auto-game";
+import { InGame } from "@/components/play/player-room";
+import { PhotoPicker } from "@/components/photo-picker";
+import { useNarrator, useWakeLock } from "@/hooks/use-narrator";
+import { QuitMenu } from "@/components/host/game-screen";
+import { useGameTheme } from "@/hooks/use-game-theme";
 import { toast } from "sonner";
 import { GameScreen } from "@/components/host/game-screen";
 import { ThemedI18n } from "@/components/themed-i18n";
@@ -22,7 +28,7 @@ import { useErrorToast, useHostToasts } from "@/components/toasts";
 import { useRoom } from "@/hooks/use-room";
 import { MIN_PLAYERS } from "@/lib/engine";
 import { format } from "@/lib/i18n/config";
-import { MAX_NAME_LENGTH, type ErrorCode, type HostView } from "@/lib/protocol";
+import { MAX_NAME_LENGTH, type ClientMessage, type ErrorCode, type HostView } from "@/lib/protocol";
 import { generateRoomCode, identity } from "@/lib/room";
 import { getTicket, useSession } from "@/lib/session";
 import { Button } from "@/components/ui/button";
@@ -47,6 +53,8 @@ function HostLobby({ code }: { code: string }) {
     ballot: view?.ballot ?? null,
     requests: view?.requests ?? [],
     handover: view?.handover ?? null,
+    phonePlays: view?.phonePlays ?? null,
+    candidates: view?.candidates ?? [],
     send,
   };
   return (
@@ -68,6 +76,7 @@ function HostContent({
   const [name, setName] = useState("");
   const [screen, setScreen] = useState<"lobby" | "setup">("lobby");
   const [editing, setEditing] = useState<string | null>(null);
+  const [giving, setGiving] = useState<string | null>(null);
 
   // Seats can be dragged; a dropped row stays put until the room confirms the new order.
   const [moved, setMoved] = useState<{ basis: string; ids: string[] } | null>(null);
@@ -151,6 +160,19 @@ function HostContent({
     );
   }
 
+  // Without a game master the creator plays: their own seat's screen, and the leading tools.
+  if (view.seat?.game) {
+    return (
+      <>
+        <ConnectionBanner status={status} />
+        <RoomCode code={code} />
+        <ThemedI18n theme={view.seat.game.theme}>
+          <AutoHostGame view={view} send={send} />
+        </ThemedI18n>
+      </>
+    );
+  }
+
   if (view.game) {
     return (
       <>
@@ -173,6 +195,7 @@ function HostContent({
           canResume={view.canResume}
           send={send}
           onBack={() => setScreen("lobby")}
+          mode={view.mode}
         />
       </>
     );
@@ -244,6 +267,7 @@ function HostContent({
       </section>
 
       <section className="card flex flex-col gap-4 p-4 sm:p-6">
+        <ModeChoice view={view} send={send} />
         <JoinRequests inGame={false} />
         <div>
           <h1 className="text-xl font-semibold">{format(dict.host.players, { count: players.length })}</h1>
@@ -270,6 +294,7 @@ function HostContent({
                   <GripVertical className="size-4" />
                 </button>
                 <span className="w-4 shrink-0 text-right font-mono text-sm text-muted-foreground sm:w-5">{i + 1}</span>
+                {/* The creator's own seat, without a game master. */}
                 <span
                   className={`size-2.5 shrink-0 rounded-full ${p.manual ? "bg-transparent" : p.connected ? "bg-ok" : "bg-muted-foreground/40"}`}
                   title={p.manual ? undefined : p.connected ? dict.host.online : dict.host.offline}
@@ -285,7 +310,14 @@ function HostContent({
                   <Avatar playerId={p.id} name={p.name} />
                   <span className="min-w-0 truncate font-medium">{p.name}</span>
                   {p.account && <BadgeCheck aria-label={dict.host.accountPlayer} className="size-3.5 shrink-0 text-ok" />}
+                  {p.id === view.seatId && <span className="shrink-0 rounded-full bg-moon/15 px-2 py-0.5 text-xs text-moon">{dict.lead.you}</span>}
                 </button>
+                {/* Hands the room to this player's device. */}
+                {p.id !== view.seatId && !p.manual && p.connected && (
+                  <IconButton label={format(dict.lead.giveRoom, { name: p.name })} onClick={() => setGiving(p.id)}>
+                    <Crown className="size-4" />
+                  </IconButton>
+                )}
                 {p.left && <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-xs text-primary">{dict.host.left}</span>}
                 {p.manual && (
                   <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground" title={dict.host.noPhone}>
@@ -319,17 +351,20 @@ function HostContent({
                 >
                   <ChevronDown className="size-4" />
                 </IconButton>
-                <IconButton
-                  label={format(dict.host.remove, { name: p.name })}
-                  onClick={() => send({ type: "remove-player", playerId: p.id })}
-                >
-                  <X className="size-4" />
-                </IconButton>
+                {p.id !== view.seatId && (
+                  <IconButton
+                    label={format(dict.host.remove, { name: p.name })}
+                    onClick={() => send({ type: "remove-player", playerId: p.id })}
+                  >
+                    <X className="size-4" />
+                  </IconButton>
+                )}
               </li>
             ))}
           </ol>
         )}
 
+        {view.mode !== "auto" && (
         <form
           className="mt-auto flex flex-col gap-2"
           onSubmit={(e) => {
@@ -366,6 +401,14 @@ function HostContent({
             </Button>
           </div>
         </form>
+        )}
+        <GiveLeadDialog
+          open={giving !== null}
+          onClose={() => setGiving(null)}
+          hint={dict.lead.lobbyHint}
+          eligible={(id) => id === giving}
+          send={send}
+        />
         {editing && <PlayerEditor playerId={editing} onClose={() => setEditing(null)} />}
 
         {view?.canResume && (
@@ -388,6 +431,117 @@ function HostContent({
         )}
         {view && <CloseRoomButton className="self-center" />}
       </section>
+    </main>
+  );
+}
+
+/**
+ * With a game master (who runs the game and doesn't play), or without one:
+ * the app runs it and the creator takes a seat like everyone, under their
+ * account's name or one they type (with a photo).
+ */
+function ModeChoice({ view, send }: { view: HostView; send: (message: ClientMessage) => void }) {
+  const { dict, locale } = useI18n();
+  const session = useSession();
+  const t = dict.auto.mode;
+  const [asking, setAsking] = useState(false);
+  const [name, setName] = useState(() => identity.getName());
+  const [photo, setPhoto] = useState(() => identity.getPhoto());
+  const auto = view.mode === "auto";
+  function choose(mode: "master" | "auto") {
+    if (mode === "master") {
+      setAsking(false);
+      if (auto) send({ type: "set-mode", mode, locale });
+      return;
+    }
+    if (auto) return;
+    if (session?.account) send({ type: "set-mode", mode, locale });
+    else setAsking(true);
+  }
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="font-semibold">{t.title}</h2>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {(["master", "auto"] as const).map((mode) => {
+          const on = mode === "auto" ? auto || asking : !auto && !asking;
+          return (
+            <button
+              key={mode}
+              type="button"
+              aria-pressed={on}
+              onClick={() => choose(mode)}
+              className={`flex items-start gap-3 rounded-xl border-2 p-3 text-left ${on ? "border-primary bg-primary/10" : "border-line bg-surface hover:border-fg/30"}`}
+            >
+              {mode === "master" ? <Crown aria-hidden className="mt-0.5 size-5 shrink-0 text-moon" /> : <Users aria-hidden className="mt-0.5 size-5 shrink-0 text-moon" />}
+              <span>
+                <span className="block font-semibold">{mode === "master" ? t.master : t.auto}</span>
+                <span className="block text-xs text-muted-foreground">{mode === "master" ? t.masterHint : t.autoHint}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {asking && !auto && (
+        <form
+          className="flex flex-col gap-3 rounded-xl bg-surface-2 p-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!name.trim()) return;
+            identity.setName(name.trim());
+            identity.setPhoto(photo);
+            send({ type: "set-mode", mode: "auto", name, photo, locale });
+            setAsking(false);
+          }}
+        >
+          <div className="flex items-center gap-3">
+            {photo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={photo} alt="" className="size-14 rounded-full object-cover" />
+            ) : (
+              <span aria-hidden className="grid size-14 place-items-center rounded-full bg-surface text-muted-foreground">
+                <Users className="size-6" />
+              </span>
+            )}
+            <PhotoPicker hasPhoto={photo !== null} onChange={setPhoto} />
+          </div>
+          <label htmlFor="creator-name" className="text-sm font-medium">
+            {t.yourName}
+          </label>
+          <div className="flex gap-2">
+            <Input id="creator-name" maxLength={MAX_NAME_LENGTH} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+            <Button type="submit" className="shrink-0" disabled={!name.trim()}>
+              {dict.play.join}
+            </Button>
+          </div>
+        </form>
+      )}
+    </section>
+  );
+}
+
+/** The creator's screen during a game without a game master: their seat, plus the leading tools. */
+function AutoHostGame({ view, send }: { view: HostView; send: (message: ClientMessage) => void }) {
+  const { dict } = useI18n();
+  const seat = view.seat!;
+  const [giving, setGiving] = useState(false);
+  useNarrator(seat.speaker, send);
+  useWakeLock(!seat.game?.winner);
+  const over = !!seat.game?.winner;
+  useGameTheme(seat.game?.phase.kind === "night" && !seat.game.prologue && !over);
+  return (
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-10">
+      <div className="flex items-center justify-end gap-2">
+        {over && (
+          <Button type="button" variant="outline" className="h-10 px-4" onClick={() => send({ type: "end-game" })}>
+            <X aria-hidden className="size-4" />
+            {dict.game.steps["game-over"].newGame}
+          </Button>
+        )}
+        <QuitMenu over={over} onEndGame={() => send({ type: "end-game" })} onGiveLead={() => setGiving(true)} giveLabel={dict.lead.giveLead} />
+      </div>
+      <JoinRequests inGame />
+      <InGame view={seat} live act={send} send={null} lead={<LeaderBar view={seat} paused={view.paused} send={send} />} />
+      <GiveLeadDialog open={giving} onClose={() => setGiving(false)} hint={dict.lead.leadHint} send={send} exclude={view.seatId} />
     </main>
   );
 }

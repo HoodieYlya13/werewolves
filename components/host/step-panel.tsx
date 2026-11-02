@@ -57,6 +57,91 @@ export function StepPanel({ game, act }: { game: GameState; act: (action: Action
 }
 
 function StepContent({ game, act }: { game: GameState; act: (action: Action) => void }) {
+  return (
+    <>
+      <PhonePlays game={game} act={act} />
+      <StepBody game={game} act={act} />
+    </>
+  );
+}
+
+/**
+ * What players chose on their phones for this step, if they did (never
+ * asked for): the game master validates it, or plays the step as usual.
+ */
+function PhonePlays({ game, act }: { game: GameState; act: (action: Action) => void }) {
+  const { dict } = useI18n();
+  const { phonePlays } = useRoomContext();
+  if (!phonePlays) return null;
+  const step = game.step;
+  const rows: { key: string; label: string; action: Action }[] = [];
+  if (step.kind === "wolves") {
+    const votes = new Map<string, number>();
+    for (const id of step.playerIds) {
+      const target = phonePlays.wolfPicks[id];
+      if (target) votes.set(target, (votes.get(target) ?? 0) + 1);
+    }
+    for (const [target, count] of [...votes].sort((a, b) => b[1] - a[1])) {
+      rows.push({ key: target, label: format(dict.lead.wolvesVotes, { name: nameOf(game, target), count }), action: { type: "wolves", targetId: target } });
+    }
+  } else {
+    for (const [id, action] of Object.entries(phonePlays.actions)) {
+      rows.push({ key: id, label: `${nameOf(game, id)} · ${describe(game, action, dict)}`, action });
+    }
+  }
+  if (rows.length === 0) return null;
+  return (
+    <section className="flex flex-col gap-2 rounded-2xl border border-moon/40 bg-moon/10 p-4">
+      <p className="flex items-center gap-2 text-sm font-semibold text-moon">
+        <Smartphone aria-hidden className="size-4" />
+        {dict.lead.fromPhones}
+      </p>
+      <ul className="flex flex-col gap-2">
+        {rows.map((row) => (
+          <li key={row.key} className="flex flex-wrap items-center gap-3">
+            <span className="min-w-0 flex-1 font-medium">{row.label}</span>
+            <Button type="button" className="h-10 px-4" onClick={() => act(row.action)}>
+              {dict.lead.validate}
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** A phone's choice in words, for the game master. */
+function describe(game: GameState, action: Action, dict: ReturnType<typeof useI18n>["dict"]): string {
+  const step = game.step;
+  const steps = dict.game.steps;
+  switch (action.type) {
+    case "seer":
+    case "hunter":
+      return action.targetId ? nameOf(game, action.targetId) : "—";
+    case "mayor":
+      return nameOf(game, action.targetId);
+    case "cupid":
+      return names(game, action.lovers);
+    case "pick":
+      return action.targetIds.length ? names(game, action.targetIds) : "—";
+    case "witch": {
+      const parts = [];
+      if (action.heal && step.kind === "witch" && step.victimId) parts.push(format(steps.witch.heal, { name: nameOf(game, step.victimId) }));
+      if (action.poisonId) parts.push(`${steps.witch.poison}: ${nameOf(game, action.poisonId)}`);
+      return parts.join(" · ") || steps.witch.nothing;
+    }
+    case "thief":
+      return action.pick === null || step.kind !== "thief" ? steps.thief.keep : dict.roles[step.cards[action.pick]].name;
+    case "choose":
+      if (step.kind === "actor") return action.value === null ? steps.actor.none : dict.roles[step.cards[action.value as number]].name;
+      if (step.kind === "wolf-hound") return steps["wolf-hound"][action.value as "village" | "wolves"];
+      return action.value ? dict.auto.yes : dict.auto.no;
+    default:
+      return "";
+  }
+}
+
+function StepBody({ game, act }: { game: GameState; act: (action: Action) => void }) {
   const step = game.step;
   switch (step.kind) {
     case "prologue":
@@ -557,7 +642,7 @@ function MayorStep({ game, step, act }: Props<"mayor-election" | "mayor-successi
   const { dict } = useI18n();
   const t = dict.game.steps[step.kind];
   const name = step.kind === "mayor-succession" ? nameOf(game, step.playerId) : "";
-  const { ballot, send } = useRoomContext();
+  const { ballot, send, candidates: standing = [] } = useRoomContext();
   // The election's phone vote: the candidates being picked, before it opens.
   const [candidates, setCandidates] = useState<string[] | null>(null);
   const election = step.kind === "mayor-election" ? step : null;
@@ -565,9 +650,10 @@ function MayorStep({ game, step, act }: Props<"mayor-election" | "mayor-successi
   return (
     <>
       <Say>{format(t.say, { name })}</Say>
+      {election && standing.length > 0 && <Do>{format(dict.auto.mayorCandidates, { names: names(game, standing) })}</Do>}
       {election && send && !ballot && !picking && (
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="button" variant="outline" className="h-11" onClick={() => setCandidates([])}>
+          <Button type="button" variant="outline" className="h-11" onClick={() => setCandidates(standing.filter((id) => game.players.find((p) => p.id === id)?.alive))}>
             <Smartphone aria-hidden className="size-4" />
             {dict.ballot.open}
           </Button>

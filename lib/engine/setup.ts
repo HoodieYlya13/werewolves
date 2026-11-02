@@ -37,6 +37,12 @@ export function setupNeeds(deck: RoleId[]) {
 
 export type SetupOptions = Pick<GameSetup, "actorCards" | "groups">;
 
+/**
+ * Roles someone who isn't in the room can't play: the Little Girl peeks at
+ * the wolves with her own eyes. Everything else works from a phone.
+ */
+export const REMOTE_UNPLAYABLE: RoleId[] = ["little-girl"];
+
 /** "classic": base-game roles, then villagers. "no-villagers": a power for everyone. */
 export type DeckStyle = "classic" | "no-villagers";
 
@@ -66,7 +72,14 @@ const villageSets: RoleId[] = ["two-sisters", "three-brothers"];
  * the rest with villagers; "no-villagers" with a random mix of village powers,
  * different on each call.
  */
-export function suggestedDeck(playerCount: number, style: DeckStyle = "classic", random: () => number = Math.random): RoleId[] {
+export function suggestedDeck(
+  playerCount: number,
+  style: DeckStyle = "classic",
+  random: () => number = Math.random,
+  /** Roles the group took out of their games: never suggested (wolves and villagers always are). */
+  exclude: RoleId[] = [],
+): RoleId[] {
+  const allowed = (role: RoleId) => !exclude.includes(role);
   const wolves = playerCount <= 5 ? 1 : playerCount <= 11 ? 2 : playerCount <= 17 ? 3 : 4;
   const specials: [RoleId, number][] = [
     ["seer", 3],
@@ -76,12 +89,12 @@ export function suggestedDeck(playerCount: number, style: DeckStyle = "classic",
     ...(style === "classic" ? [["little-girl", 8] as [RoleId, number]] : []),
   ];
   const deck: RoleId[] = Array(wolves).fill("werewolf");
-  for (const [role, minPlayers] of specials) if (playerCount >= minPlayers) deck.push(role);
+  for (const [role, minPlayers] of specials) if (playerCount >= minPlayers && allowed(role)) deck.push(role);
 
   if (style === "no-villagers") {
-    const singles = shuffle(villagePowers, random);
+    const singles = shuffle(villagePowers.filter(allowed), random);
     let room = playerCount - deck.length;
-    for (const set of shuffle(villageSets, random)) {
+    for (const set of shuffle(villageSets.filter(allowed), random)) {
       const size = roles[set].copies!;
       // Sets are a coin toss, unless the single powers alone can't fill the deck.
       if (size <= room && (random() < 0.5 || room > singles.length)) {

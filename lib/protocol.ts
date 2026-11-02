@@ -1,5 +1,8 @@
+import type { AutoConfig, AutoPublic, Cue, PhoneTurn } from "./auto";
 import type { Ballot, Timer } from "./ballot";
 import type { Action, GameState, PlayerInfo, PublicGame, RoleId, SetupOptions, Settings } from "./engine";
+import type { Locale } from "./i18n/config";
+import type { Scene } from "./sound-types";
 
 /**
  * Messages between the Next.js app and the PartyKit room server.
@@ -7,6 +10,13 @@ import type { Action, GameState, PlayerInfo, PublicGame, RoleId, SetupOptions, S
  */
 
 export type RoomPhase = "lobby" | "playing" | "ended";
+
+/**
+ * "master": a game master runs the game from their screen and doesn't play.
+ * "auto": nobody does: the room runs the game (lib/auto.ts), and the
+ * creator plays from their screen like everyone else.
+ */
+export type RoomMode = "master" | "auto";
 
 /** What everyone in the room may see about a player. */
 export type PublicPlayer = {
@@ -47,12 +57,26 @@ type BaseView = {
   timer: Timer | null;
   /** Server clock when the view was sent, to show the timer accurately. */
   serverNow: number;
+  mode: RoomMode;
+  /** Players running for Mayor, until one is elected. */
+  candidates: string[];
 };
 
-/** The game master sees everything, including every role and the full game state. */
+/**
+ * The game master sees everything, including every role and the full game
+ * state. Without a game master, the creator's screen sees only its own seat
+ * once the game is on (`seat`), like any phone.
+ */
 export type HostView = BaseView & {
   kind: "host";
   game: GameState | null;
+  /** Without a game master: the creator's own seat, and how it sees the game. */
+  seatId: string | null;
+  seat: PlayerView | null;
+  /** With a game master: what players chose on their phones for the current step, to validate. */
+  phonePlays: { actions: Record<string, Action>; wolfPicks: Record<string, string> } | null;
+  /** Without a game master: paused by the leader (this device). */
+  paused: boolean;
   /** Number of actions in the log; undo is possible when > 0. */
   actionCount: number;
   /** A game ended with "End game" that can still be picked up again. */
@@ -108,7 +132,25 @@ export type PlayerView = BaseView & {
   claim: { gameId: string; code: string } | null;
   /** The game master's account, when they're signed in: players can ask them to be friends. */
   host: FriendFace | null;
+  /** Without a game master: the choice or message on this phone right now. */
+  turn: PhoneTurn | null;
+  auto: AutoPublic | null;
+  /** Without a game master: set on the one device that reads the game out loud. */
+  speaker: Speaker | null;
+  /** Without a game master once dead, or a game master who handed the game over: the whole game, roles included. */
+  spectate: GameState | null;
+  /** The game is paused: by the leader, or because the leader's device is gone. */
+  pause: { reason: "manual" | "leader"; leader: string } | null;
+  /** The leader's device is gone and this phone is next: it says whether they'll be back. */
+  succession: boolean;
+  /** The cards in play, when everyone may see them (no game master, open deck). */
+  deck: RoleId[] | null;
+  /** May run for Mayor now (alive, and no Mayor elected yet). */
+  canStand: boolean;
 };
+
+/** What the narrator device plays: the lines to read, in the room's language, and the music. */
+export type Speaker = { cue: Cue | null; scene: Scene | null; locale: Locale };
 
 export type RoomView = HostView | PlayerView;
 
@@ -163,6 +205,13 @@ export type ServerMessage =
   | { type: "other-room"; room: string; inGame: boolean }
   /** This device is now the game master (it took the room over from another device): its key from now on. */
   | { type: "host-token"; token: string }
+  /**
+   * The lead moved: this device runs the room now (`host`), plays a seat
+   * (`player`, also how a former game master watches), or is a plain visitor.
+   */
+  | { type: "become"; as: "host"; token: string }
+  | { type: "become"; as: "player"; id: string; token: string }
+  | { type: "become"; as: "guest" }
   /** `detail` carries the engine's explanation for invalid setups and actions. */
   | { type: "error"; code: ErrorCode; detail?: string }
   /** What "add-friend" did (see RequestResult in lib/friends.ts). */
@@ -170,8 +219,10 @@ export type ServerMessage =
   /** How many friends "invite" reached (the others were invited a moment ago, or aren't friends). */
   | { type: "invited"; count: number };
 
-export type StartGame = SetupOptions &
-  (
+export type StartGame = SetupOptions & {
+  /** Without a game master (random dealing only). A hidden deck is dealt by the room: `deck` is ignored. */
+  auto?: AutoConfig;
+} & (
     | { mode: "random"; deck: RoleId[]; settings: Settings }
     | { mode: "manual"; assignment: Record<string, RoleId>; extraCards: RoleId[]; settings: Settings }
   );
@@ -203,12 +254,39 @@ export type ClientMessage =
   | { type: "request-rejoin"; name: string; ticket?: string; leaveOther?: boolean }
   /** null = vote for no one. */
   | { type: "cast-vote"; targetId: string | null }
+  /** Runs for Mayor (or withdraws), until one is elected. */
+  | { type: "stand"; value: boolean }
+  // Without a game master
+  /** This player's choice on their turn. */
+  | { type: "play"; action: Action }
+  /** A wolf points at the pack's victim (null: takes it back). */
+  | { type: "wolf-pick"; targetId: string | null }
+  /** "One more minute", after the last call. */
+  | { type: "more-time" }
+  /** Ready to end the debate and vote. */
+  | { type: "ready"; value: boolean }
+  /** The narrator device finished reading a cue. */
+  | { type: "cue-done"; id: number }
   // Phone (its own photo) or game master (anyone's), except for account players.
   // `data` is a JPEG data URL; null removes it.
   | { type: "set-photo"; playerId?: string; data: string | null }
   // Game master
   /** The game master's account, for their stats (null: signed out). */
   | { type: "host-account"; ticket: string | null }
+  /**
+   * Hands the room over to a player's device: in the lobby to anyone with a
+   * phone; during a game, to a dead player with a game master, to anyone
+   * without one. This device becomes a player again, or a spectator.
+   */
+  | { type: "give-lead"; playerId: string }
+  /** Without a game master, by day: the leader pauses or resumes the game. */
+  | { type: "pause"; value: boolean }
+  /** Without a game master: the leader declares a player out for good (dead phone, gone). */
+  | { type: "sudden-death"; playerId: string }
+  /** The leader's device is gone: they'll be back (`dead: false`), or they're out and this phone leads. */
+  | { type: "succession"; dead: boolean }
+  /** In the lobby: with or without a game master. Without, the creator gets a seat (`name` unless signed in). */
+  | { type: "set-mode"; mode: RoomMode; name?: string; photo?: string | null; locale?: Locale }
   | { type: "add-player"; name: string }
   | { type: "remove-player"; playerId: string }
   | { type: "move-player"; playerId: string; seat: number }

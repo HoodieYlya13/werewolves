@@ -97,6 +97,23 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
           identity.setHost(code, { token: msg.token });
           clearHostTakeover(code);
           break;
+        case "become": {
+          // The lead moved: this device opens the screen of its new part.
+          const locale = window.location.pathname.split("/")[1] || "en";
+          if (msg.as === "host") {
+            identity.setHost(code, { token: msg.token });
+            identity.setPlayer(code, null);
+          } else {
+            identity.setHost(code, null);
+            identity.setPlayer(code, msg.as === "player" ? { id: msg.id, token: msg.token } : null);
+          }
+          socket.close();
+          lastViews.delete(cacheKey);
+          // A full load on purpose: the new page starts with a fresh socket and identity.
+          // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+          window.location.assign(`/${locale}/${msg.as === "host" ? "host" : "play"}/${code}`);
+          break;
+        }
         case "friend-result":
         case "invited":
           // Answers to one button press: whoever pressed it listens (useRoomReply).

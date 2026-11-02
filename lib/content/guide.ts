@@ -39,19 +39,27 @@ const en: Guide = {
     steps: [
       {
         title: "Create a room",
-        body: "The game master opens the app on a tablet, a laptop or the TV, and gets a four-letter code and a QR code.",
+        body: "Open the app and choose how you play: with a game master, who runs the game from a tablet, a laptop or the TV, or without one, where the app runs it and you play too. You get a four-letter code and a QR code.",
       },
       {
         title: "Players join",
-        body: "Everyone scans the code with their phone. No app to install, no account needed. Players without a phone are added by hand.",
+        body: "Everyone scans the code with their phone. No app to install, no account needed. With a game master, players without a phone are added by hand.",
       },
       {
         title: "Play",
-        body: "The app deals the cards, then tells the game master exactly what to say and who to wake, night after night, until a side wins.",
+        body: "The app deals the cards, then tells the game master exactly what to say and who to wake, or, without a game master, says it out loud itself while everyone plays on their phone, until a side wins.",
       },
     ],
-    featuresTitle: "Everything the game master needs",
+    featuresTitle: "Everything a game needs",
     features: [
+      {
+        title: "With or without a game master",
+        body: "A game master keeps the game lively. Without one, the app narrates out loud, wakes each role on its phone, runs the debate and the votes, and everyone plays. The lead can change hands at any time.",
+      },
+      {
+        title: "Play on the phones, if you like",
+        body: "At night, whoever is called can play their role on their phone, its screen dark while the others' eyes are closed: perfect for players who aren't in the room. Never required: point as usual if you prefer.",
+      },
       {
         title: "No more forgotten roles",
         body: "Every role is called in the official order. Roles that can no longer play are still called, so nobody can guess who is gone.",
@@ -96,6 +104,7 @@ const en: Guide = {
         title: "What you need",
         paragraphs: [
           "One game master, who narrates and doesn't play, and at least eight players for a classic game. You can play with the cards from the box, or let the app deal them to the players' phones.",
+          "No game master? The app can run the whole game: it reads it out loud from one phone, wakes each role on its own phone, gives the debate a timer and counts the votes. Then everyone plays, and everyone needs a phone.",
           "A good first deck: one werewolf for every four players or so, a Seer, a Witch, a Hunter, Cupid, and villagers for everyone else.",
         ],
       },
@@ -136,6 +145,7 @@ const en: Guide = {
         paragraphs: [
           "Speak the same way and take the same time for every role, even for one that is dead or out of powers: hesitating or skipping a role gives information away. Never say how someone died, except for a lover who dies of grief. Keep the story alive: the village is a character too.",
           "This is exactly what the app does for you: it calls every role in order, keeps calling the ones that can no longer play, never reveals a cause of death, and knows when the game is over.",
+          "Want to play for once? Hand the game to a player who died, or play without a game master: the app narrates for you.",
         ],
       },
     ],
@@ -172,7 +182,15 @@ const en: Guide = {
       },
       {
         q: "Does everyone need a phone?",
-        a: "No. Only the game master needs a screen. Players with a phone see their card on it; players without one are added by hand and see their card on the game master's screen, behind a cover so nobody else can read it.",
+        a: "With a game master, no: only the game master needs a screen. Players with a phone see their card on it; players without one are added by hand and see their card on the game master's screen, behind a cover so nobody else can read it. Without a game master, yes: everyone plays on their own phone.",
+      },
+      {
+        q: "Can we play without a game master?",
+        a: "Yes. Choose “Everyone plays” when you create the room: whoever creates it takes a seat like everyone else, and the app runs the game. One phone reads it out loud, each role plays on its phone when called (with reminders, one more minute if needed, and a skip if nobody answers), the wolves must all pick the same victim, and the day has a debate timer and a vote on the phones. To keep it fair, the cards can be shown to everyone or kept secret from all, the creator included.",
+      },
+      {
+        q: "Can players play their role on their phone?",
+        a: "Yes, in both ways to play. With a game master it's optional: at night whoever is called may choose on their phone (the werewolves see each other's votes, the Witch uses her potions, the charmed see who else is), and the game master validates. Handy for a player who isn't in the room; the game master never has to ask for it.",
       },
       {
         q: "How many players can play?",
@@ -188,7 +206,7 @@ const en: Guide = {
       },
       {
         q: "Does the game master play too?",
-        a: "The game master narrates and doesn't play a role. The app takes care of all the bookkeeping, so the game master can focus on the story and the table.",
+        a: "The game master narrates and doesn't play a role. They can hand the game to a player who died at any time and watch the rest, then ask to join the next game. Without a game master, the creator plays like everyone else.",
       },
       {
         q: "What if I make a mistake?",
@@ -196,11 +214,11 @@ const en: Guide = {
       },
       {
         q: "What if a player's phone dies or they leave?",
-        a: "They keep their seat. They can come back on any phone, and meanwhile the game master plays their part.",
+        a: "They keep their seat. They can come back on any phone, or the game master (or, without one, the leading phone) can give the seat to another phone. Without a game master, the leading phone can also pause the game by day, or declare a sudden death if they can't come back. If the leading phone itself goes, the game pauses and the next player decides.",
       },
       {
         q: "Do I need an account?",
-        a: "No. Signing in is optional: it keeps your name and photo, and saves your stats (win rate, favourite roles, games run as game master).",
+        a: "No. Signing in is optional: it keeps your name and photo, and saves your stats (win rate, favourite roles, games run as game master, games organised with or without one).",
       },
       {
         q: "Does it work offline?",
@@ -231,19 +249,27 @@ const fr: Guide = {
     steps: [
       {
         title: "Créez une partie",
-        body: "Le meneur de jeu ouvre l'application sur une tablette, un ordinateur ou la télé, et obtient un code de quatre lettres et un QR code.",
+        body: "Ouvrez l'application et choisissez comment jouer : avec un meneur, qui mène la partie depuis une tablette, un ordinateur ou la télé, ou sans, l'application la mène et vous jouez aussi. Vous obtenez un code de quatre lettres et un QR code.",
       },
       {
         title: "Les joueurs rejoignent",
-        body: "Chacun scanne le code avec son téléphone. Rien à installer, aucun compte nécessaire. Les joueurs sans téléphone sont ajoutés à la main.",
+        body: "Chacun scanne le code avec son téléphone. Rien à installer, aucun compte nécessaire. Avec un meneur, les joueurs sans téléphone sont ajoutés à la main.",
       },
       {
         title: "Jouez",
-        body: "L'application distribue les cartes, puis dit au meneur exactement quoi dire et qui réveiller, nuit après nuit, jusqu'à la victoire d'un camp.",
+        body: "L'application distribue les cartes, puis dit au meneur exactement quoi dire et qui réveiller, ou, sans meneur, le dit elle-même à voix haute pendant que chacun joue sur son téléphone, jusqu'à la victoire d'un camp.",
       },
     ],
-    featuresTitle: "Tout ce dont le meneur a besoin",
+    featuresTitle: "Tout ce qu'il faut pour une partie",
     features: [
+      {
+        title: "Avec ou sans meneur",
+        body: "Un meneur rend la partie plus vivante. Sans meneur, l'application raconte à voix haute, réveille chaque rôle sur son téléphone, mène le débat et les votes, et tout le monde joue. La main peut changer à tout moment.",
+      },
+      {
+        title: "Jouer sur les téléphones, si vous voulez",
+        body: "La nuit, celui qu'on appelle peut jouer son rôle sur son téléphone, écran sombre pendant que les autres ont les yeux fermés : idéal pour les joueurs à distance. Jamais obligatoire : montrez du doigt si vous préférez.",
+      },
       {
         title: "Plus aucun rôle oublié",
         body: "Chaque rôle est appelé dans l'ordre officiel. Les rôles qui ne peuvent plus jouer sont quand même appelés, pour que personne ne devine qui a disparu.",
@@ -288,6 +314,7 @@ const fr: Guide = {
         title: "Ce qu'il vous faut",
         paragraphs: [
           "Un meneur de jeu, qui raconte et ne joue pas, et au moins huit joueurs pour une partie classique. Vous pouvez jouer avec les cartes de la boîte, ou laisser l'application les distribuer sur les téléphones.",
+          "Pas de meneur ? L'application peut mener toute la partie : elle la lit à voix haute depuis un téléphone, réveille chaque rôle sur son propre téléphone, chronomètre le débat et compte les votes. Alors tout le monde joue, et chacun a besoin d'un téléphone.",
           "Un bon premier paquet : environ un loup-garou pour quatre joueurs, une Voyante, une Sorcière, un Chasseur, Cupidon, et des villageois pour tous les autres.",
         ],
       },
@@ -328,6 +355,7 @@ const fr: Guide = {
         paragraphs: [
           "Parlez de la même façon et prenez le même temps pour chaque rôle, même pour un rôle mort ou sans pouvoir : hésiter ou sauter un rôle donne des indices. Ne dites jamais comment quelqu'un est mort, sauf pour un amoureux qui meurt de chagrin. Faites vivre l'histoire : le village est un personnage, lui aussi.",
           "C'est exactement ce que fait l'application pour vous : elle appelle chaque rôle dans l'ordre, continue d'appeler ceux qui ne peuvent plus jouer, ne révèle jamais la cause d'une mort et sait quand la partie est finie.",
+          "Envie de jouer pour une fois ? Confiez la partie à un joueur mort, ou jouez sans meneur : l'application raconte pour vous.",
         ],
       },
     ],
@@ -364,7 +392,15 @@ const fr: Guide = {
       },
       {
         q: "Tout le monde doit-il avoir un téléphone ?",
-        a: "Non. Seul le meneur a besoin d'un écran. Les joueurs avec un téléphone y voient leur carte ; ceux qui n'en ont pas sont ajoutés à la main et voient leur carte sur l'écran du meneur, derrière un cache pour que personne d'autre ne la lise.",
+        a: "Avec un meneur, non : seul le meneur a besoin d'un écran. Les joueurs avec un téléphone y voient leur carte ; ceux qui n'en ont pas sont ajoutés à la main et voient leur carte sur l'écran du meneur, derrière un cache pour que personne d'autre ne la lise. Sans meneur, oui : chacun joue sur son propre téléphone.",
+      },
+      {
+        q: "Peut-on jouer sans meneur ?",
+        a: "Oui. Choisissez « Tout le monde joue » en créant le salon : celui qui le crée prend une place comme les autres, et l'application mène la partie. Un téléphone la lit à voix haute, chaque rôle joue sur son téléphone quand on l'appelle (avec des rappels, une minute de plus si besoin, et un tour passé si personne ne répond), les loups doivent tous choisir la même victime, et le jour a un débat chronométré et un vote sur les téléphones. Pour rester équitable, les cartes peuvent être montrées à tous ou cachées à tous, créateur compris.",
+      },
+      {
+        q: "Les joueurs peuvent-ils jouer leur rôle sur leur téléphone ?",
+        a: "Oui, dans les deux façons de jouer. Avec un meneur, c'est facultatif : la nuit, celui qu'on appelle peut choisir sur son téléphone (les loups voient les votes des autres, la Sorcière utilise ses potions, les charmés voient qui l'est aussi), et le meneur valide. Pratique pour un joueur à distance ; le meneur n'a jamais à le demander.",
       },
       {
         q: "Combien de joueurs peuvent jouer ?",
@@ -380,7 +416,7 @@ const fr: Guide = {
       },
       {
         q: "Le meneur joue-t-il aussi ?",
-        a: "Le meneur raconte et n'a pas de rôle. L'application s'occupe de tout le suivi, pour que le meneur se concentre sur l'histoire et la table.",
+        a: "Le meneur raconte et n'a pas de rôle. Il peut confier la partie à un joueur mort à tout moment et regarder la suite, puis demander à rejoindre la partie suivante. Sans meneur, le créateur joue comme tout le monde.",
       },
       {
         q: "Et si je me trompe ?",
@@ -388,11 +424,11 @@ const fr: Guide = {
       },
       {
         q: "Et si le téléphone d'un joueur s'éteint ou s'il part ?",
-        a: "Il garde sa place. Il peut revenir sur n'importe quel téléphone, et en attendant, le meneur joue à sa place.",
+        a: "Il garde sa place. Il peut revenir sur n'importe quel téléphone, ou le meneur (ou, sans meneur, le téléphone qui mène) peut donner sa place à un autre téléphone. Sans meneur, le téléphone qui mène peut aussi mettre la partie en pause le jour, ou déclarer une mort subite s'il ne peut pas revenir. Si c'est le téléphone qui mène qui disparaît, la partie se met en pause et le joueur suivant décide.",
       },
       {
         q: "Faut-il un compte ?",
-        a: "Non. La connexion est facultative : elle garde votre nom et votre photo, et enregistre vos statistiques (taux de victoire, rôles préférés, parties menées).",
+        a: "Non. La connexion est facultative : elle garde votre nom et votre photo, et enregistre vos statistiques (taux de victoire, rôles préférés, parties menées, parties organisées avec ou sans meneur).",
       },
       {
         q: "Est-ce que ça marche hors ligne ?",

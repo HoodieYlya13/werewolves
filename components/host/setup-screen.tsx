@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useState } from "react";
-import { ArrowLeft, ChevronDown, Dices, Eraser, Hand, History, Minus, Pencil, Plus, Shuffle, Sparkles } from "lucide-react";
+import { ArrowLeft, ChevronDown, Dices, Eraser, Globe, Hand, History, Minus, Pencil, Plus, RotateCcw, Shuffle, Sparkles, Trash2, Undo2 } from "lucide-react";
 import { I18nProvider, useI18n } from "@/components/i18n-provider";
 import { JoinRequests } from "@/components/host/join-requests";
 import { useSiteTheme } from "@/components/site-title";
@@ -13,6 +13,7 @@ import {
   deckProblems,
   deckSize,
   MIN_PLAYERS,
+  REMOTE_UNPLAYABLE,
   roleIds,
   roles,
   setupNeeds,
@@ -21,7 +22,8 @@ import {
   type RoleId,
   type Settings,
 } from "@/lib/engine";
-import type { ClientMessage, PublicPlayer } from "@/lib/protocol";
+import type { ClientMessage, PublicPlayer, RoomMode } from "@/lib/protocol";
+import { DISCUSSION_CHOICES, defaultAutoConfig, type AutoConfig } from "@/lib/auto";
 import { defaultTheme, isThemeId, themeDictionary, themeIds, themes } from "@/lib/themes";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -50,19 +52,32 @@ function toDeck(counts: Counts): RoleId[] {
  * another number of players is kept, and the game master asked what to do.
  */
 function loadSaved(playerCount: number) {
-  let saved: { counts?: Counts; settings?: Partial<Settings>; actorCards?: RoleId[]; style?: DeckStyle } | null = null;
+  let saved: {
+    counts?: Counts;
+    settings?: Partial<Settings>;
+    actorCards?: RoleId[];
+    style?: DeckStyle;
+    removed?: RoleId[];
+    auto?: Partial<AutoConfig>;
+  } | null = null;
   try {
     saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null");
   } catch {}
   const style: DeckStyle = saved?.style === "no-villagers" ? "no-villagers" : "classic";
+  const removed = (saved?.removed ?? []).filter((r) => removable(r));
   const savedDeck = saved?.counts ? toDeck(saved.counts) : null;
   return {
-    counts: savedDeck?.length ? saved!.counts! : toCounts(suggestedDeck(playerCount, style)),
+    counts: savedDeck?.length ? saved!.counts! : toCounts(suggestedDeck(playerCount, style, Math.random, removed)),
     settings: { ...defaultSettings, ...saved?.settings },
     actorCards: saved?.actorCards ?? [],
     style,
+    removed,
+    auto: { ...defaultAutoConfig, ...saved?.auto },
   };
 }
+
+/** Every role but the two a game needs can be taken out of a group's games. */
+const removable = (role: RoleId) => role in roles && role !== "werewolf" && role !== "villager";
 
 type BooleanSetting = { [K in keyof Settings]: Settings[K] extends boolean ? K : never }[keyof Settings];
 
@@ -71,11 +86,14 @@ export function SetupScreen({
   canResume,
   send,
   onBack,
+  mode: roomMode = "master",
 }: {
   players: PublicPlayer[];
   canResume: boolean;
   send: (message: ClientMessage) => void;
   onBack: () => void;
+  /** Without a game master: always dealt at random, and the deck may stay secret. */
+  mode?: RoomMode;
 }) {
   const { dict: baseDict, locale } = useI18n();
   const [initial] = useState(() => loadSaved(players.length));
@@ -87,6 +105,12 @@ export function SetupScreen({
     return deck.length !== deckSize(players.length, deck);
   });
   const [settings, setSettings] = useState<Settings>(initial.settings);
+  const [removed, setRemoved] = useState<RoleId[]>(initial.removed);
+  const [autoConfig, setAutoConfig] = useState<AutoConfig>(initial.auto);
+  const [remoteAsk, setRemoteAsk] = useState(false);
+  const autoMode = roomMode === "auto";
+  // A secret deck: nobody picks the cards, the room deals them.
+  const hidden = autoMode && autoConfig.deck === "hidden";
   // Role names follow the chosen theme as soon as it's picked.
   const dict = themeDictionary(baseDict, settings.theme, locale);
   useSiteTheme(settings.theme);
@@ -124,9 +148,9 @@ export function SetupScreen({
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ counts, settings, actorCards, style }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ counts, settings, actorCards, style, removed, auto: autoConfig }));
     } catch {}
-  }, [counts, settings, actorCards, style]);
+  }, [counts, settings, actorCards, style, removed, autoConfig]);
   const problems = deckProblems(players.length, deck);
   const needs = setupNeeds(deck);
   const actorReady = !needs.actorCards || (actorCards.length === 3 && actorCards.every((r) => actorRoles.includes(r)));
@@ -147,11 +171,20 @@ export function SetupScreen({
   }
   const leftover = toDeck(pool);
   const everyoneAssigned = players.every((p) => holds.has(p.id));
-  const canStart = problems.length === 0 && actorReady && groupsReady && (mode === "random" || everyoneAssigned);
+  const canStart = hidden
+    ? players.length >= MIN_PLAYERS
+    : problems.length === 0 && actorReady && groupsReady && (mode === "random" || everyoneAssigned);
 
   function suggest(next: DeckStyle) {
     setStyle(next);
-    setCounts(toCounts(suggestedDeck(players.length, next)));
+    setCounts(toCounts(suggestedDeck(players.length, next, Math.random, removed)));
+  }
+
+  /** Out of the group's games: out of the deck too. */
+  function removeRoles(list: RoleId[]) {
+    const out = list.filter(removable);
+    setRemoved(out);
+    setCounts((c) => Object.fromEntries(Object.entries(c).filter(([r]) => !out.includes(r as RoleId))) as Counts);
   }
 
   function change(role: RoleId, delta: number) {
@@ -165,15 +198,20 @@ export function SetupScreen({
 
   function start() {
     const options = {
-      actorCards: needs.actorCards ? actorCards : undefined,
-      groups: needs.groups ? groups : undefined,
+      actorCards: needs.actorCards && !hidden ? actorCards : undefined,
+      groups: needs.groups && !hidden ? groups : undefined,
     };
+    if (autoMode) {
+      send({ type: "start-game", mode: "random", deck: hidden ? [] : deck, settings, ...options, auto: { ...autoConfig, exclude: removed } });
+      return;
+    }
     send(
       mode === "random"
         ? { type: "start-game", mode, deck, settings, ...options }
         : { type: "start-game", mode, assignment, extraCards: leftover, settings, ...options },
     );
   }
+  const shown = pickerOrder.filter((r) => !removed.includes(r));
 
   const toggles: { key: BooleanSetting; hint?: string }[] = [
     { key: "mayor", hint: dict.setup.mayorHint },
@@ -184,7 +222,38 @@ export function SetupScreen({
 
   return (
     <I18nProvider locale={locale} dict={dict}>
-      <Dialog open={asking && deck.length !== needed} onOpenChange={(open) => !open && setAsking(false)}>
+      <Dialog open={remoteAsk} onOpenChange={setRemoteAsk}>
+        <DialogContent closeLabel={dict.host.close}>
+          <DialogHeader>
+            <DialogTitle>{dict.setup.removed.remoteTitle}</DialogTitle>
+            <DialogDescription>
+              {format(dict.setup.removed.remoteBody, { roles: REMOTE_UNPLAYABLE.map((r) => dict.roles[r].name).join(", ") })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                removeRoles(REMOTE_UNPLAYABLE);
+                setRemoteAsk(false);
+              }}
+            >
+              {dict.setup.removed.remoteOnly}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                removeRoles([...new Set([...removed, ...REMOTE_UNPLAYABLE])]);
+                setRemoteAsk(false);
+              }}
+            >
+              {dict.setup.removed.remoteAdd}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={asking && !hidden && deck.length !== needed} onOpenChange={(open) => !open && setAsking(false)}>
         <DialogContent
           closeLabel={dict.host.close}
           className="max-w-[min(38rem,calc(100vw-2rem))] sm:max-w-[38rem]"
@@ -238,7 +307,7 @@ export function SetupScreen({
               <ArrowLeft aria-hidden className="size-4" />
               <span className="sr-only sm:not-sr-only">{dict.setup.back}</span>
             </Button>
-            <div className="flex flex-wrap gap-2">
+            <div className={`flex flex-wrap gap-2 ${hidden ? "invisible" : ""}`}>
               <Button
                 type="button"
                 variant="outline"
@@ -264,6 +333,54 @@ export function SetupScreen({
           </div>
           {/* Let in from the lobby, or refused right here. */}
           <JoinRequests inGame={false} onLobby={onBack} />
+
+          {autoMode && (
+            <section className="card flex flex-col gap-4 p-5">
+              <div className="flex flex-col gap-2">
+                <h2 className="font-semibold">{dict.auto.deckTitle}</h2>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {(["hidden", "open"] as const).map((kind) => (
+                    <button
+                      key={kind}
+                      type="button"
+                      aria-pressed={autoConfig.deck === kind}
+                      onClick={() => setAutoConfig((c) => ({ ...c, deck: kind }))}
+                      className={`flex flex-col gap-1 rounded-xl border-2 p-3 text-left ${autoConfig.deck === kind ? "border-primary bg-primary/10" : "border-line bg-surface hover:border-fg/30"}`}
+                    >
+                      <span className="font-semibold">{kind === "hidden" ? dict.auto.deckHidden : dict.auto.deckOpen}</span>
+                      <span className="text-xs text-muted-foreground">{kind === "hidden" ? dict.auto.deckHiddenHint : dict.auto.deckOpenHint}</span>
+                    </button>
+                  ))}
+                </div>
+                {hidden && (
+                  <div className="segmented self-start">
+                    {(["classic", "no-villagers"] as const).map((kind) => (
+                      <button key={kind} type="button" aria-current={autoConfig.style === kind} onClick={() => setAutoConfig((c) => ({ ...c, style: kind }))}>
+                        {kind === "classic" ? dict.setup.suggest : dict.setup.suggestSpecials}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <label className="flex flex-wrap items-center gap-3">
+                <span className="font-semibold">{dict.auto.discussionTime}</span>
+                <NativeSelect
+                  className="h-10 py-0"
+                  value={autoConfig.discussionSeconds}
+                  onChange={(e) => setAutoConfig((c) => ({ ...c, discussionSeconds: Number(e.target.value) }))}
+                >
+                  {DISCUSSION_CHOICES.map((seconds) => (
+                    <option key={seconds} value={seconds}>
+                      {format(dict.auto.minutes, { n: seconds / 60 })}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </label>
+              {hidden && (
+                <RemovedRoles removed={removed} onChange={removeRoles} onRemote={() => setRemoteAsk(true)} />
+              )}
+            </section>
+          )}
 
           {/* Folded to the theme picked; picking one folds it again. */}
           <section>
@@ -309,6 +426,8 @@ export function SetupScreen({
           </section>
 
           {/* Folded, it still has to look like the way in: a card to tap, saying what's inside. */}
+          {!hidden && (
+          <>
           <div id="card-picker" className="flex scroll-mt-4 items-center gap-2">
             <h1 className="min-w-0 flex-1">
               <button
@@ -347,8 +466,9 @@ export function SetupScreen({
             inert={!cardsOpen}
             className={`grid shrink-0 transition-[grid-template-rows,margin] duration-300 ease-out motion-reduce:transition-none ${cardsOpen ? "grid-rows-[1fr]" : "-mt-4 grid-rows-[0fr]"}`}
           >
-          <ul className="grid min-h-0 gap-3 overflow-hidden sm:grid-cols-2">
-            {pickerOrder.map((role) => {
+          <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {shown.map((role) => {
               const count = counts[role] ?? 0;
               const max = roles[role].max;
               return (
@@ -357,7 +477,21 @@ export function SetupScreen({
                   className={`card flex gap-3 p-4 transition-colors ${count > 0 ? "border-fg/30" : "opacity-80"}`}
                 >
                   <div className="min-w-0 flex-1">
-                    <RoleName role={role} className="font-semibold" />
+                    <div className="flex items-start gap-1">
+                      <RoleName role={role} className="min-w-0 flex-1 font-semibold" />
+                      {/* Out of the group's games: folded away at the bottom of the list. */}
+                      {removable(role) && (
+                        <button
+                          type="button"
+                          aria-label={format(dict.setup.removed.remove, { role: dict.roles[role].name })}
+                          title={format(dict.setup.removed.remove, { role: dict.roles[role].name })}
+                          className="-mt-1 -mr-1 grid size-7 shrink-0 place-items-center rounded-lg text-muted-foreground/70 hover:bg-surface-2 hover:text-primary"
+                          onClick={() => removeRoles([...removed, role])}
+                        >
+                          <Trash2 aria-hidden className="size-3.5" />
+                        </button>
+                      )}
+                    </div>
                     <p className="mt-1 text-sm text-muted-foreground">{dict.roles[role].power}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-1 self-center">
@@ -385,11 +519,16 @@ export function SetupScreen({
               );
             })}
           </ul>
+          <RemovedRoles removed={removed} onChange={removeRoles} onRemote={() => setRemoteAsk(true)} />
           </div>
+          </div>
+          </>
+          )}
         </section>
 
         <aside className="flex flex-col gap-4 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:self-start lg:overflow-y-auto lg:pb-1">
-          <section className="card flex flex-col gap-2 p-5">
+          {hidden && <p className="card p-5 text-muted-foreground">{dict.auto.deckHiddenHint}</p>}
+          <section className={`card flex flex-col gap-2 p-5 ${hidden ? "hidden" : ""}`}>
             <div className="flex min-h-10 items-start justify-between gap-3">
               <p
                 className={`font-mono text-3xl font-bold tabular-nums ${deck.length === needed ? "text-ok" : "text-primary"}`}
@@ -466,7 +605,7 @@ export function SetupScreen({
             </div>
           </section>
 
-          {deck.includes("pied-piper") && (
+          {!hidden && deck.includes("pied-piper") && (
             <section className="card flex flex-col gap-3 p-5">
               <h2 className="font-semibold">{dict.setup.piperCharms}</h2>
               <div className="segmented self-start">
@@ -484,7 +623,7 @@ export function SetupScreen({
             </section>
           )}
 
-          {deck.includes("angel") && (
+          {!hidden && deck.includes("angel") && (
             <section className="card flex flex-col gap-3 p-5">
               <h2 className="font-semibold">{dict.setup.angelRule}</h2>
               {(["first-vote", "opening-vote"] as const).map((rule) => (
@@ -505,7 +644,7 @@ export function SetupScreen({
             </section>
           )}
 
-          {needs.actorCards && (
+          {!hidden && needs.actorCards && (
             <section className="card flex flex-col gap-3 p-5">
               <div>
                 <h2 className="font-semibold">{dict.setup.actorCards}</h2>
@@ -539,7 +678,7 @@ export function SetupScreen({
             </section>
           )}
 
-          {needs.groups && (
+          {!hidden && needs.groups && (
             <section className="card flex flex-col gap-3 p-5">
               <div>
                 <h2 className="font-semibold">{dict.setup.groups}</h2>
@@ -568,7 +707,8 @@ export function SetupScreen({
             </section>
           )}
 
-          <section className="card flex flex-col gap-3 p-5">
+          {autoMode && <p className="text-sm text-muted-foreground">{dict.auto.noManual}</p>}
+          <section className={`card flex flex-col gap-3 p-5 ${autoMode ? "hidden" : ""}`}>
             <h2 className="font-semibold">{dict.setup.dealing}</h2>
             <div className="segmented self-start">
               <button type="button" aria-current={mode === "random"} onClick={() => setMode("random")}>
@@ -622,7 +762,7 @@ export function SetupScreen({
             </Button>
           )}
           <Button type="button" className="h-12 text-base" disabled={!canStart} onClick={start}>
-            {dict.setup.begin}
+            {hidden ? dict.auto.startHidden : dict.setup.begin}
           </Button>
           {players.length < MIN_PLAYERS && (
             <p className="text-sm text-primary">{format(dict.setup.needPlayers, { min: MIN_PLAYERS })}</p>
@@ -630,6 +770,67 @@ export function SetupScreen({
         </aside>
       </main>
     </I18nProvider>
+  );
+}
+
+/**
+ * Roles the group took out of its games, folded at the bottom of the list:
+ * put back one by one or all at once, or set for a player who isn't in the room.
+ */
+function RemovedRoles({ removed, onChange, onRemote }: { removed: RoleId[]; onChange: (roles: RoleId[]) => void; onRemote: () => void }) {
+  const { dict } = useI18n();
+  const t = dict.setup.removed;
+  return (
+    <details className="card p-4" open={false}>
+      <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium text-muted-foreground">
+        <Trash2 aria-hidden className="size-4" />
+        <span className="min-w-0 flex-1">{format(t.title, { count: removed.length })}</span>
+        <button
+          type="button"
+          aria-label={t.remote}
+          title={t.remote}
+          className="grid size-8 place-items-center rounded-lg hover:bg-surface-2 hover:text-fg"
+          onClick={(e) => {
+            e.preventDefault();
+            onRemote();
+          }}
+        >
+          <Globe aria-hidden className="size-4" />
+        </button>
+        <button
+          type="button"
+          aria-label={t.restoreAll}
+          title={t.restoreAll}
+          disabled={removed.length === 0}
+          className="grid size-8 place-items-center rounded-lg hover:bg-surface-2 hover:text-fg disabled:opacity-30"
+          onClick={(e) => {
+            e.preventDefault();
+            onChange([]);
+          }}
+        >
+          <RotateCcw aria-hidden className="size-4" />
+        </button>
+      </summary>
+      <p className="mt-2 text-xs text-muted-foreground">{t.hint}</p>
+      {removed.length > 0 && (
+        <ul className="mt-3 flex flex-wrap gap-2">
+          {removed.map((role) => (
+            <li key={role} className="flex items-center gap-1 rounded-full bg-surface-2 py-1 pr-1 pl-3 text-sm">
+              <RoleName role={role} />
+              <button
+                type="button"
+                aria-label={format(t.restore, { role: dict.roles[role].name })}
+                title={format(t.restore, { role: dict.roles[role].name })}
+                className="grid size-6 place-items-center rounded-full hover:bg-surface hover:text-fg"
+                onClick={() => onChange(removed.filter((r) => r !== role))}
+              >
+                <Undo2 aria-hidden className="size-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </details>
   );
 }
 

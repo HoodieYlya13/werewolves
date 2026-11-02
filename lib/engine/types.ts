@@ -101,7 +101,9 @@ export type DeathCause =
   | "grief"
   | "rust"
   | "white-werewolf"
-  | "scapegoat";
+  | "scapegoat"
+  /** The player had to leave the game for good (a dead phone, no way back). */
+  | "sudden";
 
 export type Death = { playerId: string; cause: DeathCause };
 
@@ -161,7 +163,7 @@ export type Step =
    * narrator still calls it unless the village knows it's gone, so nobody can tell.
    */
   | { kind: "bluff"; turn: string; role: RoleId }
-  | { kind: "deaths"; context: "dawn" | "vote" | "hunter"; deaths: Death[] }
+  | { kind: "deaths"; context: "dawn" | "vote" | "hunter" | "sudden"; deaths: Death[] }
   | { kind: "hunter"; playerId: string }
   /** `playerId` is null once the Bear Tamer is gone but the village can't know it. */
   | { kind: "bear"; playerId: string | null; growls: boolean }
@@ -192,17 +194,25 @@ export type Action =
   | { type: "continue" }
   | { type: "thief"; pick: number | null }
   | { type: "cupid"; lovers: [string, string] }
-  | { type: "seer"; targetId: string }
-  | { type: "wolves"; targetId: string }
+  /** null: the Seer didn't choose in time (no game master). */
+  | { type: "seer"; targetId: string | null }
+  /** null: the pack couldn't agree (no game master: they must all pick the same victim). */
+  | { type: "wolves"; targetId: string | null }
   | { type: "witch"; heal: boolean; poisonId: string | null }
-  | { type: "hunter"; targetId: string }
+  /** null: the Hunter didn't shoot in time (no game master). */
+  | { type: "hunter"; targetId: string | null }
   | { type: "mayor"; targetId: string }
   /** `tie: true` = no majority (kills the Scapegoat if there is one). */
   | { type: "vote"; targetId: string | null; tie?: boolean }
   /** Players picked on steps added after the base game. Empty = skip. */
   | { type: "pick"; targetIds: string[] }
   /** A choice on steps added after the base game (index, side, yes/no). */
-  | { type: "choose"; value: number | string | boolean | null };
+  | { type: "choose"; value: number | string | boolean | null }
+  /**
+   * A player out of the game for good, at any moment (a phone that died for
+   * good): announced at once, then the current step goes on.
+   */
+  | { type: "sudden-death"; playerId: string };
 
 export type Winner = {
   /** null when everyone is dead. */

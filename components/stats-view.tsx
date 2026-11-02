@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, Crown, Flame, Heart, HeartPulse, Landmark, Medal, MoveHorizontal, PieChart, Swords, Trophy, Zap } from "lucide-react";
+import { CalendarDays, Crown, Flame, Heart, HeartPulse, Landmark, Medal, MoveHorizontal, PieChart, Smartphone, Swords, Trophy, Zap } from "lucide-react";
 import { AuthButton } from "@/components/account-button";
 import { useI18n } from "@/components/i18n-provider";
 import { Face } from "@/components/room-context";
@@ -88,7 +88,7 @@ export function Stats({ stats, them = false }: { stats: AccountStats; them?: boo
     />
   );
 
-  if (stats.played === 0 && stats.mastered === 0) return <Message>{copy.empty}</Message>;
+  if (stats.played === 0 && stats.mastered === 0 && !stats.organised?.total) return <Message>{copy.empty}</Message>;
 
   return (
     <div className="flex flex-col gap-6">
@@ -113,6 +113,16 @@ export function Stats({ stats, them = false }: { stats: AccountStats; them?: boo
           detail={format(copy.masteredShare, { share: rate(stats.mastered, stats.played + stats.mastered) })}
         />
       </div>
+
+      {!!stats.organised?.total && (
+        <section className="flex flex-col gap-3">
+          <h2 className="font-semibold">{copy.organisedTitle}</h2>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <Tile icon={Crown} label={copy.organised} value={String(stats.organised.total)} detail={copy.organisedDetail} />
+            <Tile icon={Smartphone} label={copy.organisedAuto} value={String(stats.organised.auto)} detail={copy.organisedAutoDetail} />
+          </div>
+        </section>
+      )}
 
       {stats.played > 0 && (
         <section className="flex flex-col gap-3">

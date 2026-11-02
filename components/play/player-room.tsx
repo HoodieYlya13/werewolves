@@ -30,6 +30,8 @@ import { TimerDisplay } from "@/components/vote-timer";
 import { ThemedI18n } from "@/components/themed-i18n";
 import { ConnectionBanner, FatalError } from "@/components/room-status";
 import { useGameTheme } from "@/hooks/use-game-theme";
+import { useNarrator, useWakeLock } from "@/hooks/use-narrator";
+import { AutoDay, AutoNight, DeckCard, MayorRace, NarratorCard, PauseBanner, Spectator, SuccessionCard, TurnPanel } from "@/components/play/auto-game";
 import { PhoneSkeleton, Skeleton } from "@/components/skeletons";
 import { useRoom } from "@/hooks/use-room";
 import { format } from "@/lib/i18n/config";
@@ -72,6 +74,9 @@ function PlayerScreen({ code }: { code: string }) {
   const me = view?.me;
 
   useErrorToast(error, PHONE_TOASTS);
+  // Without a game master: one device reads the game out loud, and screens stay on.
+  useNarrator(view?.speaker ?? null, send);
+  useWakeLock(!!view?.auto && !!view.game && !view.game.winner);
 
   // Left an account's seat, then chose "Join as a new player": show the join form instead.
   const [joinAsNew, setJoinAsNew] = useState(false);
@@ -281,6 +286,9 @@ function PlayerScreen({ code }: { code: string }) {
         />
       )}
 
+      {/* A game master who handed the game over watches it. */}
+      {ready && view && !me && view.spectate && <Spectator view={view} former />}
+
       {ready && view && !me && knocking && <KnockCard name={view.knock!.name} onCancel={() => send({ type: "cancel-request" })} />}
 
       {ready && view && !me && ((!view.rejoin && !view.lockedSeat) || joinAsNew) && !knocking && account && (
@@ -392,12 +400,7 @@ function PlayerScreen({ code }: { code: string }) {
 
       {me && view?.info && view.game && (
         <ThemedI18n theme={view.game.theme}>
-          <InGame
-            view={view}
-            live={live}
-            onVote={(targetId) => send({ type: "cast-vote", targetId })}
-            send={me.account && friendsOn ? send : null}
-          />
+          <InGame view={view} live={live} act={send} send={me.account && friendsOn ? send : null} />
         </ThemedI18n>
       )}
 
@@ -481,19 +484,24 @@ function PlayerScreen({ code }: { code: string }) {
 }
 
 /** The phone during a game: public status, the player's own card, the table. */
-function InGame({
+export function InGame({
   view,
   live,
-  onVote,
+  act,
   send,
+  lead,
 }: {
   /** Set when this seat can ask the others to be friends (signed in): offered once the game is over. */
   send: ((msg: ClientMessage) => void) | null;
   view: PlayerView;
   /** The view is the server's current one: until then, nothing on it can be trusted to be this game's. */
   live: boolean;
-  onVote: (targetId: string | null) => void;
+  /** Votes, turns played on the phone, running for Mayor. */
+  act: (msg: ClientMessage) => void;
+  /** The leading device's tools, shown at the top (without a game master). */
+  lead?: React.ReactNode;
 }) {
+  const onVote = (targetId: string | null) => act({ type: "cast-vote", targetId });
   const { dict } = useI18n();
   const info = view.info!;
   const game = view.game!;
@@ -515,22 +523,52 @@ function InGame({
     );
   }
 
-  // Eyes closed, phones on the table: the game master reads whose seat it is from across the room.
-  // Nothing else: anything more is only there to be misread or seen.
+  const leading = (
+    <>
+      <PauseBanner view={view} />
+      <SuccessionCard view={view} send={act} />
+      {lead}
+      <NarratorCard view={view} />
+    </>
+  );
+
   if (isNight && !game.winner) {
+    // Dead without a game master: the whole game to watch.
+    if (view.spectate) {
+      return (
+        <>
+          {leading}
+          <Spectator view={view} />
+        </>
+      );
+    }
+    if (view.auto) {
+      return (
+        <>
+          {leading}
+          <AutoNight view={view} send={act} />
+        </>
+      );
+    }
+    // Eyes closed, phones on the table: the game master reads whose seat it is from across the room.
+    // When it's their turn, players may also play it here instead of pointing (never required).
     return (
-      <section aria-label={t.nightName} className="flex flex-1 flex-col items-center justify-center gap-3 py-4 text-center">
-        {/* The initials are sized from the text around them. */}
-        <div className="text-4xl">
-          <Avatar playerId={me.id} name={me.name} className="size-24" />
-        </div>
-        <p className="font-display text-5xl font-bold break-words text-balance">{me.name}</p>
-      </section>
+      <>
+        <section aria-label={t.nightName} className="flex flex-1 flex-col items-center justify-center gap-3 py-4 text-center">
+          {/* The initials are sized from the text around them. */}
+          <div className="text-4xl">
+            <Avatar playerId={me.id} name={me.name} className="size-24" />
+          </div>
+          <p className="font-display text-5xl font-bold break-words text-balance">{me.name}</p>
+        </section>
+        {view.turn && <TurnPanel view={view} turn={view.turn} send={act} />}
+      </>
     );
   }
 
   return (
     <>
+      {leading}
       {game.winner ? (
         <section className="card flex flex-col items-center gap-2 p-6 text-center">
           <p className="font-display text-2xl font-bold">
@@ -561,7 +599,11 @@ function InGame({
 
       {!game.winner && <TimerDisplay />}
 
+      {!game.winner && (view.auto ? <AutoDay view={view} send={act} /> : view.turn && <TurnPanel view={view} turn={view.turn} send={act} />)}
+
       {view.ballot && !game.winner && <PhoneBallotCard view={view} onVote={onVote} />}
+
+      {!game.winner && <MayorRace view={view} send={act} />}
 
       {!info.alive && !game.winner && (
         <p role="status" className="rounded-xl bg-surface-2 px-4 py-3 text-center">
@@ -570,6 +612,9 @@ function InGame({
       )}
 
       <RoleCard info={info} loverName={info.loverId ? nameOf(info.loverId) : null} alwaysShown={!!game.winner} />
+
+      <DeckCard view={view} />
+      {view.spectate && !game.winner && <Spectator view={view} />}
 
       <section>
         <h2 className="mb-2 text-sm font-medium text-muted-foreground">{t.roomPlayers}</h2>

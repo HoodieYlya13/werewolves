@@ -127,3 +127,10 @@ CREATE TABLE IF NOT EXISTS game_kills (
 );
 CREATE INDEX IF NOT EXISTS game_kills_victim ON game_kills (victim_sub);
 CREATE INDEX IF NOT EXISTS game_kills_killer ON game_kills (killer_sub);
+
+-- Who started the game (clicked Start), with or without a game master, and
+-- whether it had one. master_sub only counts a game master who ran it to the
+-- end; organiser_sub counts whoever started it, even if they handed it over.
+ALTER TABLE games ADD COLUMN IF NOT EXISTS organiser_sub text;
+ALTER TABLE games ADD COLUMN IF NOT EXISTS auto boolean NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS games_organiser_sub ON games (organiser_sub);
