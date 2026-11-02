@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { CalendarDays, Crown, Flame, Heart, HeartPulse, Landmark, Medal, MoveHorizontal, PieChart, Swords, Trophy, Zap } from "lucide-react";
 import { AuthButton } from "@/components/account-button";
 import { useI18n } from "@/components/i18n-provider";
+import { Face } from "@/components/room-context";
 import { StatsSkeleton } from "@/components/skeletons";
 import { Button } from "@/components/ui/button";
 import type { DeathCause, RoleId, Team } from "@/lib/engine";
 import { format } from "@/lib/i18n/config";
 import { loadSession, useSession } from "@/lib/session";
+import type { Person } from "@/lib/friends";
 import type { AccountStats } from "@/lib/stats";
 
 /** The signed-in account's stats, from the games it played or ran. */
@@ -59,8 +62,10 @@ export function StatsView() {
   return <Stats stats={stats.value} />;
 }
 
-function Stats({ stats }: { stats: AccountStats }) {
+/** Stats, of the signed-in account or (`them`) of someone else on their public profile. */
+export function Stats({ stats, them = false }: { stats: AccountStats; them?: boolean }) {
   const { dict, locale } = useI18n();
+  const copy = them ? { ...dict.stats, ...dict.stats.them } : dict.stats;
   const percent = new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 0 });
   const rate = (part: number, whole: number) => (whole ? percent.format(part / whole) : "–");
   const date = new Intl.DateTimeFormat(locale, { dateStyle: "medium" });
@@ -79,44 +84,44 @@ function Stats({ stats }: { stats: AccountStats }) {
       icon={icon}
       label={label}
       value={rate(won, played)}
-      detail={played ? format(dict.stats.wonOf, { won: String(won), played: String(played) }) : dict.stats.notYet}
+      detail={played ? format(copy.wonOf, { won: String(won), played: String(played) }) : copy.notYet}
     />
   );
 
-  if (stats.played === 0 && stats.mastered === 0) return <Message>{dict.stats.empty}</Message>;
+  if (stats.played === 0 && stats.mastered === 0) return <Message>{copy.empty}</Message>;
 
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Tile icon={Swords} label={dict.stats.played} value={String(stats.played)} />
+        <Tile icon={Swords} label={copy.played} value={String(stats.played)} />
         <Tile
           icon={Trophy}
-          label={dict.stats.winRate}
+          label={copy.winRate}
           value={rate(stats.won, stats.played)}
-          detail={format(dict.stats.wonOf, { won: String(stats.won), played: String(stats.played) })}
+          detail={format(copy.wonOf, { won: String(stats.won), played: String(stats.played) })}
         />
         <Tile
           icon={HeartPulse}
-          label={dict.stats.survival}
+          label={copy.survival}
           value={rate(stats.survived, stats.played)}
-          detail={format(dict.stats.survivedOf, { survived: String(stats.survived), played: String(stats.played) })}
+          detail={format(copy.survivedOf, { survived: String(stats.survived), played: String(stats.played) })}
         />
         <Tile
           icon={Crown}
-          label={dict.stats.mastered}
+          label={copy.mastered}
           value={String(stats.mastered)}
-          detail={format(dict.stats.masteredShare, { share: rate(stats.mastered, stats.played + stats.mastered) })}
+          detail={format(copy.masteredShare, { share: rate(stats.mastered, stats.played + stats.mastered) })}
         />
       </div>
 
       {stats.played > 0 && (
         <section className="flex flex-col gap-3">
-          <h2 className="font-semibold">{dict.stats.streaksTitle}</h2>
+          <h2 className="font-semibold">{copy.streaksTitle}</h2>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <Tile icon={Flame} label={dict.stats.currentStreak} value={String(stats.streaks.current)} detail={dict.stats.currentStreakDetail} />
-            <Tile icon={Medal} label={dict.stats.bestStreak} value={String(stats.streaks.best)} detail={dict.stats.bestStreakDetail} />
-            {titleTile(Landmark, dict.stats.asMayor, stats.mayor)}
-            {titleTile(Heart, dict.stats.asLover, stats.lover)}
+            <Tile icon={Flame} label={copy.currentStreak} value={String(stats.streaks.current)} detail={copy.currentStreakDetail} />
+            <Tile icon={Medal} label={copy.bestStreak} value={String(stats.streaks.best)} detail={copy.bestStreakDetail} />
+            {titleTile(Landmark, copy.asMayor, stats.mayor)}
+            {titleTile(Heart, copy.asLover, stats.lover)}
           </div>
         </section>
       )}
@@ -124,33 +129,33 @@ function Stats({ stats }: { stats: AccountStats }) {
       {stats.days && (
         <section className="flex flex-col gap-3">
           <div>
-            <h2 className="font-semibold">{dict.stats.daysTitle}</h2>
-            <p className="text-sm text-muted-foreground">{dict.stats.daysHint}</p>
+            <h2 className="font-semibold">{copy.daysTitle}</h2>
+            <p className="text-sm text-muted-foreground">{copy.daysHint}</p>
           </div>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <Tile
               icon={CalendarDays}
-              label={dict.stats.meanDays}
+              label={copy.meanDays}
               value={decimal.format(stats.days.mean)}
-              detail={format(dict.stats.gamesCounted, { count: String(stats.days.counted) })}
+              detail={format(copy.gamesCounted, { count: String(stats.days.counted) })}
             />
             <Tile
               icon={PieChart}
-              label={dict.stats.shareDays}
+              label={copy.shareDays}
               value={stats.days.share === null ? "–" : percent.format(stats.days.share)}
-              detail={dict.stats.shareDaysDetail}
+              detail={copy.shareDaysDetail}
             />
             <Tile
               icon={MoveHorizontal}
-              label={dict.stats.rangeDays}
+              label={copy.rangeDays}
               value={`${stats.days.min} – ${stats.days.max}`}
-              detail={dict.stats.rangeDaysDetail}
+              detail={copy.rangeDaysDetail}
             />
             <Tile
               icon={Zap}
-              label={dict.stats.fastestWin}
+              label={copy.fastestWin}
               value={stats.days.fastestWin === null ? "–" : String(stats.days.fastestWin)}
-              detail={dict.stats.fastestWinDetail}
+              detail={copy.fastestWinDetail}
             />
           </div>
         </section>
@@ -158,13 +163,13 @@ function Stats({ stats }: { stats: AccountStats }) {
 
       {stats.teams.length > 0 && (
         <section className="card flex flex-col gap-3 p-5">
-          <h2 className="font-semibold">{dict.stats.sides}</h2>
+          <h2 className="font-semibold">{copy.sides}</h2>
           <ul className="flex flex-col gap-3">
             {stats.teams.map((t) => (
               <li key={t.team} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1">
                 <span className="truncate">{teamName(t.team)}</span>
                 <span className="text-sm text-muted-foreground tabular-nums">
-                  {format(dict.stats.wonOf, { won: String(t.won), played: String(t.played) })}
+                  {format(copy.wonOf, { won: String(t.won), played: String(t.played) })}
                 </span>
                 <Bar value={t.won / t.played} label={rate(t.won, t.played)} />
               </li>
@@ -175,13 +180,13 @@ function Stats({ stats }: { stats: AccountStats }) {
 
       {stats.byPlayers.length > 0 && (
         <section className="card flex flex-col gap-3 p-5">
-          <h2 className="font-semibold">{dict.stats.bySize}</h2>
+          <h2 className="font-semibold">{copy.bySize}</h2>
           <ul className="flex flex-col gap-3">
             {stats.byPlayers.map((s) => (
               <li key={s.size} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1">
-                <span className="truncate">{format(dict.stats.size, { size: s.size.replace("-", "–") })}</span>
+                <span className="truncate">{format(copy.size, { size: s.size.replace("-", "–") })}</span>
                 <span className="text-sm text-muted-foreground tabular-nums">
-                  {format(dict.stats.wonOf, { won: String(s.won), played: String(s.played) })}
+                  {format(copy.wonOf, { won: String(s.won), played: String(s.played) })}
                 </span>
                 <Bar value={s.won / s.played} label={rate(s.won, s.played)} />
               </li>
@@ -192,13 +197,13 @@ function Stats({ stats }: { stats: AccountStats }) {
 
       {stats.deaths.length > 0 && (
         <section className="card flex flex-col gap-3 p-5">
-          <h2 className="font-semibold">{dict.stats.deathsTitle}</h2>
+          <h2 className="font-semibold">{copy.deathsTitle}</h2>
           <ul className="flex flex-col gap-3">
             {stats.deaths.map((d) => (
               <li key={d.cause} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1">
                 <span className="truncate">{causeName(d.cause)}</span>
                 <span className="text-sm text-muted-foreground tabular-nums">
-                  {format(dict.stats.countOf, { count: String(d.count), total: String(deaths) })}
+                  {format(copy.countOf, { count: String(d.count), total: String(deaths) })}
                 </span>
                 <Bar value={d.count / deaths} label={rate(d.count, deaths)} />
               </li>
@@ -209,16 +214,16 @@ function Stats({ stats }: { stats: AccountStats }) {
 
       {stats.roles.length > 0 && (
         <section className="card flex flex-col gap-3 p-5">
-          <h2 className="font-semibold">{dict.stats.cards}</h2>
+          <h2 className="font-semibold">{copy.cards}</h2>
           {/* Card names wrap rather than truncate: the numbers are short, the names aren't. */}
           <table className="w-full text-sm">
             <thead className="text-left align-bottom text-xs text-muted-foreground">
               <tr>
-                <th className="py-1.5 font-medium">{dict.stats.card}</th>
-                <th className="py-1.5 pl-3 text-right font-medium">{dict.stats.timesPlayed}</th>
-                <th className="py-1.5 pl-3 text-right font-medium">{dict.stats.use}</th>
-                <th className="py-1.5 pl-3 text-right font-medium">{dict.stats.winRate}</th>
-                {stats.days && <th className="py-1.5 pl-3 text-right font-medium">{dict.stats.cardDays}</th>}
+                <th className="py-1.5 font-medium">{copy.card}</th>
+                <th className="py-1.5 pl-3 text-right font-medium">{copy.timesPlayed}</th>
+                <th className="py-1.5 pl-3 text-right font-medium">{copy.use}</th>
+                <th className="py-1.5 pl-3 text-right font-medium">{copy.winRate}</th>
+                {stats.days && <th className="py-1.5 pl-3 text-right font-medium">{copy.cardDays}</th>}
               </tr>
             </thead>
             <tbody className="tabular-nums">
@@ -242,23 +247,23 @@ function Stats({ stats }: { stats: AccountStats }) {
       {stats.master && (
         <section className="card flex flex-col gap-3 p-5">
           <div>
-            <h2 className="font-semibold">{dict.stats.masterTitle}</h2>
+            <h2 className="font-semibold">{copy.masterTitle}</h2>
             <p className="text-sm text-muted-foreground">
               {stats.master.meanDays === null
-                ? format(dict.stats.masterAveragePlayers, { players: decimal.format(stats.master.meanPlayers) })
-                : format(dict.stats.masterAverage, {
+                ? format(copy.masterAveragePlayers, { players: decimal.format(stats.master.meanPlayers) })
+                : format(copy.masterAverage, {
                     players: decimal.format(stats.master.meanPlayers),
                     days: decimal.format(stats.master.meanDays),
                   })}
             </p>
           </div>
-          <h3 className="text-sm font-medium text-muted-foreground">{dict.stats.masterSides}</h3>
+          <h3 className="text-sm font-medium text-muted-foreground">{copy.masterSides}</h3>
           <ul className="flex flex-col gap-3">
             {stats.master.sides.map((s) => (
               <li key={s.team ?? "none"} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1">
-                <span className="truncate">{s.team ? teamName(s.team) : dict.stats.nobodyWon}</span>
+                <span className="truncate">{s.team ? teamName(s.team) : copy.nobodyWon}</span>
                 <span className="text-sm text-muted-foreground tabular-nums">
-                  {format(dict.stats.countOf, { count: String(s.count), total: String(sideGames) })}
+                  {format(copy.countOf, { count: String(s.count), total: String(sideGames) })}
                 </span>
                 <Bar value={s.count / sideGames} label={rate(s.count, sideGames)} />
               </li>
@@ -267,26 +272,45 @@ function Stats({ stats }: { stats: AccountStats }) {
         </section>
       )}
 
+      {(stats.partners.length > 0 || stats.nemeses.length > 0) && (
+        <div className="grid gap-6 md:grid-cols-2">
+          {stats.partners.length > 0 && (
+            <PeopleCard title={copy.partners}>
+              {stats.partners.map((p) => (
+                <PersonLine key={p.code} person={p} detail={format(copy.partnersDetail, { won: String(p.won), played: String(p.played) })} />
+              ))}
+            </PeopleCard>
+          )}
+          {stats.nemeses.length > 0 && (
+            <PeopleCard title={copy.nemeses}>
+              {stats.nemeses.map((p) => (
+                <PersonLine key={p.code} person={p} detail={format(copy.times, { count: String(p.count) })} />
+              ))}
+            </PeopleCard>
+          )}
+        </div>
+      )}
+
       {stats.recent.length > 0 && (
         <section className="card flex flex-col gap-3 p-5">
-          <h2 className="font-semibold">{dict.stats.recent}</h2>
+          <h2 className="font-semibold">{copy.recent}</h2>
           <ul className="flex flex-col divide-y">
             {stats.recent.map((g) => (
               <li key={g.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{roleName(g.role)}</p>
                   <p className="text-sm text-muted-foreground">
-                    {date.format(new Date(g.endedAt))} · {format(dict.stats.players, { count: String(g.playerCount) })} ·{" "}
-                    {g.survived ? dict.stats.survived : dict.stats.died}
+                    {date.format(new Date(g.endedAt))} · {format(copy.players, { count: String(g.playerCount) })} ·{" "}
+                    {g.survived ? copy.survived : copy.died}
                     {g.daysAlive !== null && g.days !== null && (
-                      <> · {format(dict.stats.daysAlive, { alive: String(g.daysAlive), days: String(g.days) })}</>
+                      <> · {format(copy.daysAlive, { alive: String(g.daysAlive), days: String(g.days) })}</>
                     )}
                   </p>
                 </div>
                 <span
                   className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${g.won ? "bg-ok/15 text-ok" : "bg-primary/15 text-primary"}`}
                 >
-                  {g.won ? dict.stats.won : dict.stats.lost}
+                  {g.won ? copy.won : copy.lost}
                 </span>
               </li>
             ))}
@@ -294,6 +318,29 @@ function Stats({ stats }: { stats: AccountStats }) {
         </section>
       )}
     </div>
+  );
+}
+
+function PeopleCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="card flex flex-col gap-3 p-5">
+      <h2 className="font-semibold">{title}</h2>
+      <ul className="flex flex-col divide-y">{children}</ul>
+    </section>
+  );
+}
+
+/** Someone met in games, linked to their public profile. */
+function PersonLine({ person, detail }: { person: Person; detail: string }) {
+  const { locale } = useI18n();
+  return (
+    <li className="py-2 first:pt-0 last:pb-0">
+      <Link href={`/${locale}/players/${person.code}`} className="flex items-center gap-3 hover:opacity-80">
+        <Face name={person.name} src={person.picture} className="size-8 text-xs" />
+        <span className="min-w-0 flex-1 truncate font-medium">{person.name}</span>
+        <span className="shrink-0 text-sm text-muted-foreground tabular-nums">{detail}</span>
+      </Link>
+    </li>
   );
 }
 
@@ -319,6 +366,6 @@ function Bar({ value, label }: { value: number; label: string }) {
   );
 }
 
-function Message({ children }: { children: React.ReactNode }) {
+export function Message({ children }: { children: React.ReactNode }) {
   return <div className="card flex flex-col items-center gap-4 p-8 text-center text-muted-foreground">{children}</div>;
 }

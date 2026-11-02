@@ -57,6 +57,10 @@ Finished games are saved to Postgres (Neon) for signed-in players and game maste
 
 Each environment has its own database in `POSTGRES_URL` (Vercel's Neon integration sets it). Vercel builds create the tables (`scripts/db-migrate.mjs`, safe to rerun) and hand the URL to the room server as a Worker secret. Locally, `npm run db:migrate` applies the schema to the database in `.env.local`, and `wrangler dev` reads the URL from there too.
 
+## Profiles
+
+Every player who signed in has a public profile at `/[lang]/players/CODE` (the same code as their friend link), open to anyone, kept out of search engines: their stats, worded about them. Signed in, it adds the head to head: games together, the win rate on the same side and against each other, and who eliminated whom. Every stats page also lists the best partners (most wins together on the same side) and who eliminates the player most. Who eliminated whom is worked out when a game is saved (`killersOf` in the engine): the pack that night for a wolves' kill, the Witch for poison, the Hunter, the White Werewolf, the Knight; votes, the Scapegoat and grief have no one to blame. It's kept between signed-in players only (`game_kills`).
+
 ## Friends
 
 Signed-in players can become friends, in the same database as the stats (`db/schema.sql`, `lib/friends.ts`). A request needs the other person to accept. Three ways to ask: the "add friend" button next to signed-in players (and the game master) in a room, which goes through the room server so account ids never reach other phones; a personal friend link (`/friends/add/CODE`); or a search by username. The Friends page (`/[lang]/friends`, in the account menu) lists friends and requests.
@@ -67,7 +71,14 @@ To turn push on: `node scripts/generate-vapid-keys.mjs`, then add `NEXT_PUBLIC_V
 
 ## Sound
 
-The game master's screen plays a soundtrack (`lib/sound.ts`): music composed live with the Web Audio API for the day, the night, the vote and each night role, a bell for each death and a tune for the winners. Phones stay silent. The one recording is the wolves' howl in the Werewolves theme, `public/sounds/wolf-howl.m4a`: "Wolf howls.ogg" from Wikimedia Commons, recorded by the U.S. Fish and Wildlife Service, in the public domain.
+The game master's screen plays a soundtrack (`lib/sound.ts`): music composed live with the Web Audio API for the day, the night, the vote and each night role, a hit and a bell for each death, an alarm when the debate timer runs out, and a tune for the winners. Phones stay silent. A few recordings, all from Wikimedia Commons, converted to `.m4a` in `public/sounds`:
+
+- `wolf-howl.m4a`, the wolves in the Werewolves theme: "Wolf howls.ogg", U.S. Fish and Wildlife Service, public domain.
+- Each theme's dawn:
+  - `rooster.m4a` (Werewolves): "Medium rooster crowing.ogg" by alys, public domain.
+  - `car-horn.m4a` (Mafia): "Car Horn.wav" by 15HPanska_Ruttner_Jan, CC0.
+  - `dawn-bell.m4a` (Vampires): "25822 heigh-hoo peace-bell-hiroshima.wav" by Heigh-hoo, CC0.
+  - `ship-klaxon.m4a` (Spaceship): "WWII submarine dive klaxon.ogg", U.S. Navy, public domain.
 
 ## How rooms work
 

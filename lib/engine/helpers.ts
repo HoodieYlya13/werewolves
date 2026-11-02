@@ -18,6 +18,28 @@ export function daysBy(setup: GameSetup, phase: PhaseRef) {
   return Math.max(0, lastDay - (opensWithVote(setup) ? 0 : 1) + 1);
 }
 
+/** Phases in play order: night N, then day N. */
+const phaseOrder = (phase: PhaseRef) => phase.number * 2 + (phase.kind === "day" ? 1 : 0);
+
+/** The role that deals each kind of death a player can be blamed for. */
+const KILLER_ROLES: Partial<Record<string, RoleId>> = { poison: "witch", hunter: "hunter", "white-werewolf": "white-werewolf", rust: "knight" };
+
+/**
+ * Who killed a dead player, for head-to-head stats: the wolves still in the
+ * pack that night, the Witch who poisoned, the Hunter who shot, and so on.
+ * Votes, the Scapegoat and grief have no one to blame: none.
+ */
+export function killersOf(state: GameState, victim: Player): string[] {
+  const death = victim.death;
+  if (!death) return [];
+  if (death.cause === "wolves") {
+    // Still alive when the pack chose (a wolf who dies the same night still hunted).
+    return state.players.filter((p) => p.id !== victim.id && isWolf(p) && (!p.death || phaseOrder(p.death.phase) >= phaseOrder(death.phase))).map((p) => p.id);
+  }
+  const role = KILLER_ROLES[death.cause];
+  return role ? state.players.filter((p) => p.id !== victim.id && p.role === role).map((p) => p.id) : [];
+}
+
 export function getPlayer(state: GameState, id: string) {
   const player = state.players.find((p) => p.id === id);
   if (!player) throw new EngineError("invalid-target", `Unknown player ${id}`);

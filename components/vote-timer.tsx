@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Pause, Play, Plus, Timer as TimerIcon, X } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { formatDuration, useCountdown, useRoomContext } from "@/components/room-context";
 import { Button } from "@/components/ui/button";
+import { playStinger } from "@/lib/sound";
 
 const PRESETS = [60, 120, 180, 300];
 
@@ -32,6 +34,14 @@ export function TimerControls() {
   const { dict } = useI18n();
   const { timer, send } = useRoomContext();
   const remaining = useCountdown();
+  // Time's up: an alarm on the game master's device (phones stay silent). Only
+  // when it runs out here, not when the screen opens on a finished countdown.
+  const wasRunning = useRef(false);
+  useEffect(() => {
+    if (!send) return;
+    if (remaining === 0 && wasRunning.current) playStinger({ kind: "timer" });
+    wasRunning.current = remaining !== null && remaining > 0;
+  }, [remaining, send]);
   if (!send) return null;
 
   if (!timer || remaining === null) {

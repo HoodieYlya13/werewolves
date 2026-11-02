@@ -10,6 +10,7 @@ import {
   replay,
   teamOf,
   daysBy,
+  killersOf,
   upgradeLog,
   type Action,
   type GameSetup,
@@ -981,6 +982,11 @@ export class RoomServer extends Server<Env> {
     const s = this.state!;
     const game = this.game!;
     const winners = new Set(game.winner!.playerIds);
+    // A seat's account, as counted in the stats (the master's own account never plays).
+    const subOf = (id: string) => {
+      const sub = seats.find((x) => x.id === id)?.sub;
+      return sub && sub !== s.hostSub ? sub : null;
+    };
     const days = daysBy(stored.setup, game.phase);
     const details = (p: (typeof game.players)[number]) => ({
       daysAlive: p.death ? daysBy(stored.setup, p.death.phase) : days,
@@ -1023,6 +1029,15 @@ export class RoomServer extends Server<Env> {
       masterSub: s.hostSub ?? null,
       players: [...players.values()],
       guests,
+      kills: game.players.flatMap((victim) => {
+        const victimSub = subOf(victim.id);
+        return victimSub && victim.death
+          ? killersOf(game, victim).flatMap((id) => {
+              const killer = subOf(id);
+              return killer && killer !== victimSub ? [{ killer, victim: victimSub, cause: victim.death!.cause }] : [];
+            })
+          : [];
+      }),
     };
   }
 

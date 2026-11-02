@@ -1,4 +1,5 @@
 import { neon } from "@neondatabase/serverless";
+import type { Person } from "./friends";
 
 /**
  * Finished games in Postgres (db/schema.sql). The room server writes them
@@ -19,6 +20,8 @@ export type GameResult = {
   masterSub: string | null;
   /** Signed-in players. */
   players: ({ sub: string; role: string; team: string; won: boolean; survived: boolean; left: boolean } & PlayerDetails)[];
+  /** Who eliminated whom, between signed-in players (see killersOf in the engine). */
+  kills: { killer: string; victim: string; cause: string }[];
   /** Players with a phone who weren't signed in, each with the hash of their claim code. */
   guests: ({ playerId: string; codeHash: string; role: string; team: string; won: boolean; survived: boolean; left: boolean } & PlayerDetails)[];
 };
@@ -108,6 +111,12 @@ export async function saveResult(url: string, game: GameResult) {
         code_hash = EXCLUDED.code_hash, role = EXCLUDED.role, team = EXCLUDED.team, won = EXCLUDED.won,
         survived = EXCLUDED.survived, left_game = EXCLUDED.left_game, days_alive = EXCLUDED.days_alive,
         death_cause = EXCLUDED.death_cause, was_mayor = EXCLUDED.was_mayor, lover = EXCLUDED.lover`,
+    sql`DELETE FROM game_kills WHERE game_id = ${game.id}`,
+    sql`
+      INSERT INTO game_kills (game_id, killer_sub, victim_sub, cause)
+      SELECT ${game.id}::uuid, killer, victim, cause FROM json_to_recordset(${JSON.stringify(game.kills)}::json)
+        AS k(killer text, victim text, cause text)
+      ON CONFLICT DO NOTHING`,
     // Claimed seats count for their account again (game_players was just rewritten).
     sql`
       INSERT INTO game_players (game_id, sub, role, team, won, survived, left_game, days_alive, death_cause, was_mayor, lover)
@@ -177,6 +186,9 @@ export type AccountStats = {
   lover: { played: number; won: number };
   /** The games it ran: which side won them (null: nobody), how long and how big they were. */
   master: { meanDays: number | null; meanPlayers: number; sides: { team: string | null; count: number }[] } | null;
+  /** Who it wins with most on the same side, and who eliminates it most (signed-in players, since recorded). */
+  partners: (Person & { won: number; played: number })[];
+  nemeses: (Person & { count: number })[];
   /** `meanDays`: mean days alive with that card (null before it was recorded). */
   roles: { role: string; played: number; won: number; meanDays: number | null }[];
   recent: {
@@ -209,7 +221,7 @@ export function streaks(results: boolean[]): AccountStats["streaks"] {
 /** Everything the stats page shows for one account, in one round trip. */
 export async function accountStats(url: string, sub: string): Promise<AccountStats> {
   const sql = neon(url);
-  const [totals, mastered, days, teams, roles, recent, sizes, results, deaths, titles, master, masterSides] = await sql.transaction(
+  const [totals, mastered, days, teams, roles, recent, sizes, results, deaths, titles, master, masterSides, partners, nemeses] = await sql.transaction(
     [
       sql`SELECT count(*)::int AS played, count(*) FILTER (WHERE won)::int AS won, count(*) FILTER (WHERE survived)::int AS survived
           FROM game_players WHERE sub = ${sub}`,
@@ -243,6 +255,17 @@ export async function accountStats(url: string, sub: string): Promise<AccountSta
       sql`SELECT avg(days)::float AS "meanDays", avg(player_count)::float AS "meanPlayers" FROM games WHERE master_sub = ${sub}`,
       sql`SELECT winner_team AS team, count(*)::int AS count FROM games WHERE master_sub = ${sub}
           GROUP BY winner_team ORDER BY count DESC, team`,
+      sql`SELECT a.sub, a.name, a.username, a.picture, a.friend_code AS code,
+                 count(*) FILTER (WHERE me.won)::int AS won, count(*)::int AS played
+          FROM game_players me JOIN game_players o ON o.game_id = me.game_id AND o.sub <> me.sub AND o.team = me.team
+          JOIN accounts a ON a.sub = o.sub
+          WHERE me.sub = ${sub}
+          GROUP BY a.sub HAVING count(*) FILTER (WHERE me.won) > 0
+          ORDER BY won DESC, played, lower(a.name) LIMIT 3`,
+      sql`SELECT a.sub, a.name, a.username, a.picture, a.friend_code AS code, count(*)::int AS count
+          FROM game_kills k JOIN accounts a ON a.sub = k.killer_sub
+          WHERE k.victim_sub = ${sub}
+          GROUP BY a.sub ORDER BY count DESC, lower(a.name) LIMIT 3`,
     ],
     { readOnly: true },
   );
@@ -257,6 +280,8 @@ export async function accountStats(url: string, sub: string): Promise<AccountSta
     deaths: deaths as AccountStats["deaths"],
     mayor: { played: titles[0].mayorPlayed, won: titles[0].mayorWon },
     lover: { played: titles[0].loverPlayed, won: titles[0].loverWon },
+    partners: partners as AccountStats["partners"],
+    nemeses: nemeses as AccountStats["nemeses"],
     master: mastered[0].mastered > 0 ? { ...(master[0] as { meanDays: number | null; meanPlayers: number }), sides: masterSides as { team: string | null; count: number }[] } : null,
     teams: teams as AccountStats["teams"],
     roles: roles as AccountStats["roles"],
@@ -265,4 +290,41 @@ export async function accountStats(url: string, sub: string): Promise<AccountSta
       endedAt: new Date(r.endedAt).toISOString(),
     })),
   };
+}
+
+/**
+ * Two accounts against each other, from `me`'s side: games played together,
+ * on the same side (and won) or on opposite sides (and won), and how often
+ * each eliminated the other.
+ */
+export type HeadToHead = {
+  together: number;
+  sameSide: number;
+  wonTogether: number;
+  opposed: number;
+  wonAgainst: number;
+  lostAgainst: number;
+  eliminated: number;
+  eliminatedBy: number;
+};
+
+export async function headToHead(url: string, me: string, other: string): Promise<HeadToHead> {
+  const sql = neon(url);
+  const [games, kills] = await sql.transaction(
+    [
+      sql`SELECT count(*)::int AS together,
+                 count(*) FILTER (WHERE a.team = b.team)::int AS "sameSide",
+                 count(*) FILTER (WHERE a.team = b.team AND a.won)::int AS "wonTogether",
+                 count(*) FILTER (WHERE a.team <> b.team)::int AS opposed,
+                 count(*) FILTER (WHERE a.team <> b.team AND a.won)::int AS "wonAgainst",
+                 count(*) FILTER (WHERE a.team <> b.team AND b.won)::int AS "lostAgainst"
+          FROM game_players a JOIN game_players b ON b.game_id = a.game_id AND b.sub = ${other}
+          WHERE a.sub = ${me}`,
+      sql`SELECT count(*) FILTER (WHERE killer_sub = ${me} AND victim_sub = ${other})::int AS eliminated,
+                 count(*) FILTER (WHERE killer_sub = ${other} AND victim_sub = ${me})::int AS "eliminatedBy"
+          FROM game_kills WHERE (killer_sub = ${me} AND victim_sub = ${other}) OR (killer_sub = ${other} AND victim_sub = ${me})`,
+    ],
+    { readOnly: true },
+  );
+  return { ...(games[0] as Omit<HeadToHead, "eliminated" | "eliminatedBy">), ...(kills[0] as Pick<HeadToHead, "eliminated" | "eliminatedBy">) };
 }

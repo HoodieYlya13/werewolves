@@ -8,7 +8,8 @@ import type { Account } from "./account";
  */
 
 /** Someone as their friends see them. */
-export type Person = { sub: string; name: string; username: string | null; picture: string | null };
+/** `code`: their friend link, and their public profile (/players/CODE). */
+export type Person = { sub: string; name: string; username: string | null; picture: string | null; code: string };
 
 export type FriendsList = {
   /** This account's friend link code. */
@@ -39,7 +40,7 @@ export async function friendsList(url: string, sub: string): Promise<FriendsList
   const [me, rows] = await sql.transaction(
     [
       sql`SELECT friend_code AS code FROM accounts WHERE sub = ${sub}`,
-      sql`SELECT a.sub, a.name, a.username, a.picture,
+      sql`SELECT a.sub, a.name, a.username, a.picture, a.friend_code AS code,
                  CASE WHEN f.accepted THEN 'friend' WHEN f.addressee = ${sub} THEN 'incoming' ELSE 'outgoing' END AS kind
           FROM friendships f JOIN accounts a ON a.sub = CASE WHEN f.requester = ${sub} THEN f.addressee ELSE f.requester END
           WHERE f.requester = ${sub} OR f.addressee = ${sub}
@@ -49,7 +50,7 @@ export async function friendsList(url: string, sub: string): Promise<FriendsList
   );
   const people = rows as (Person & { kind: "friend" | "incoming" | "outgoing" })[];
   const pick = (kind: string) =>
-    people.filter((p) => p.kind === kind).map((p): Person => ({ sub: p.sub, name: p.name, username: p.username, picture: p.picture }));
+    people.filter((p) => p.kind === kind).map((p): Person => ({ sub: p.sub, name: p.name, username: p.username, picture: p.picture, code: p.code }));
   return { code: (me[0]?.code as string | undefined) ?? null, friends: pick("friend"), incoming: pick("incoming"), outgoing: pick("outgoing") };
 }
 
@@ -97,7 +98,7 @@ export async function removeFriend(url: string, me: string, other: string) {
 export async function searchAccounts(url: string, me: string, query: string): Promise<Person[]> {
   const prefix = `${query.toLowerCase().replace(/[\\%_]/g, "\\$&")}%`;
   const rows = await neon(url)`
-    SELECT sub, name, username, picture FROM accounts
+    SELECT sub, name, username, picture, friend_code AS code FROM accounts
     WHERE lower(username) LIKE ${prefix} AND sub <> ${me}
     ORDER BY lower(username) LIMIT 10`;
   return rows as Person[];
@@ -105,7 +106,7 @@ export async function searchAccounts(url: string, me: string, query: string): Pr
 
 /** The account a friend link points to. */
 export async function accountByCode(url: string, code: string): Promise<Person | null> {
-  const rows = await neon(url)`SELECT sub, name, username, picture FROM accounts WHERE friend_code = ${code.toUpperCase()}`;
+  const rows = await neon(url)`SELECT sub, name, username, picture, friend_code AS code FROM accounts WHERE friend_code = ${code.toUpperCase()}`;
   return (rows[0] as Person | undefined) ?? null;
 }
 
@@ -143,14 +144,14 @@ export type Invite = { room: string; from: Person; at: string };
 /** This account's recent invites, newest first. */
 export async function recentInvites(url: string, sub: string): Promise<Invite[]> {
   const rows = await neon(url)`
-    SELECT i.room, i.created_at AS at, a.sub, a.name, a.username, a.picture
+    SELECT i.room, i.created_at AS at, a.sub, a.name, a.username, a.picture, a.friend_code AS code
     FROM invites i JOIN accounts a ON a.sub = i.from_sub
     WHERE i.to_sub = ${sub} AND i.created_at > now() - make_interval(mins => ${INVITE_MINUTES})
     ORDER BY i.created_at DESC LIMIT 5`;
   return rows.map((r) => ({
     room: r.room as string,
     at: new Date(r.at as string).toISOString(),
-    from: { sub: r.sub as string, name: r.name as string, username: r.username as string | null, picture: r.picture as string | null },
+    from: { sub: r.sub as string, name: r.name as string, username: r.username as string | null, picture: r.picture as string | null, code: r.code as string },
   }));
 }
 

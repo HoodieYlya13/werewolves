@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Check, Copy, Search, Share2, UserMinus, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { AuthButton } from "@/components/account-button";
@@ -247,14 +248,18 @@ function People({ title, people, empty, children }: { title: string; people: Per
   );
 }
 
+/** Someone in a list: tapping them opens their public profile. */
 function PersonRow({ person, children }: { person: Person; children: React.ReactNode }) {
+  const { locale } = useI18n();
   return (
     <li className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
-      <Face name={person.name} src={person.picture} className="size-9 text-sm" />
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-medium">{person.name}</p>
-        {person.username && <p className="truncate text-sm text-muted-foreground">@{person.username}</p>}
-      </div>
+      <Link href={`/${locale}/players/${person.code}`} className="flex min-w-0 flex-1 items-center gap-3 hover:opacity-80">
+        <Face name={person.name} src={person.picture} className="size-9 text-sm" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium">{person.name}</p>
+          {person.username && <p className="truncate text-sm text-muted-foreground">@{person.username}</p>}
+        </div>
+      </Link>
       <div className="flex shrink-0 items-center gap-1">{children}</div>
     </li>
   );

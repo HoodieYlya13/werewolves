@@ -114,3 +114,16 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS push_subscriptions_sub ON push_subscriptions (sub);
+
+-- Who eliminated whom, between signed-in players, for head-to-head stats
+-- (see killersOf in the engine): the pack for a wolves' kill, the Witch for
+-- poison, the Hunter for a shot… Votes have no one to blame. Since recorded.
+CREATE TABLE IF NOT EXISTS game_kills (
+  game_id    uuid NOT NULL REFERENCES games (id) ON DELETE CASCADE,
+  killer_sub text NOT NULL,
+  victim_sub text NOT NULL,
+  cause      text NOT NULL,
+  PRIMARY KEY (game_id, killer_sub, victim_sub)
+);
+CREATE INDEX IF NOT EXISTS game_kills_victim ON game_kills (victim_sub);
+CREATE INDEX IF NOT EXISTS game_kills_killer ON game_kills (killer_sub);

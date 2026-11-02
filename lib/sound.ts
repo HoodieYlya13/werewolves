@@ -1,15 +1,19 @@
 /**
  * The game master's soundtrack, composed live with the Web Audio API. A scene
  * loops until the next one cross-fades in; stingers (a bell, a fanfare) play
- * over it once. One recording: the Werewolves theme's wolves howl for real
- * (public/sounds/wolf-howl.m4a, U.S. Fish and Wildlife Service, public domain,
- * from Wikimedia Commons "Wolf howls.ogg").
+ * over it once. A few recordings, all from Wikimedia Commons (see DAWN and
+ * HOWL): the Werewolves theme's wolves howl for real, and each theme's dawn
+ * has its own sound. If one can't load, the synth stands in.
  */
 
 /** "howl" is the wolves' turn in the Werewolves theme; other themes' wolves keep "wolves". */
 export type Scene = "prologue" | "day" | "night" | "wolves" | "howl" | "witch" | "seer" | "love" | "piper" | "vote";
 export type Stinger =
   | { kind: "deaths"; count: number }
+  /** A new day: the theme's dawn sound, then the night's deaths. */
+  | { kind: "dawn"; theme: string; count: number }
+  /** The debate timer ran out. */
+  | { kind: "timer" }
   | { kind: "win"; team: "village" | "wolves" | "other"; howl?: boolean };
 
 const SOUND_KEY = "ww:sound";
@@ -50,7 +54,22 @@ function audio() {
 
 // --- recordings ---
 
+/** "Wolf howls.ogg", U.S. Fish and Wildlife Service, public domain. */
 export const HOWL = "/sounds/wolf-howl.m4a";
+
+/**
+ * Each theme's sound for a new day:
+ * - werewolves: "Medium rooster crowing.ogg" by alys, public domain;
+ * - mafia: "Car Horn.wav" by 15HPanska_Ruttner_Jan, CC0;
+ * - vampires: "25822 heigh-hoo peace-bell-hiroshima.wav" by Heigh-hoo, CC0;
+ * - spaceship: "WWII submarine dive klaxon.ogg", U.S. Navy, public domain.
+ */
+export const DAWN: Record<string, string> = {
+  werewolves: "/sounds/rooster.m4a",
+  mafia: "/sounds/car-horn.m4a",
+  vampires: "/sounds/dawn-bell.m4a",
+  spaceship: "/sounds/ship-klaxon.m4a",
+};
 const samples = new Map<string, Promise<AudioBuffer | null>>();
 
 /** Fetches and decodes a recording once; null if it can't load (the synth stands in). */
@@ -113,10 +132,21 @@ export function leaveScene() {
 export function playStinger(stinger: Stinger) {
   const k = kit(false);
   // Every stinger is over well before this: let its nodes go.
-  setTimeout(k.stop, 10_000);
+  setTimeout(k.stop, 25_000);
   if (stinger.kind === "deaths") {
-    // One toll per death: the village hears how many, never how.
-    for (let i = 0; i < Math.min(stinger.count, 3); i++) bell(k, 196, i * 2.4);
+    deathsAt(k, stinger.count, 0);
+  } else if (stinger.kind === "dawn") {
+    const url = DAWN[stinger.theme] ?? DAWN.werewolves;
+    void loadSample(url).then((buffer) => {
+      if (buffer) k.play(buffer, { gain: 0.8, fade: 0.05 });
+      else [72, 76, 79, 84].forEach((n, i) => k.note(n, { type: "triangle", gain: 0.06, decay: 1.4, at: i * 0.22 }));
+      // The deaths once the village is awake (a long recording isn't waited out).
+      deathsAt(k, stinger.count, Math.min(buffer?.duration ?? 1.2, 3.5) + 0.4);
+    });
+  } else if (stinger.kind === "timer") {
+    // Three short beeps and a long one: time's up.
+    [0, 0.32, 0.64].forEach((at) => k.tone(988, { type: "square", gain: 0.05, decay: 0.16, at, cutoff: 3000 }));
+    k.tone(988, { type: "square", gain: 0.06, decay: 0.7, at: 0.96, cutoff: 3000 });
   } else if (stinger.team === "village") {
     [60, 64, 67, 72].forEach((n, i) => k.note(n, { type: "triangle", gain: 0.09, decay: 1.2, at: i * 0.18 }));
     [60, 64, 67, 72, 76].forEach((n) => k.note(n, { type: "triangle", gain: 0.06, attack: 0.05, decay: 3.5, at: 0.8 }));
@@ -359,6 +389,16 @@ function kit(fade = true) {
     },
   };
   return k;
+}
+
+/** The night's (or the vote's) deaths: a hit, then one toll each. The village hears how many, never how. */
+function deathsAt(k: Kit, count: number, at: number) {
+  if (count === 0) return;
+  // The hit: a low thud dropping away, with a short bright edge on top.
+  k.tone(110, { type: "sawtooth", gain: 0.16, decay: 0.7, at, glide: [0.5], cutoff: 500 });
+  k.tone(55, { type: "sine", gain: 0.22, decay: 1.1, at });
+  k.tone(440, { type: "square", gain: 0.03, decay: 0.12, at, cutoff: 2000 });
+  for (let i = 0; i < Math.min(count, 3); i++) bell(k, 196, at + 0.6 + i * 2.4);
 }
 
 function bell(k: Kit, base: number, at: number) {
