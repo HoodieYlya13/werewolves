@@ -75,8 +75,10 @@ export type HostView = BaseView & {
   seat: PlayerView | null;
   /** With a game master: what players chose on their phones for the current step, to validate. */
   phonePlays: { actions: Record<string, Action>; wolfPicks: Record<string, string> } | null;
-  /** Without a game master: paused by the leader (this device). */
+  /** Without a game master: the game is paused (this device may resume it). */
   paused: boolean;
+  /** Without a game master: the leader whose device went silent, until this one (leading now) settles it. */
+  lostLeader: { name: string } | null;
   /** Number of actions in the log; undo is possible when > 0. */
   actionCount: number;
   /** A game ended with "End game" that can still be picked up again. */
@@ -140,9 +142,9 @@ export type PlayerView = BaseView & {
   /** Without a game master once dead, or a game master who handed the game over: the whole game, roles included. */
   spectate: GameState | null;
   /** The game is paused: by the leader, or because the leader's device is gone. */
-  pause: { reason: "manual" | "leader"; leader: string } | null;
-  /** The leader's device is gone and this phone is next: it says whether they'll be back. */
-  succession: boolean;
+  pause: { reason: "manual" | "leader"; leader: string; next: string } | null;
+  /** With a game master: their screen is gone and nobody dead can take over. */
+  masterGone: boolean;
   /** The cards in play, when everyone may see them (no game master, open deck). */
   deck: RoleId[] | null;
   /** May run for Mayor now (alive, and no Mayor elected yet). */
@@ -267,6 +269,8 @@ export type ClientMessage =
   | { type: "ready"; value: boolean }
   /** The narrator device finished reading a cue. */
   | { type: "cue-done"; id: number }
+  /** Without a game master: the language the narrator reads in (the leader's or the narrator device's call). */
+  | { type: "set-locale"; locale: Locale }
   // Phone (its own photo) or game master (anyone's), except for account players.
   // `data` is a JPEG data URL; null removes it.
   | { type: "set-photo"; playerId?: string; data: string | null }
@@ -283,7 +287,7 @@ export type ClientMessage =
   | { type: "pause"; value: boolean }
   /** Without a game master: the leader declares a player out for good (dead phone, gone). */
   | { type: "sudden-death"; playerId: string }
-  /** The leader's device is gone: they'll be back (`dead: false`), or they're out and this phone leads. */
+  /** The new leader declares the one whose device went silent out for good (`dead`). */
   | { type: "succession"; dead: boolean }
   /** In the lobby: with or without a game master. Without, the creator gets a seat (`name` unless signed in). */
   | { type: "set-mode"; mode: RoomMode; name?: string; photo?: string | null; locale?: Locale }

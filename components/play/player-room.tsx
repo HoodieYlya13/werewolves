@@ -31,7 +31,7 @@ import { ThemedI18n } from "@/components/themed-i18n";
 import { ConnectionBanner, FatalError } from "@/components/room-status";
 import { useGameTheme } from "@/hooks/use-game-theme";
 import { useNarrator, useWakeLock } from "@/hooks/use-narrator";
-import { AutoDay, AutoNight, DeckCard, MayorRace, NarratorCard, PauseBanner, Spectator, SuccessionCard, TurnPanel } from "@/components/play/auto-game";
+import { AutoDay, AutoNight, DeckCard, MasterGoneCard, MayorRace, NarratorCard, PauseBanner, Spectator, TurnPanel } from "@/components/play/auto-game";
 import { PhoneSkeleton, Skeleton } from "@/components/skeletons";
 import { useRoom } from "@/hooks/use-room";
 import { format } from "@/lib/i18n/config";
@@ -405,6 +405,8 @@ function PlayerScreen({ code }: { code: string }) {
         </section>
       )}
 
+      {me && view?.masterGone && <MasterGoneCard onLeave={leave} />}
+
       {me && view?.info && view.game && (
         <ThemedI18n theme={view.game.theme}>
           <InGame view={view} live={live} act={send} send={me.account && friendsOn ? send : null} />
@@ -533,7 +535,6 @@ export function InGame({
   const leading = (
     <>
       <PauseBanner view={view} />
-      <SuccessionCard view={view} send={act} />
       {lead}
       <NarratorCard view={view} send={act} />
     </>

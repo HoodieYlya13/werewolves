@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Clock, Crown, Eye, FlaskConical, Hand, HeartCrack, Layers, Megaphone, Moon, Pause, Play, Skull, Volume2, VolumeX } from "lucide-react";
+import { Check, Clock, Crown, Eye, EyeOff, FlaskConical, Hand, HeartCrack, Layers, Megaphone, Moon, Pause, Play, SkipForward, Skull, Volume2, VolumeX } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,10 +18,9 @@ import { RoleName } from "@/components/host/role-chip";
 import { Timeline } from "@/components/host/game-screen";
 import { Avatar, formatDuration, useRoomContext } from "@/components/room-context";
 import { Button } from "@/components/ui/button";
-import { primeVoice, useMutedVoice, useVoiceSupport, hushVoice } from "@/hooks/use-narrator";
+import { hushVoice, setVoice, useSpeaking, useVoiceOn, useVoiceSupport } from "@/hooks/use-narrator";
 import { pickAction, type PhoneTurn } from "@/lib/auto";
 import { format } from "@/lib/i18n/config";
-import { setMuted } from "@/lib/sound";
 import type { ClientMessage, PlayerView } from "@/lib/protocol";
 
 type Send = (message: ClientMessage) => void;
@@ -135,6 +134,8 @@ export function DeckCard({ view }: { view: PlayerView }) {
 /** Dead without a game master, or a game master who handed it over: everyone's role and everything that happened. */
 export function Spectator({ view, former = false }: { view: PlayerView; former?: boolean }) {
   const { dict } = useI18n();
+  // Hidden until asked: a phone left face up on the table mustn't spoil the game for the neighbours.
+  const [shown, setShown] = useState(false);
   const game = view.spectate;
   if (!game) return null;
   return (
@@ -143,52 +144,75 @@ export function Spectator({ view, former = false }: { view: PlayerView; former?:
         <Eye aria-hidden className="size-4 shrink-0 text-moon" />
         {former ? dict.lead.spectating : dict.auto.spectator}
       </p>
+      <Button type="button" variant="outline" className="h-10 self-start" aria-pressed={shown} onClick={() => setShown(!shown)}>
+        {shown ? <EyeOff aria-hidden className="size-4" /> : <Eye aria-hidden className="size-4" />}
+        {shown ? dict.game.hideRoles : dict.game.showRoles}
+      </Button>
       <ul className="card flex flex-col gap-1 p-3">
         {game.players.map((p) => (
           <li key={p.id} className={`flex items-center gap-2 text-sm ${p.alive ? "" : "opacity-50"}`}>
             <Avatar playerId={p.id} name={p.name} className="size-6" />
             <span className={`min-w-0 flex-1 truncate ${p.alive ? "" : "line-through"}`}>{p.name}</span>
             {!p.alive && <Skull aria-label={dict.game.dead} className="size-3.5" />}
-            <RoleName role={p.role} className="text-xs" />
+            {shown && <RoleName role={p.role} className="text-xs" />}
           </li>
         ))}
       </ul>
-      <Timeline game={game} rolesHidden={false} />
+      <Timeline game={game} rolesHidden={!shown} />
     </section>
   );
 }
 
-/** On the narrator device: what it's reading, and its voice on or off. */
+/** On the narrator device: what it's reading, its voice (off until turned on), and the narration's language. */
 export function NarratorCard({ view, send }: { view: PlayerView; send: Send }) {
   const { dict } = useI18n();
-  const muted = useMutedVoice();
+  const voiceOn = useVoiceOn();
+  const speaking = useSpeaking();
   const voice = useVoiceSupport();
   const cue = view.speaker?.cue;
   const [doneId, setDoneId] = useState(0);
   if (!view.speaker) return null;
+  const locale = view.speaker.locale;
+  const game = view.game;
+  // Long lines by day (the story, the deaths, the votes) can be cut short.
+  const daytime = !!game && (game.phase.kind === "day" || game.prologue || !!game.winner);
+  const reading = !!cue && cue.lines.length > 0;
+  const next = () => {
+    if (!cue) return;
+    setDoneId(cue.id);
+    hushVoice();
+    send({ type: "cue-done", id: cue.id });
+  };
   return (
     <section className="card flex flex-col gap-2 p-4">
       <div className="flex items-start gap-3">
         <Megaphone aria-hidden className="mt-0.5 size-5 shrink-0 text-moon" />
         <div className="min-w-0 flex-1">
           <p className="font-semibold">{dict.auto.narrator}</p>
-          <p className="text-sm text-muted-foreground">{voice ? dict.auto.narratorHint : dict.auto.noVoice}</p>
+          <p className="text-sm text-muted-foreground">{voice ? (voiceOn ? dict.auto.narratorHint : dict.auto.voiceOffHint) : dict.auto.noVoice}</p>
         </div>
-        <button
-          type="button"
-          aria-label={muted ? dict.auto.voiceOn : dict.game.mute}
-          title={muted ? dict.auto.voiceOn : dict.game.mute}
-          className="grid size-10 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-surface-2 hover:text-fg"
-          onClick={() => {
-            primeVoice();
-            if (!muted) hushVoice();
-            setMuted(!muted);
-          }}
-        >
-          {muted ? <VolumeX aria-hidden className="size-5" /> : <Volume2 aria-hidden className="size-5" />}
-        </button>
+        {voice && (
+          <button
+            type="button"
+            aria-pressed={voiceOn}
+            aria-label={voiceOn ? dict.auto.voiceMute : dict.auto.voiceOn}
+            title={voiceOn ? dict.auto.voiceMute : dict.auto.voiceOn}
+            className={`grid size-10 shrink-0 place-items-center rounded-lg hover:bg-surface-2 hover:text-fg ${voiceOn ? "text-moon" : "text-muted-foreground"}`}
+            // Turned on from the tap itself: that's what lets a phone speak.
+            onClick={() => setVoice(!voiceOn, cue && cue.id !== doneId ? { cue, locale, send } : undefined)}
+          >
+            {voiceOn ? <Volume2 aria-hidden className="size-5" /> : <VolumeX aria-hidden className="size-5" />}
+          </button>
+        )}
       </div>
-      {cue && cue.lines.length > 0 && (
+      <div className="segmented self-start text-xs" aria-label={dict.auto.language}>
+        {(["en", "fr"] as const).map((l) => (
+          <button key={l} type="button" aria-current={locale === l} onClick={() => send({ type: "set-locale", locale: l })}>
+            {l.toUpperCase()}
+          </button>
+        ))}
+      </div>
+      {reading && (
         <blockquote className="rounded-xl bg-surface-2 px-3 py-2 text-sm text-pretty">
           {cue.lines.map((line, i) => (
             <span key={i} className="block not-first:mt-1">
@@ -197,17 +221,16 @@ export function NarratorCard({ view, send }: { view: PlayerView; send: Send }) {
           ))}
         </blockquote>
       )}
-      {/* Read out by a person: the game waits for them. */}
-      {cue && cue.lines.length > 0 && (muted || !voice) && cue.id !== doneId && (
-        <Button
-          type="button"
-          className="h-11"
-          onClick={() => {
-            setDoneId(cue.id);
-            send({ type: "cue-done", id: cue.id });
-          }}
-        >
+      {/* Read out by a person: the game waits for them. Read by the voice: by day, it can be skipped. */}
+      {reading && cue.id !== doneId && (!voiceOn || !voice) && (
+        <Button type="button" className="h-11" onClick={next}>
           {dict.auto.readNext}
+        </Button>
+      )}
+      {reading && voiceOn && speaking === cue.id && daytime && (
+        <Button type="button" variant="outline" className="h-10" onClick={next}>
+          <SkipForward aria-hidden className="size-4" />
+          {dict.auto.skip}
         </Button>
       )}
     </section>
@@ -223,27 +246,35 @@ export function PauseBanner({ view }: { view: PlayerView }) {
   return (
     <p role="status" className="flex items-center gap-2 rounded-xl border border-moon/40 bg-moon/10 px-4 py-3">
       <Pause aria-hidden className="size-5 shrink-0 text-moon" />
-      {format(view.pause.reason === "manual" ? dict.lead.paused : dict.lead.leaderGone, { name: view.pause.leader })}
+      {format(view.pause.reason === "manual" ? dict.lead.paused : dict.lead.leaderGone, { name: view.pause.leader, next: view.pause.next })}
     </p>
   );
 }
 
-/** The leader's phone is gone and this one is next: will they be back, or does this phone lead? */
-export function SuccessionCard({ view, send }: { view: PlayerView; send: Send }) {
+/** On the new leader's screen: the one whose device went silent, until they're settled. */
+export function LostLeaderCard({ name, send }: { name: string; send: Send }) {
   const { dict } = useI18n();
-  if (!view.succession || !view.pause) return null;
   return (
     <section className="card flex flex-col gap-3 p-4 ring-2 ring-moon/50">
-      <p className="font-semibold">{format(dict.lead.succession, { name: view.pause.leader })}</p>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <Button type="button" variant="outline" className="h-12" onClick={() => send({ type: "succession", dead: false })}>
-          {dict.lead.comingBack}
-        </Button>
-        <Button type="button" className="h-12" onClick={() => send({ type: "succession", dead: true })}>
-          <HeartCrack aria-hidden className="size-4" />
-          {dict.lead.suddenDeathLead}
-        </Button>
-      </div>
+      <p className="font-semibold">{format(dict.lead.lostLeader, { name })}</p>
+      <p className="text-sm text-muted-foreground">{dict.lead.lostLeaderHint}</p>
+      <Button type="button" variant="outline" className="h-11 self-start" onClick={() => send({ type: "succession", dead: true })}>
+        <HeartCrack aria-hidden className="size-4" />
+        {format(dict.lead.lostLeaderDead, { name })}
+      </Button>
+    </section>
+  );
+}
+
+/** With a game master: their screen is gone and nobody dead can take over. */
+export function MasterGoneCard({ onLeave }: { onLeave: () => void }) {
+  const { dict } = useI18n();
+  return (
+    <section role="alert" className="card flex flex-col gap-3 p-4 ring-2 ring-primary/50">
+      <p className="font-semibold">{dict.lead.masterGone}</p>
+      <Button type="button" variant="outline" className="h-11 self-start" onClick={onLeave}>
+        {dict.lead.leaveGame}
+      </Button>
     </section>
   );
 }

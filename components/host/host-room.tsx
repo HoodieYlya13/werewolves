@@ -3,7 +3,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { BadgeCheck, ChevronDown, ChevronUp, Copy, Crown, GripVertical, History, Layers, Lock, LockOpen, Pencil, Share2, Smartphone, UserPlus, Users, X } from "lucide-react";
-import { GiveLeadDialog, LeaderBar } from "@/components/play/auto-game";
+import { GiveLeadDialog, LeaderBar, LostLeaderCard } from "@/components/play/auto-game";
 import { InGame } from "@/components/play/player-room";
 import { PhotoPicker } from "@/components/photo-picker";
 import { useNarrator, useWakeLock } from "@/hooks/use-narrator";
@@ -531,6 +531,7 @@ function AutoHostGame({ view, send }: { view: HostView; send: (message: ClientMe
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-10">
       <JoinRequests inGame />
+      {view.lostLeader && <LostLeaderCard name={view.lostLeader.name} send={send} />}
       <InGame
         view={seat}
         live

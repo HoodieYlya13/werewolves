@@ -156,8 +156,18 @@ type RoomState = {
   paused?: "manual" | "leader" | null;
   /** When the leader's device went away (without a game master). */
   leaderLostAt?: number | null;
-  /** The next phone said the leader will be back: stop asking. */
-  leaderAwaited?: boolean;
+  /**
+   * Without a game master: the leader whose device went silent, after the
+   * lead moved to the next phone. They take it back if they return before
+   * the new leader resumes the game or declares their sudden death (`settled`).
+   */
+  lostLeader?: { seatId: string; name: string; settled?: boolean } | null;
+  /** Master keys that moved on while their device was gone, and the seat each one played (null: a game master). */
+  formerHosts?: Record<string, string | null>;
+  /** With a game master: when their screen went away (a dead player takes over after a minute). */
+  masterLostAt?: number | null;
+  /** …and nobody dead was there to take over: phones may leave. */
+  masterGone?: boolean;
   /** With a game master: the dead player who took the game over, whose seat goes once it ends. */
   masterSeatId?: string | null;
   /** With a game master: what phones chose for the step at `at` (players may play on their phones). */
@@ -166,6 +176,8 @@ type RoomState = {
 
 /** How long the leader's device may be away before the game pauses for it. */
 const LEADER_GRACE_MS = 20_000;
+/** How long the game master's screen may be away before a dead player takes over. */
+const MASTER_GRACE_MS = 60_000;
 
 const PHOTO_PREFIX = "photo:";
 const MAX_TIMER_SECONDS = 60 * 60;
@@ -251,16 +263,24 @@ export class RoomServer extends Server<Env> {
         };
         await this.persist();
       } else if (this.state.hostToken !== token) {
+        // A key that moved on while its device was gone: it gets its part back.
+        if (this.state.formerHosts && token in this.state.formerHosts) return this.welcomeBack(conn, token);
         return this.reject(conn, params.get("create") === "1" ? "room-taken" : "not-host");
       }
       conn.setState({ kind: "host" });
+      this.state.masterLostAt = null;
+      this.state.masterGone = false;
       // Without a game master the creator's seat is online again, and their device may read the game out loud.
       const seat = this.hostSeat();
       if (seat) {
         seat.connected = true;
-        this.runAuto();
+        await this.runAuto();
         await this.persist();
         return this.broadcastViews();
+      }
+      if (this.state.game) {
+        await this.persist();
+        this.broadcastViews();
       }
       return this.send(conn, { type: "view", view: this.viewFor(conn) });
     }
@@ -284,6 +304,8 @@ export class RoomServer extends Server<Env> {
       }
       conn.setState({ kind: "player", playerId: player.id });
       player.connected = true;
+      // A phone back may be the one to take over a game whose leader or game master is gone.
+      if (this.game) await this.runAuto();
       await this.persist();
       return this.broadcastViews();
     }
@@ -309,6 +331,17 @@ export class RoomServer extends Server<Env> {
 
   async onClose(conn: Conn) {
     this.rates.delete(conn.id);
+    const masterGone =
+      conn.state?.kind === "host" &&
+      !this.state?.auto &&
+      !!this.game &&
+      !this.game.winner &&
+      ![...this.getConnections<ConnState>()].some((c) => c.id !== conn.id && c.state?.kind === "host");
+    if (masterGone && this.state) {
+      // A dead player takes the game over if the screen doesn't come back (see checkMaster).
+      this.state.masterLostAt = Date.now();
+      await this.persist(false);
+    }
     const seat = conn.state?.kind === "host" ? this.hostSeat() : null;
     if (seat && ![...this.getConnections<ConnState>()].some((c) => c.id !== conn.id && c.state?.kind === "host")) {
       seat.connected = false;
@@ -669,9 +702,11 @@ export class RoomServer extends Server<Env> {
           auto.pause(room, now);
           this.state.paused = "manual";
         } else {
-          if (this.state.paused !== "manual") return;
-          auto.resume(room, now);
-          this.state.paused = null;
+          if (!this.state.paused) return;
+          // Resumed without them: the leader whose device went silent comes back as a player.
+          if (this.state.lostLeader) this.state.lostLeader.settled = true;
+          this.resumeAuto();
+          return this.done();
         }
         this.keepAuto(room);
         break;
@@ -682,16 +717,18 @@ export class RoomServer extends Server<Env> {
         break;
       }
       case "succession": {
-        const id = this.seatOf(sender);
-        if (this.state.paused !== "leader" || !id || id !== this.successorId()) return;
-        if (!msg.dead) {
-          this.state.leaderAwaited = true;
-          break;
-        }
-        // The leader is out for good: announced like any sudden death, and this phone leads.
-        const leader = this.hostSeat();
-        if (leader && this.game?.players.find((p) => p.id === leader.id)?.alive) this.suddenDeath(leader.id);
-        await this.transferLead(id, true);
+        // The new leader's call about the one whose device went silent: out for good, announced like any sudden death.
+        const lost = this.state.lostLeader;
+        if (!isHost || !lost || lost.settled || !msg.dead) return;
+        lost.settled = true;
+        if (this.game?.players.find((p) => p.id === lost.seatId)?.alive) this.suddenDeath(lost.seatId);
+        else this.resumeAuto();
+        break;
+      }
+      case "set-locale": {
+        // The leader or the narrator device picks the narration's language.
+        if (!this.autoRoom() || !isLocale(msg.locale) || (!isHost && sender.id !== this.speakerId())) return;
+        this.state.locale = msg.locale;
         break;
       }
       case "play":
@@ -787,7 +824,10 @@ export class RoomServer extends Server<Env> {
           this.state.spectators = [];
           this.state.paused = null;
           this.state.leaderLostAt = null;
-          this.state.leaderAwaited = false;
+          this.state.lostLeader = null;
+          this.state.formerHosts = {};
+          this.state.masterLostAt = null;
+          this.state.masterGone = false;
           this.state.masterSeatId = null;
           this.state.phonePlays = null;
         } catch (e) {
@@ -951,7 +991,7 @@ export class RoomServer extends Server<Env> {
 
     if (this.state.auto && this.game) {
       // The room plays the game on, as far as it can go now.
-      this.runAuto();
+      await this.runAuto();
     } else if (this.state.game?.log.length !== logLength) {
       // A ballot and its countdown belong to one vote: any change to the game ends them.
       this.state.ballot = null;
@@ -1002,9 +1042,9 @@ export class RoomServer extends Server<Env> {
   }
 
   async onAlarm() {
-    // A game without a game master moves on by the clock too.
-    if (this.state?.auto && this.game) {
-      this.runAuto();
+    // A game without a game master moves on by the clock too (and one with a game master checks they're back).
+    if (this.state && this.game) {
+      await this.runAuto();
       await this.persist(false);
       this.broadcastViews();
       this.recordResult();
@@ -1682,7 +1722,8 @@ export class RoomServer extends Server<Env> {
         canResume: !!s.endedGame,
         ballot: playing ? null : (s.ballot ?? null),
         phonePlays: !s.auto && s.phonePlays && s.phonePlays.at === s.game?.log.length ? { actions: s.phonePlays.actions, wolfPicks: s.phonePlays.wolfPicks } : null,
-        paused: s.paused === "manual",
+        paused: !!s.paused,
+        lostLeader: s.lostLeader && !s.lostLeader.settled ? { name: s.lostLeader.name } : null,
         requests: (s.requests ?? []).map(({ id, name, kind, account }) => ({ id, name, kind: kind ?? "rejoin", account: !!account })),
         handover: s.handover
           ? { name: s.players.find((p) => p.id === s.handover!.before.id)?.name ?? "", seatName: s.handover.before.name }
@@ -1747,8 +1788,8 @@ export class RoomServer extends Server<Env> {
       claim: me ? this.claimFor(me.id) : null,
       host: s.hostSub && !s.hostSeatId ? (s.hostFace ?? null) : null,
       turn: me && game ? (room && dict ? auto.phoneTurn(room, me.id, dict) : this.masterTurn(game, me.id)) : null,
-      pause: room && s.paused ? { reason: s.paused, leader: this.hostSeat()?.name ?? "" } : null,
-      succession: !!room && s.paused === "leader" && !s.leaderAwaited && !!me && me.id === this.successorId(),
+      pause: room && s.paused ? { reason: s.paused, leader: (s.paused === "leader" && s.lostLeader?.name) || (this.hostSeat()?.name ?? ""), next: this.hostSeat()?.name ?? "" } : null,
+      masterGone: !room && !!s.masterGone && !!game && !game.winner,
       auto: room && dict ? auto.autoPublic(room, me?.id ?? null, dict) : null,
       speaker: room && speaking ? { cue: room.auto.cue, scene: game!.winner ? null : sceneFor(game!), locale: s.locale ?? "en" } : null,
       // The dead see everything, without a game master: there's nobody else to watch the game with.
@@ -1830,7 +1871,9 @@ export class RoomServer extends Server<Env> {
     const room = this.autoRoom();
     let next = room ? auto.nextWake(room, this.narration()) : null;
     // The leader's device away: check again when its grace runs out.
-    if (room && s.leaderLostAt && s.paused !== "leader") next = Math.min(next ?? Infinity, s.leaderLostAt + LEADER_GRACE_MS);
+    if (room && s.leaderLostAt && !s.lostLeader) next = Math.min(next ?? Infinity, s.leaderLostAt + LEADER_GRACE_MS);
+    // The game master's screen away: a dead player takes over after a minute.
+    if (!room && s.masterLostAt && !s.masterGone) next = Math.min(next ?? Infinity, s.masterLostAt + MASTER_GRACE_MS);
     await this.ctx.storage.setAlarm(Math.max(Date.now() + 50, Math.min(expires, next ?? Infinity)));
   }
 
@@ -1907,34 +1950,137 @@ export class RoomServer extends Server<Env> {
     this.state!.timer = room.timer;
   }
 
-  private runAuto() {
-    const room = this.autoRoom();
-    if (!room) return;
-    this.checkLeader(room);
+  private async runAuto() {
+    if (!this.autoRoom()) return this.checkMaster();
+    this.checkLeader();
+    const room = this.autoRoom()!;
     auto.tick(room, this.autoContext());
     this.keepAuto(room);
+    // Between two lines now, perhaps: the pause it was waiting for.
+    await this.checkLeader();
   }
 
   /**
-   * The leader's device away for a while pauses the game, until it's back or
-   * the next phone says it won't be (see "succession"). Back, it resumes.
+   * The leader's device away for a while: the game pauses (between two lines,
+   * never mid-sentence) and the lead moves to the next phone around the
+   * table, which decides: wait for them, their sudden death, or resume.
    */
-  private checkLeader(room: auto.AutoRoom) {
+  private async checkLeader() {
     const s = this.state!;
+    const room = this.autoRoom();
     const now = Date.now();
+    if (!room) return;
     if (this.hostSeat()?.connected) {
       s.leaderLostAt = null;
-      s.leaderAwaited = false;
-      if (s.paused === "leader") {
-        auto.resume(room, now);
-        s.paused = null;
-      }
       return;
     }
     s.leaderLostAt ??= now;
-    if (room.game.winner || now - s.leaderLostAt < LEADER_GRACE_MS || s.paused === "leader") return;
-    auto.pause(room, now);
-    s.paused = "leader";
+    if (room.game.winner || now - s.leaderLostAt < LEADER_GRACE_MS) return;
+    if (s.paused !== "leader") {
+      if (!s.paused && room.auto.phase === "say") return;
+      auto.pause(room, now);
+      s.paused = "leader";
+      this.keepAuto(room);
+    }
+    const next = this.successorId();
+    const leader = this.hostSeat();
+    if (!next || !leader) return;
+    s.lostLeader = { seatId: leader.id, name: leader.name };
+    await this.transferLead(next, true);
+  }
+
+  /** Starts a paused game again; at night, everyone closes their eyes first. */
+  private resumeAuto() {
+    const room = this.autoRoom();
+    const s = this.state!;
+    if (!room) return;
+    const night = room.game.phase.kind === "night" && room.game.step.kind !== "prologue";
+    auto.resume(room, Date.now(), night ? this.narration().auto.everyoneSleep : undefined);
+    s.paused = null;
+    this.keepAuto(room);
+  }
+
+  /** Saves and tells everyone, for a message handled outside the switch. */
+  private async done() {
+    await this.persist();
+    this.broadcastViews();
+  }
+
+  /**
+   * A device whose master key moved on while it was gone: a leader who comes
+   * back before the new one decided takes the lead back; otherwise they play
+   * their seat again, or (a game master) watch the game.
+   */
+  private async welcomeBack(conn: Conn, token: string) {
+    const s = this.state!;
+    const seatId = s.formerHosts![token];
+    delete s.formerHosts![token];
+    const seat = seatId ? s.players.find((p) => p.id === seatId) : null;
+    const lost = s.lostLeader;
+    if (seat && lost && lost.seatId === seat.id && !lost.settled && s.paused === "leader" && this.autoRoom()) {
+      // Back in time: the lead goes back to them, and the phone that held it plays again.
+      const interim = this.hostSeat();
+      for (const c of [...this.getConnections<ConnState>()].filter((c) => c.state?.kind === "host")) {
+        if (!interim) continue;
+        interim.token = crypto.randomUUID();
+        this.send(c, { type: "become", as: "player", id: interim.id, token: interim.token });
+        c.setState({ kind: "player", playerId: interim.id });
+      }
+      s.hostToken = crypto.randomUUID();
+      s.hostSeatId = seat.id;
+      this.adoptAccount(seat);
+      seat.connected = true;
+      s.lostLeader = null;
+      s.leaderLostAt = null;
+      conn.setState({ kind: "host" });
+      this.send(conn, { type: "host-token", token: s.hostToken });
+      this.resumeAuto();
+    } else if (seat) {
+      seat.token = crypto.randomUUID();
+      this.send(conn, { type: "become", as: "player", id: seat.id, token: seat.token });
+    } else if (s.game) {
+      const watcher = { id: crypto.randomUUID(), token: crypto.randomUUID() };
+      s.spectators = [...(s.spectators ?? []), watcher];
+      this.send(conn, { type: "become", as: "player", id: watcher.id, token: watcher.token });
+    } else {
+      this.send(conn, { type: "become", as: "guest" });
+    }
+    await this.done();
+  }
+
+  /** The room's master account follows the seat that leads (or runs) it. */
+  private adoptAccount(seat: StoredPlayer) {
+    const s = this.state!;
+    if (seat.sub) {
+      s.hostSub = seat.sub;
+      s.hostFace = { name: seat.accountName ?? seat.name, picture: seat.picture ?? null, username: seat.username ?? null };
+    } else {
+      delete s.hostSub;
+      delete s.hostFace;
+    }
+  }
+
+  /**
+   * With a game master: their screen gone for a minute, a dead player whose
+   * phone is here takes the game over. Nobody dead: phones may leave.
+   */
+  private async checkMaster() {
+    const s = this.state!;
+    const game = this.game;
+    if (!s.masterLostAt || s.auto || !game || game.winner) return;
+    if (Date.now() - s.masterLostAt < MASTER_GRACE_MS) return;
+    const online = new Set(
+      [...this.getConnections<ConnState>()].flatMap((c) => (c.state?.kind === "player" ? [c.state.playerId] : [])),
+    );
+    const dead = [...s.players]
+      .sort((a, b) => a.seat - b.seat)
+      .find((p) => online.has(p.id) && !p.manual && !game.players.find((g) => g.id === p.id)?.alive);
+    if (dead && (await this.transferLead(dead.id, true))) {
+      s.masterLostAt = null;
+      s.masterGone = false;
+    } else {
+      s.masterGone = true;
+    }
   }
 
   /**
@@ -1978,7 +2124,7 @@ export class RoomServer extends Server<Env> {
     room.timer = null;
     // The step starts over after the announcement: no pause left hanging over it.
     room.auto.pausedAt = null;
-    if (this.state!.paused === "manual") this.state!.paused = null;
+    this.state!.paused = null;
     this.keepAuto(room);
   }
 
@@ -2018,6 +2164,8 @@ export class RoomServer extends Server<Env> {
 
     const oldSub = s.hostSub;
     const oldSeat = this.hostSeat();
+    // A device that's gone keeps its key in mind: it gets its part back when it returns (welcomeBack).
+    if (away) s.formerHosts = { ...s.formerHosts, [s.hostToken]: autoMode ? (oldSeat?.id ?? null) : null };
     s.hostToken = crypto.randomUUID();
     for (const c of conns.filter((c) => c.state?.kind === "host")) {
       if (away) continue;
@@ -2039,13 +2187,7 @@ export class RoomServer extends Server<Env> {
     if (autoMode && oldSeat && away) oldSeat.token = null;
     if (oldSeat) oldSeat.connected = conns.some((c) => c.state?.kind === "player" && c.state.playerId === oldSeat.id);
 
-    if (target.sub) {
-      s.hostSub = target.sub;
-      s.hostFace = { name: target.accountName ?? target.name, picture: target.picture ?? null, username: target.username ?? null };
-    } else {
-      delete s.hostSub;
-      delete s.hostFace;
-    }
+    this.adoptAccount(target);
     if (autoMode) s.hostSeatId = target.id;
     else if (game) s.masterSeatId = target.id;
     // A game master doesn't play: their seat goes.
@@ -2056,13 +2198,6 @@ export class RoomServer extends Server<Env> {
     if (oldSub && oldSub !== s.hostSub) await this.tellAccount(oldSub, autoMode && !!oldSeat);
     if (s.hostSub) await this.tellAccount(s.hostSub, true);
     s.leaderLostAt = null;
-    s.leaderAwaited = false;
-    const room = this.autoRoom();
-    if (room && s.paused === "leader") {
-      auto.resume(room, Date.now());
-      s.paused = null;
-      this.keepAuto(room);
-    }
     return true;
   }
 

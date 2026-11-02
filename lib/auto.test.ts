@@ -172,4 +172,21 @@ describe("games without a game master", () => {
     g.run(() => g.step() === "bluff" && !!g.r.auto.cue?.lines.includes(en.auto.wake.seer));
     expect(g.r.game.phase).toEqual({ kind: "night", number: 2 });
   });
+
+  it("resumes a night with eyes closed first, then where it stopped", () => {
+    const g = room(["werewolf", "seer", "villager", "villager", "villager"]);
+    g.turn("seer");
+    auto.pause(g.r, g.ctx().now);
+    expect(auto.phoneTurn(g.r, "p1", en)).toBeNull();
+    g.advance(120_000);
+    auto.tick(g.r, g.ctx());
+    expect(g.step()).toBe("seer");
+    auto.resume(g.r, g.ctx().now, en.auto.everyoneSleep);
+    expect(g.r.auto.cue?.lines).toEqual([en.auto.everyoneSleep]);
+    auto.cueDone(g.r, g.r.auto.cue!.id, g.ctx());
+    auto.tick(g.r, g.ctx());
+    // The Seer's turn is open again, with the time it had left.
+    expect(auto.phoneTurn(g.r, "p1", en)).toMatchObject({ kind: "pick", step: "seer" });
+    expect(g.r.auto.deadline - g.ctx().now).toBeGreaterThan(auto.TIMING.skip - 5_000);
+  });
 });

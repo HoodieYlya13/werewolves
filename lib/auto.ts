@@ -88,6 +88,8 @@ export type AutoState = {
   seed: number;
   /** Paused since then (the leader's call, or their phone is gone): nothing moves. */
   pausedAt?: number | null;
+  /** Back from a pause: a line read first (eyes closed again at night), then the wait as it was. */
+  resumed?: { phase: "say" | "wait"; since: number; deadline: number } | null;
 };
 
 /** The room's parts the auto game reads and changes. */
@@ -468,6 +470,18 @@ export function tick(room: AutoRoom, ctx: AutoContext): Action[] {
     }
     if (auto.phase === "say") {
       if (ctx.now < auto.deadline) return played;
+      const back = auto.resumed;
+      if (back) {
+        // The line read on resuming is over: back to where the game was.
+        auto.resumed = null;
+        const spent = ctx.now - auto.since;
+        if (back.phase === "say") startBeat(room, ctx);
+        else {
+          Object.assign(auto, { phase: "wait", since: back.since + spent, deadline: back.deadline + spent });
+          if (room.timer?.endsAt != null) room.timer = { ...room.timer, endsAt: room.timer.endsAt + spent };
+        }
+        continue;
+      }
       startWait(room, ctx);
       continue;
     }
@@ -652,7 +666,12 @@ export function pause(room: AutoRoom, now: number) {
   return true;
 }
 
-export function resume(room: AutoRoom, now: number) {
+/**
+ * Starts the clock again. `line`: read before anything else (at night,
+ * everyone closes their eyes again), then the game goes on from where it
+ * stopped; a beat stopped while it was being read is read again.
+ */
+export function resume(room: AutoRoom, now: number, line?: string) {
   const { auto } = room;
   if (!auto.pausedAt) return false;
   const paused = now - auto.pausedAt;
@@ -661,6 +680,13 @@ export function resume(room: AutoRoom, now: number) {
   auto.deadline += paused;
   const timer = room.timer;
   if (timer && timer.endsAt === null) room.timer = { ...timer, endsAt: now + timer.remainingMs };
+  if (line) {
+    auto.resumed = { phase: auto.phase, since: auto.since, deadline: auto.deadline };
+    auto.phase = "say";
+    auto.since = now;
+    auto.beatCue = say(auto, [line]);
+    auto.deadline = now + readingTime([line]);
+  }
   return true;
 }
 
