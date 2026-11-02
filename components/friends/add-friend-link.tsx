@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { AuthButton } from "@/components/account-button";
 import { useI18n } from "@/components/i18n-provider";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,8 @@ import { friendsApi } from "@/lib/friends-client";
 import { useSession } from "@/lib/session";
 
 /** Someone's friend link: once signed in, asks them to be friends. */
-export function AddFriendLink({ code }: { code: string }) {
+export function AddFriendLink() {
+  const { code } = useParams<{ code: string }>();
   const { dict, locale } = useI18n();
   const t = dict.friends;
   const session = useSession();

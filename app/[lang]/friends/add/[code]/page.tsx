@@ -9,14 +9,15 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getDictionary()).friends.addLinkTitle, ...privatePage };
 }
 
-export default async function AddFriendPage({ params }: { params: Promise<{ code: string }> }) {
-  const [{ code }, dict] = await Promise.all([params, getDictionary()]);
+export default async function AddFriendPage() {
+  const dict = await getDictionary();
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-10">
       <BackHome />
       <h1 className="font-display text-3xl font-bold tracking-wide">{dict.friends.addLinkTitle}</h1>
       <ClientOnly fallback={null}>
-        <AddFriendLink code={code} />
+        {/* The code is read on the device (useParams), so the page prerenders like the room pages. */}
+        <AddFriendLink />
       </ClientOnly>
     </main>
   );
