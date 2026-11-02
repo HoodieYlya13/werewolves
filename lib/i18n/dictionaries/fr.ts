@@ -181,7 +181,9 @@ const fr: Dictionary = {
     later: "Plus tard",
     signedInAs: "Compte : {name}",
     joinAs: "Rejoindre en tant que {name}",
-    orSignIn: "Vous avez un compte ? Connectez-vous pour jouer avec son nom et sa photo.",
+    orSignIn: "Connectez-vous ou créez un compte pour garder votre nom, votre photo et vos statistiques d'une partie à l'autre.",
+    keepWin: "Connectez-vous pour garder cette victoire dans vos statistiques.",
+    keepGame: "Connectez-vous pour compter cette partie dans vos statistiques.",
     fromAccount: "Votre nom et votre photo viennent de votre compte.",
     addPhoto: "Ajouter une photo",
     showUsername: "Jouer sous mon nom d'utilisateur, {username}",
@@ -518,6 +520,12 @@ const fr: Dictionary = {
         "Les ombres s'allongent. Fermez bien vos portes cette nuit… même si ça ne m'a servi à rien.",
         "Encore une journée de disputes, et les coupables dorment sur leurs deux oreilles. J'ai vu des esprits plus vifs dans un poulailler.",
         "L'obscurité revient. Prenez votre temps, j'ai toute l'éternité.",
+      ],
+      dayEndsWolfDown: [
+        "Le soleil se couche, et l'un de mes assassins ne le verra plus jamais se lever. Bravo… mais ne vous réjouissez pas trop vite.",
+        "Le soir tombe. Pour la première fois depuis longtemps, mon fantôme sourit : un meurtrier de moins parmi vous.",
+        "Justice, enfin ! Un peu, du moins. Les autres rôdent encore : dormez d'un œil.",
+        "Un de moins. Je pourrais presque reposer en paix… presque. Finissez le travail.",
       ],
       dayEndsDo: "Quand la table est prête, lancez la nuit.",
       epilogue: {

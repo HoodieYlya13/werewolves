@@ -459,6 +459,7 @@ function InGame({
   const info = view.info!;
   const game = view.game!;
   const me = view.me!;
+  const session = useSession();
   const nameOf = (id: string) => view.players.find((p) => p.id === id)?.name ?? "?";
   const dead = new Map(game.dead.map((d) => [d.playerId, d.role]));
   const isNight = game.phase.kind === "night" && !game.prologue;
@@ -499,6 +500,18 @@ function InGame({
           <p className={`text-lg font-semibold ${game.winner.playerIds.includes(me.id) ? "text-ok" : "text-primary"}`}>
             {game.winner.playerIds.includes(me.id) ? t.youWin : t.youLose}
           </p>
+          {/* A guest who signs in now still has this game counted: the seat
+              becomes the account's, and the room saves the result again. */}
+          {session?.stats && !session.account && !me.account && (
+            <AuthButton
+              to="in"
+              variant="link"
+              className="mt-1 h-auto p-0 text-sm font-normal whitespace-normal text-muted-foreground underline"
+            >
+              <LogIn aria-hidden className="size-4 shrink-0" />
+              {game.winner.playerIds.includes(me.id) ? dict.account.keepWin : dict.account.keepGame}
+            </AuthButton>
+          )}
         </section>
       ) : (
         <p className="flex items-center justify-center gap-2 text-muted-foreground">

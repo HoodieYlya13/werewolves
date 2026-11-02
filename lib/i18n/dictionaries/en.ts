@@ -179,7 +179,9 @@ const en = {
     later: "Later",
     signedInAs: "Signed in as {name}",
     joinAs: "Join as {name}",
-    orSignIn: "Have an account? Sign in to play with its name and photo.",
+    orSignIn: "Sign in or create an account to keep your name, photo and stats from game to game.",
+    keepWin: "Sign in to keep this win in your stats.",
+    keepGame: "Sign in to count this game in your stats.",
     fromAccount: "Your name and photo come from your account.",
     addPhoto: "Add a photo",
     showUsername: "Play under my username, {username}",
@@ -516,6 +518,13 @@ const en = {
         "The shadows grow longer. Lock your doors tonight… not that it helped me.",
         "Another day of arguing, and the guilty still sleep soundly. I've seen sharper minds in a henhouse.",
         "Darkness returns. Take your time, I have all of eternity.",
+      ],
+      /** The same ghost, cheered up: the village killed one of the wolves today. */
+      dayEndsWolfDown: [
+        "The sun sets, and one of my killers will never see it rise again. Well done… but don't celebrate too soon.",
+        "Evening falls. For the first time in a while, my ghost smiles: one less murderer among you.",
+        "Justice, at last! A little of it, anyway. The others are still out there, so sleep with one eye open.",
+        "One down. I could almost rest in peace… almost. Finish the job.",
       ],
       dayEndsDo: "When the table is ready, start the night.",
       epilogue: {

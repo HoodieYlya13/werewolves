@@ -286,9 +286,14 @@ function PhaseEndStep({ game, step, act }: Props<"phase-end">) {
   const { dict } = useI18n();
   const t = dict.game.story;
   const toDay = step.next.kind === "day";
+  // A wolf the village killed today (vote, Hunter…) cheers the ghost up.
+  const wolfDown = game.players.some(
+    (p) => p.death && p.death.phase.kind === game.phase.kind && p.death.phase.number === game.phase.number && isWolf(p),
+  );
+  const lines = toDay ? t.nightEnds : wolfDown ? t.dayEndsWolfDown : t.dayEnds;
   return (
     <>
-      <Say>{line(toDay ? t.nightEnds : t.dayEnds, `${game.phase.kind}${game.phase.number}`)}</Say>
+      <Say>{line(lines, `${game.phase.kind}${game.phase.number}`)}</Say>
       <Do>{toDay ? t.nightEndsDo : t.dayEndsDo}</Do>
       <StartPhaseButton act={act} next={step.next} />
     </>

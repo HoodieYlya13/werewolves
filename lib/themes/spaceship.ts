@@ -172,6 +172,12 @@ export const spaceship: Theme = {
             "Another day of arguing, and the impostors still sleep soundly. The ship's computer has sharper instincts than you.",
             "The night cycle begins. Take your time, I have all of eternity.",
           ],
+          dayEndsWolfDown: [
+            "The shift ends, and one impostor won't make it to the next one. Well done… but don't celebrate too soon.",
+            "The corridors go dark. For once, my voice in the speakers sounds almost cheerful: one less killer on board.",
+            "Justice, at last! A little of it, anyway. The others are still aboard, so lock your cabin.",
+            "One down. I could almost rest in peace… almost. Finish the job.",
+          ],
         },
         steps: {
           deaths: {
@@ -217,6 +223,12 @@ export const spaceship: Theme = {
             "Verrouillez bien vos cabines cette nuit… même si ça ne m'a servi à rien.",
             "Encore une journée de disputes, et les imposteurs dorment sur leurs deux oreilles. L'ordinateur de bord a plus de flair que vous.",
             "Le cycle de nuit commence. Prenez votre temps, j'ai toute l'éternité.",
+          ],
+          dayEndsWolfDown: [
+            "Le service se termine, et un imposteur ne verra pas le suivant. Bravo… mais ne vous réjouissez pas trop vite.",
+            "Les coursives s'éteignent. Pour une fois, ma voix dans les haut-parleurs semble presque joyeuse : un tueur de moins à bord.",
+            "Justice, enfin ! Un peu, du moins. Les autres sont encore à bord : verrouillez bien vos cabines.",
+            "Un de moins. Je pourrais presque reposer en paix… presque. Finissez le travail.",
           ],
         },
         steps: {
