@@ -37,6 +37,8 @@ export function useNarrator(speaker: Speaker | null, send: (message: ClientMessa
     if (cue.sound) playStinger(cue.sound);
     // The dawn sound plays first: the voice waits for it.
     const delay = cue.sound?.kind === "dawn" ? 2_500 : cue.sound?.kind === "win" ? 3_000 : 0;
+    // Voice off: someone reads the lines out and taps "next" (NarratorCard); the room moves on anyway after a while.
+    if (!hasVoice() || isMuted()) return;
     const timer = setTimeout(() => void speak(cue.lines, locale).then(() => sender.current({ type: "cue-done", id: cue.id })), delay);
     return () => clearTimeout(timer);
   }, [cue, locale]);

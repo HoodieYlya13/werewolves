@@ -379,7 +379,7 @@ const debateMinutes = (room: AutoRoom, second: boolean) => Math.round(debateMs(r
 /** Words read at a calm pace, plus a margin: how long the narrator gets before the game moves on anyway. */
 function readingTime(lines: string[]) {
   const words = lines.join(" ").split(/\s+/).filter(Boolean).length;
-  return 4_000 + words * 600;
+  return 5_000 + words * 700;
 }
 
 function say(auto: AutoState, lines: string[], sound?: Stinger) {
@@ -754,7 +754,9 @@ export type PhoneTurn =
 export function phoneTurn(room: AutoRoom, playerId: string, dict: Dictionary): PhoneTurn | null {
   const { game, auto } = room;
   const beat = currentBeat(room, dict);
-  if (!beat || auto.pausedAt) return null;
+  // Nothing lights up before the narrator has finished calling it: a phone
+  // showing a turn while the last one is still being put to sleep gives it away.
+  if (!beat || auto.pausedAt || auto.phase !== "wait") return null;
   return turnFor(game, playerId, beat.show, !!auto.answer, auto.wolfPicks);
 }
 
@@ -876,13 +878,13 @@ export function autoPublic(room: AutoRoom, playerId: string | null, dict: Dictio
   const { auto, game } = room;
   const beat = currentBeat(room, dict);
   const living = game.players.filter((p) => p.alive).length;
-  const mine = !!playerId && beat?.wait.kind === "input" && actorsOf(game.step).includes(playerId);
+  const mine = !!playerId && beat?.wait.kind === "input" && auto.phase === "wait" && actorsOf(game.step).includes(playerId);
   return {
     config: auto.config,
     debate: beat?.wait.kind === "debate" && auto.phase === "wait" ? { ready: auto.ready.length, living, me: !!playerId && auto.ready.includes(playerId) } : null,
-    candidacy: beat?.show === "candidacy",
+    candidacy: beat?.show === "candidacy" && auto.phase === "wait",
     clock: mine && auto.phase === "wait" ? { lastCall: auto.reminded >= 2, canExtend: auto.reminded >= 2 && !auto.extended, endsAt: auto.deadline } : null,
-    waiting: game.phase.kind === "day" && beat?.wait.kind === "input" && !mine,
+    waiting: game.phase.kind === "day" && beat?.wait.kind === "input" && auto.phase === "wait" && !mine,
   };
 }
 

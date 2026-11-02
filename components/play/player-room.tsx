@@ -391,9 +391,16 @@ function PlayerScreen({ code }: { code: string }) {
                 onChange={changeOwnPhoto}
               />
               <NameEditor name={me.name} error={error} onSave={rename} />
+              {/* Signing in turns this seat into the account's (see the linking effect above). */}
+              {session?.enabled && (
+                <AuthButton to="in" variant="link" className="h-auto p-0 text-sm font-normal whitespace-normal text-muted-foreground underline">
+                  <LogIn aria-hidden className="size-4 shrink-0" />
+                  {dict.account.orSignIn}
+                </AuthButton>
+              )}
             </>
           )}
-          <p className="text-muted-foreground">{dict.play.waiting}</p>
+          <p className="text-muted-foreground">{view?.mode === "auto" ? dict.play.waitingAuto : dict.play.waiting}</p>
           {me.account && friendsOn && !view?.game && <InviteFriendsButton send={send} />}
         </section>
       )}
@@ -528,7 +535,7 @@ export function InGame({
       <PauseBanner view={view} />
       <SuccessionCard view={view} send={act} />
       {lead}
-      <NarratorCard view={view} />
+      <NarratorCard view={view} send={act} />
     </>
   );
 

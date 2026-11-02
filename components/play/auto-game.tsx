@@ -159,11 +159,12 @@ export function Spectator({ view, former = false }: { view: PlayerView; former?:
 }
 
 /** On the narrator device: what it's reading, and its voice on or off. */
-export function NarratorCard({ view }: { view: PlayerView }) {
+export function NarratorCard({ view, send }: { view: PlayerView; send: Send }) {
   const { dict } = useI18n();
   const muted = useMutedVoice();
   const voice = useVoiceSupport();
   const cue = view.speaker?.cue;
+  const [doneId, setDoneId] = useState(0);
   if (!view.speaker) return null;
   return (
     <section className="card flex flex-col gap-2 p-4">
@@ -195,6 +196,19 @@ export function NarratorCard({ view }: { view: PlayerView }) {
             </span>
           ))}
         </blockquote>
+      )}
+      {/* Read out by a person: the game waits for them. */}
+      {cue && cue.lines.length > 0 && (muted || !voice) && cue.id !== doneId && (
+        <Button
+          type="button"
+          className="h-11"
+          onClick={() => {
+            setDoneId(cue.id);
+            send({ type: "cue-done", id: cue.id });
+          }}
+        >
+          {dict.auto.readNext}
+        </Button>
       )}
     </section>
   );
@@ -327,18 +341,19 @@ export function SuddenDeathDialog({ open, onClose, living, send }: { open: boole
   );
 }
 
-/** The leading phone's tools, without a game master: pause by day, sudden death. */
-export function LeaderBar({ view, paused, send }: { view: PlayerView; paused: boolean; send: Send }) {
+/** The leading phone's tools, without a game master: pause by day, sudden death, then `children` (the quit menu) on the right. */
+export function LeaderBar({ view, paused, send, children }: { view: PlayerView; paused: boolean; send: Send; children?: React.ReactNode }) {
   const { dict } = useI18n();
   const [dying, setDying] = useState(false);
   const game = view.game;
-  if (!game || game.winner) return null;
+  if (!game) return null;
+  const over = !!game.winner;
   const night = game.phase.kind === "night" && !game.prologue;
   const dead = new Set(game.dead.map((d) => d.playerId));
   const living = view.players.filter((p) => !dead.has(p.id)).map((p) => p.id);
   return (
-    <div className="flex flex-wrap gap-2">
-      {paused ? (
+    <div className="flex flex-wrap items-center gap-2">
+      {over ? null : paused ? (
         <Button type="button" className="h-10" onClick={() => send({ type: "pause", value: false })}>
           <Play aria-hidden className="size-4" />
           {dict.lead.resume}
@@ -352,10 +367,13 @@ export function LeaderBar({ view, paused, send }: { view: PlayerView; paused: bo
           </Button>
         )
       )}
-      <Button type="button" variant="outline" className="h-10" onClick={() => setDying(true)}>
-        <HeartCrack aria-hidden className="size-4" />
-        {dict.lead.suddenDeath}
-      </Button>
+      {!over && (
+        <Button type="button" variant="outline" className="h-10" onClick={() => setDying(true)}>
+          <HeartCrack aria-hidden className="size-4" />
+          {dict.lead.suddenDeath}
+        </Button>
+      )}
+      <div className="ml-auto flex items-center gap-2">{children}</div>
       <SuddenDeathDialog open={dying} onClose={() => setDying(false)} living={living} send={send} />
     </div>
   );

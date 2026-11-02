@@ -530,17 +530,24 @@ function AutoHostGame({ view, send }: { view: HostView; send: (message: ClientMe
   useGameTheme(seat.game?.phase.kind === "night" && !seat.game.prologue && !over);
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-10">
-      <div className="flex items-center justify-end gap-2">
-        {over && (
-          <Button type="button" variant="outline" className="h-10 px-4" onClick={() => send({ type: "end-game" })}>
-            <X aria-hidden className="size-4" />
-            {dict.game.steps["game-over"].newGame}
-          </Button>
-        )}
-        <QuitMenu over={over} onEndGame={() => send({ type: "end-game" })} onGiveLead={() => setGiving(true)} giveLabel={dict.lead.giveLead} />
-      </div>
       <JoinRequests inGame />
-      <InGame view={seat} live act={send} send={null} lead={<LeaderBar view={seat} paused={view.paused} send={send} />} />
+      <InGame
+        view={seat}
+        live
+        act={send}
+        send={null}
+        lead={
+          <LeaderBar view={seat} paused={view.paused} send={send}>
+            {over && (
+              <Button type="button" variant="outline" className="h-10 px-4" onClick={() => send({ type: "end-game" })}>
+                <X aria-hidden className="size-4" />
+                {dict.game.steps["game-over"].newGame}
+              </Button>
+            )}
+            <QuitMenu over={over} onEndGame={() => send({ type: "end-game" })} onGiveLead={() => setGiving(true)} giveLabel={dict.lead.giveLead} />
+          </LeaderBar>
+        }
+      />
       <GiveLeadDialog open={giving} onClose={() => setGiving(false)} hint={dict.lead.leadHint} send={send} exclude={view.seatId} />
     </main>
   );

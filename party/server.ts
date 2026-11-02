@@ -649,8 +649,7 @@ export class RoomServer extends Server<Env> {
       case "stand": {
         const id = this.seatOf(sender);
         const game = this.game;
-        if (!id || !game || game.winner || !game.setup.settings.mayor || game.mayorElected) return;
-        if (!game.players.find((p) => p.id === id)?.alive) return;
+        if (!id || !this.mayorRaceOpen() || !game?.players.find((p) => p.id === id)?.alive) return;
         const others = (this.state.candidates ?? []).filter((c) => c !== id);
         this.state.candidates = msg.value ? [...others, id] : others;
         break;
@@ -1754,7 +1753,7 @@ export class RoomServer extends Server<Env> {
       speaker: room && speaking ? { cue: room.auto.cue, scene: game!.winner ? null : sceneFor(game!), locale: s.locale ?? "en" } : null,
       // The dead see everything, without a game master: there's nobody else to watch the game with.
       spectate: (room && info && !info.alive) || (spectator && game) ? game : null,
-      canStand: !!game && !!info?.alive && !game.winner && game.setup.settings.mayor && !game.mayorElected,
+      canStand: !!info?.alive && this.mayorRaceOpen(),
       deck: game && config?.deck === "open" ? [...game.setup.players.map((p) => game.setup.roles[p.id]), ...game.setup.extraCards].sort() : null,
     };
   }
@@ -1936,6 +1935,17 @@ export class RoomServer extends Server<Env> {
     if (room.game.winner || now - s.leaderLostAt < LEADER_GRACE_MS || s.paused === "leader") return;
     auto.pause(room, now);
     s.paused = "leader";
+  }
+
+  /**
+   * Players may run for Mayor during the election only: with a game master,
+   * while it's on; without one, while the narrator asks who stands.
+   */
+  private mayorRaceOpen() {
+    const game = this.game;
+    if (!game || game.winner || game.step.kind !== "mayor-election") return false;
+    const room = this.autoRoom();
+    return !room || !!auto.autoPublic(room, null, this.narration()).candidacy;
   }
 
   /** The phone asked about a leader who's gone: the next one connected around the table. */

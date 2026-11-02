@@ -117,9 +117,12 @@ describe("games without a game master", () => {
     auto.tick(g.r, g.ctx());
     expect(g.step()).toBe("lovers");
     g.run(() => g.r.auto.cue?.lines[0] === en.auto.everyoneCheck);
+    // Nothing on the phones while the narrator is still talking.
+    expect(auto.phoneTurn(g.r, "p2", en)).toBeNull();
+    g.run(() => g.r.auto.phase === "wait");
     expect(auto.phoneTurn(g.r, "p2", en)).toEqual({ kind: "check", message: "lover", partnerId: "p3" });
     expect(auto.phoneTurn(g.r, "p4", en)).toEqual({ kind: "check", message: "nothing" });
-    g.run(() => g.r.auto.cue?.lines[0] === en.auto.groupWake.lovers);
+    g.run(() => g.r.auto.cue?.lines[0] === en.auto.groupWake.lovers && g.r.auto.phase === "wait");
     expect(auto.phoneTurn(g.r, "p3", en)).toEqual({ kind: "group", group: "lovers", ids: ["p2", "p3"] });
     expect(auto.phoneTurn(g.r, "p4", en)).toBeNull();
   });
@@ -147,7 +150,7 @@ describe("games without a game master", () => {
     const g = room(["werewolf", "villager", "villager", "villager", "villager"], { mayor: true });
     g.turn("wolves");
     auto.wolfPick(g.r, "p0", "p4", g.ctx());
-    g.run(() => g.step() === "mayor-election");
+    g.run(() => g.step() === "mayor-election" && g.r.auto.phase === "wait");
     expect(auto.autoPublic(g.r, "p1", en).candidacy).toBe(true);
     g.r.candidates = ["p1", "p2"];
     g.run(() => !!g.r.ballot);
