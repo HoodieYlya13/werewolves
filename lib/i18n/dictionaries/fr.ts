@@ -185,6 +185,7 @@ const fr: Dictionary = {
     orSignIn: "Connectez-vous ou créez un compte pour garder votre nom, votre photo et vos statistiques d'une partie à l'autre.",
     keepWin: "Connectez-vous pour garder cette victoire dans vos statistiques.",
     keepGame: "Connectez-vous pour compter cette partie dans vos statistiques.",
+    keepMastered: "Connectez-vous pour compter cette partie parmi celles que vous avez menées, dans vos statistiques.",
     guestGame: "Vous avez joué une partie sur cet appareil. Connectez-vous pour la garder dans vos statistiques.",
     guestGames: "Vous avez joué {count} parties sur cet appareil. Connectez-vous pour les garder dans vos statistiques.",
     guestGameClaimed: "Votre partie sur cet appareil a été ajoutée à vos statistiques.",

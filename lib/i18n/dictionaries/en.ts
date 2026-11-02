@@ -183,6 +183,7 @@ const en = {
     orSignIn: "Sign in or create an account to keep your name, photo and stats from game to game.",
     keepWin: "Sign in to keep this win in your stats.",
     keepGame: "Sign in to count this game in your stats.",
+    keepMastered: "Sign in to count this game among the games you ran, in your stats.",
     guestGame: "You played a game on this device. Sign in to keep it in your stats.",
     guestGames: "You played {count} games on this device. Sign in to keep them in your stats.",
     guestGameClaimed: "Your game on this device was added to your stats.",

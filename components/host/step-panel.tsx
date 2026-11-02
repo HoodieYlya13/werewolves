@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { FlaskConical, Megaphone, Moon, Quote, Skull, Smartphone, Sun, Trophy } from "lucide-react";
+import { FlaskConical, LogIn, Megaphone, Moon, Quote, Skull, Smartphone, Sun, Trophy } from "lucide-react";
+import { AuthButton } from "@/components/account-button";
 import { useI18n } from "@/components/i18n-provider";
 import { BallotPanel } from "@/components/host/ballot-panel";
 import { PhonelessIntro } from "@/components/host/phoneless-cards";
@@ -13,6 +14,7 @@ import { TimerControls } from "@/components/vote-timer";
 import { format } from "@/lib/i18n/config";
 import { isWolf, type Action, type Death, type GameState, type PhaseRef, type Player, type Step } from "@/lib/engine";
 import { Button } from "@/components/ui/button";
+import { useSession } from "@/lib/session";
 
 type Props<K extends Step["kind"]> = {
   game: GameState;
@@ -963,6 +965,7 @@ function JudgeStep({ game, step, act }: Props<"judge">) {
 
 function GameOverStep({ game, step }: Props<"game-over">) {
   const { dict } = useI18n();
+  const session = useSession();
   const t = dict.game.steps["game-over"];
   const { team, playerIds } = step.winner;
   return (
@@ -985,6 +988,17 @@ function GameOverStep({ game, step }: Props<"game-over">) {
               })}
             </ul>
           </div>
+        )}
+        {/* Signing in now still counts it: the room saves the result again with the master's account. */}
+        {session?.stats && !session.account && (
+          <AuthButton
+            to="in"
+            variant="link"
+            className="h-auto p-0 text-sm font-normal whitespace-normal text-muted-foreground underline"
+          >
+            <LogIn aria-hidden className="size-4 shrink-0" />
+            {dict.account.keepMastered}
+          </AuthButton>
         )}
       </div>
     </>
