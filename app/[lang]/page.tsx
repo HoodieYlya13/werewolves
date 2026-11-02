@@ -4,6 +4,7 @@ import { BookOpen, Crown, Drama, HandHelping, ListChecks, Music, ShieldCheck, Sm
 import { CreateRoomButton } from "@/components/home/create-room-button";
 import { InstallApp } from "@/components/home/install-app";
 import { JoinForm } from "@/components/home/join-form";
+import { GuestGamesNudge } from "@/components/guest-games";
 import { getGuide } from "@/lib/content/guide";
 import { locales } from "@/lib/i18n/config";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
@@ -63,6 +64,7 @@ export default async function HomePage() {
           </section>
         </div>
 
+        <GuestGamesNudge />
         <InstallApp />
       </div>
 

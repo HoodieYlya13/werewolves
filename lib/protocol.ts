@@ -101,6 +101,11 @@ export type PlayerView = BaseView & {
    * that account to take the seat back (`unlock`).
    */
   lockedSeat: { name: string; picture: string | null } | null;
+  /**
+   * A guest's seat in the finished game, saved for stats: the phone keeps the
+   * code, and claims the seat with it after signing in (lib/guest-games.ts).
+   */
+  claim: { gameId: string; code: string } | null;
 };
 
 export type RoomView = HostView | PlayerView;

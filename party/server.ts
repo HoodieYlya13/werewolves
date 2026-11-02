@@ -18,7 +18,7 @@ import type { Account } from "../lib/account";
 import { verifyTicket } from "../lib/ticket";
 import { workerTicketKey } from "./keys";
 import type { Ballot, Timer } from "../lib/ballot";
-import { deleteResult, saveResult, type GameResult } from "../lib/stats";
+import { deleteResult, hashClaimCode, saveResult, type GameResult } from "../lib/stats";
 import {
   MAX_NAME_LENGTH,
   MAX_PLAYERS,
@@ -66,6 +66,12 @@ type StoredGame = {
   startedAt?: number;
   /** What was last saved to the stats database ("" or missing: nothing). */
   recorded?: string;
+  /**
+   * Guest seats' claim codes, by player id: sent only to that seat's phone,
+   * to claim the seat after signing in (lib/stats.ts). Kept with the game so
+   * an undone and replayed ending keeps the same codes.
+   */
+  claims?: Record<string, string>;
   /** The engine the log was written for (missing: 1). See upgradeLog. */
   engine?: number;
 };
@@ -867,18 +873,29 @@ export class RoomServer extends Server<Env> {
     const stored = this.state?.game;
     if (!stored || !this.game) return;
     stored.id ??= crypto.randomUUID();
-    const result = this.game.winner ? this.resultOf(stored) : null;
-    // A game with nobody signed in has no one's stats to count.
-    const worth = result && (result.players.length > 0 || result.masterSub);
+    const result = this.game.winner ? await this.resultOf(stored) : null;
+    // A game with nobody signed in and no guest phone has no one's stats to count.
+    const worth = result && (result.players.length > 0 || result.guests.length > 0 || result.masterSub);
     const signature = worth ? JSON.stringify(result) : "";
     if (signature === (stored.recorded ?? "")) return;
     if (worth) await saveResult(url, result);
     else await deleteResult(url, stored.id);
     stored.recorded = signature;
     if (this.state) await this.ctx.storage.put(STORAGE_KEY, this.state);
+    // Guest phones get their claim code now that it can be claimed.
+    if (result?.guests.length) this.broadcastViews();
   }
 
-  private resultOf(stored: StoredGame): GameResult {
+  /** A guest seat's claim code once the game's result is saved, for that seat's phone only. */
+  private claimFor(playerId: string): PlayerView["claim"] {
+    const stored = this.state?.game;
+    const seat = this.state?.players.find((p) => p.id === playerId);
+    const code = stored?.claims?.[playerId];
+    if (!this.game?.winner || !stored?.recorded || !stored.id || !code || !seat || seat.sub || seat.manual) return null;
+    return { gameId: stored.id, code };
+  }
+
+  private async resultOf(stored: StoredGame): Promise<GameResult> {
     const s = this.state!;
     const game = this.game!;
     const winners = new Set(game.winner!.playerIds);
@@ -889,6 +906,22 @@ export class RoomServer extends Server<Env> {
       if (!seat?.sub || seat.sub === s.hostSub) continue;
       players.set(seat.sub, { sub: seat.sub, role: p.role, team: teamOf(game, p), won: winners.has(p.id), survived: p.alive, left: !!seat.left });
     }
+    // Phones without an account: the seat waits for its phone to sign in and claim it.
+    const guests: GameResult["guests"] = [];
+    for (const p of game.players) {
+      const seat = s.players.find((x) => x.id === p.id);
+      if (!seat || seat.sub || seat.manual || seat.left) continue;
+      const code = ((stored.claims ??= {})[p.id] ??= crypto.randomUUID());
+      guests.push({
+        playerId: p.id,
+        codeHash: await hashClaimCode(code),
+        role: p.role,
+        team: teamOf(game, p),
+        won: winners.has(p.id),
+        survived: p.alive,
+        left: false,
+      });
+    }
     return {
       id: stored.id!,
       room: s.code,
@@ -898,6 +931,7 @@ export class RoomServer extends Server<Env> {
       playerCount: game.players.length,
       masterSub: s.hostSub ?? null,
       players: [...players.values()],
+      guests,
     };
   }
 
@@ -1352,6 +1386,7 @@ export class RoomServer extends Server<Env> {
       rejoin,
       knock,
       renamed: !!(me && s.players.find((p) => p.id === me.id)?.renamed),
+      claim: me ? this.claimFor(me.id) : null,
     };
   }
 

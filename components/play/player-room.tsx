@@ -22,6 +22,7 @@ import { useI18n } from "@/components/i18n-provider";
 import { RoleName } from "@/components/host/role-chip";
 import { RoleCard } from "@/components/play/role-card";
 import { PhotoPicker } from "@/components/photo-picker";
+import { rememberGuestGame } from "@/lib/guest-games";
 import { Avatar, Face, RoomProvider } from "@/components/room-context";
 import { TimerDisplay } from "@/components/vote-timer";
 import { ThemedI18n } from "@/components/themed-i18n";
@@ -155,6 +156,12 @@ function PlayerScreen({ code }: { code: string }) {
     synced.current = accountKey;
     void getTicket({ room: code }).then((ticket) => ticket && send({ type: "link-account", ticket }));
   }, [outdated, accountKey, code, send]);
+
+  // A guest's seat in a finished game: kept on this phone until it signs in.
+  const claim = view?.claim;
+  useEffect(() => {
+    if (claim) rememberGuestGame(claim);
+  }, [claim]);
 
   // The photo is remembered on this phone for the next rooms too.
   function changePhoto(data: string | null) {

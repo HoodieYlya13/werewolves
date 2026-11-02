@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS games (
   master_sub  text
 );
 
--- One row per signed-in player in a finished game. Guests aren't recorded.
+-- One row per signed-in player in a finished game. Guests are in guest_seats
+-- until they claim their seat.
 CREATE TABLE IF NOT EXISTS game_players (
   game_id   uuid NOT NULL REFERENCES games (id) ON DELETE CASCADE,
   sub       text NOT NULL,
@@ -31,3 +32,22 @@ CREATE TABLE IF NOT EXISTS game_players (
 
 CREATE INDEX IF NOT EXISTS game_players_sub ON game_players (sub);
 CREATE INDEX IF NOT EXISTS games_master_sub ON games (master_sub);
+
+-- Guests' seats (players with a phone, not signed in) in finished games. Only
+-- the phone holding the seat was sent the claim code; the hash is kept here.
+-- Signing in later and sending the code claims the seat: claimed_sub is set,
+-- and the seat counts in that account's stats (game_players), also when the
+-- game master undoes the ending and replays it. Unclaimed seats expire.
+CREATE TABLE IF NOT EXISTS guest_seats (
+  game_id     uuid NOT NULL REFERENCES games (id) ON DELETE CASCADE,
+  player_id   text NOT NULL,
+  code_hash   text NOT NULL UNIQUE,
+  role        text NOT NULL,
+  team        text NOT NULL,
+  won         boolean NOT NULL,
+  survived    boolean NOT NULL,
+  left_game   boolean NOT NULL DEFAULT false,
+  expires_at  timestamptz NOT NULL,
+  claimed_sub text,
+  PRIMARY KEY (game_id, player_id)
+);

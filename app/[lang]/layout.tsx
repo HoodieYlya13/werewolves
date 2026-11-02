@@ -11,6 +11,7 @@ import { SessionGuard } from "@/components/session-guard";
 import { SiteTitle } from "@/components/site-title";
 import { Toaster } from "@/components/ui/sonner";
 import { PasskeyReminder } from "@/components/passkey-reminder";
+import { ClaimGuestGames } from "@/components/guest-games";
 import { locales } from "@/lib/i18n/config";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { SITE_URL } from "@/lib/seo";
@@ -95,6 +96,7 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
           <Suspense fallback={null}>
             <PasskeyReminder />
           </Suspense>
+          <ClaimGuestGames />
         </I18nProvider>
       </body>
     </html>

@@ -6,7 +6,7 @@ import { neon } from "@neondatabase/serverless";
  * Shared by Next and the Worker: the Neon driver talks over fetch.
  */
 
-/** A finished game, as the room server saves it. Only signed-in players are listed. */
+/** A finished game, as the room server saves it. */
 export type GameResult = {
   id: string;
   room: string;
@@ -15,8 +15,23 @@ export type GameResult = {
   winnerTeam: string | null;
   playerCount: number;
   masterSub: string | null;
+  /** Signed-in players. */
   players: { sub: string; role: string; team: string; won: boolean; survived: boolean; left: boolean }[];
+  /** Players with a phone who weren't signed in, each with the hash of their claim code. */
+  guests: { playerId: string; codeHash: string; role: string; team: string; won: boolean; survived: boolean; left: boolean }[];
 };
+
+/** How long a guest has to sign in and claim a seat. */
+export const GUEST_SEAT_DAYS = 30;
+
+/**
+ * A claim code as the database keeps it: hashed, so the table alone can't
+ * claim anything. Codes are random UUIDs, so a plain SHA-256 is enough.
+ */
+export async function hashClaimCode(code: string) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(code));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
 
 /** Saves a game, replacing what was saved for it before (the ending was undone and replayed). */
 export async function saveResult(url: string, game: GameResult) {
@@ -24,7 +39,26 @@ export async function saveResult(url: string, game: GameResult) {
   const players = JSON.stringify(
     game.players.map((p) => ({ sub: p.sub, role: p.role, team: p.team, won: p.won, survived: p.survived, left_game: p.left })),
   );
+  const guests = JSON.stringify(
+    game.guests.map((g) => ({
+      player_id: g.playerId,
+      code_hash: g.codeHash,
+      role: g.role,
+      team: g.team,
+      won: g.won,
+      survived: g.survived,
+      left_game: g.left,
+    })),
+  );
+  const guestIds = JSON.stringify(game.guests.map((g) => g.playerId));
   await sql.transaction([
+    // Housekeeping: guest seats nobody claimed in time, then games nobody is left to count.
+    sql`DELETE FROM guest_seats WHERE claimed_sub IS NULL AND expires_at < now()`,
+    sql`
+      DELETE FROM games g
+      WHERE g.master_sub IS NULL AND g.ended_at < now() - make_interval(days => ${GUEST_SEAT_DAYS})
+        AND NOT EXISTS (SELECT 1 FROM game_players p WHERE p.game_id = g.id)
+        AND NOT EXISTS (SELECT 1 FROM guest_seats s WHERE s.game_id = g.id)`,
     sql`
       INSERT INTO games (id, room, theme, started_at, ended_at, winner_team, player_count, master_sub)
       VALUES (${game.id}, ${game.room}, ${game.theme}, to_timestamp(${game.startedAt / 1000}), now(),
@@ -38,7 +72,57 @@ export async function saveResult(url: string, game: GameResult) {
       SELECT ${game.id}::uuid, sub, role, team, won, survived, left_game
       FROM json_to_recordset(${players}::json)
         AS p(sub text, role text, team text, won boolean, survived boolean, left_game boolean)`,
+    // Seats that are no longer a guest's (signed in at the end) go; the others
+    // are updated, keeping their code and whoever claimed them.
+    sql`
+      DELETE FROM guest_seats
+      WHERE game_id = ${game.id} AND player_id NOT IN (SELECT value FROM json_array_elements_text(${guestIds}::json))`,
+    sql`
+      INSERT INTO guest_seats (game_id, player_id, code_hash, role, team, won, survived, left_game, expires_at)
+      SELECT ${game.id}::uuid, player_id, code_hash, role, team, won, survived, left_game,
+             now() + make_interval(days => ${GUEST_SEAT_DAYS})
+      FROM json_to_recordset(${guests}::json)
+        AS g(player_id text, code_hash text, role text, team text, won boolean, survived boolean, left_game boolean)
+      ON CONFLICT (game_id, player_id) DO UPDATE SET
+        code_hash = EXCLUDED.code_hash, role = EXCLUDED.role, team = EXCLUDED.team,
+        won = EXCLUDED.won, survived = EXCLUDED.survived, left_game = EXCLUDED.left_game`,
+    // Claimed seats count for their account again (game_players was just rewritten).
+    sql`
+      INSERT INTO game_players (game_id, sub, role, team, won, survived, left_game)
+      SELECT game_id, claimed_sub, role, team, won, survived, left_game
+      FROM guest_seats WHERE game_id = ${game.id} AND claimed_sub IS NOT NULL
+      ON CONFLICT DO NOTHING`,
   ]);
+}
+
+/**
+ * Gives an account the guest seats whose codes it holds (at most one per
+ * game), and returns how many it got. Never a game the account ran or already
+ * played in, an expired seat, or one claimed before: the result always comes
+ * from the room's own record, the phone only proves the seat was its own.
+ */
+export async function claimGuestSeats(url: string, sub: string, codes: string[]): Promise<number> {
+  const hashes = JSON.stringify(await Promise.all(codes.map(hashClaimCode)));
+  const rows = await neon(url)`
+    WITH picked AS (
+      SELECT DISTINCT ON (s.game_id) s.game_id, s.player_id
+      FROM guest_seats s JOIN games g ON g.id = s.game_id
+      WHERE s.code_hash IN (SELECT value FROM json_array_elements_text(${hashes}::json))
+        AND s.claimed_sub IS NULL AND s.expires_at > now()
+        AND g.master_sub IS DISTINCT FROM ${sub}
+        AND NOT EXISTS (SELECT 1 FROM game_players p WHERE p.game_id = s.game_id AND p.sub = ${sub})
+      ORDER BY s.game_id
+    ), claimed AS (
+      UPDATE guest_seats s SET claimed_sub = ${sub}
+      FROM picked
+      WHERE s.game_id = picked.game_id AND s.player_id = picked.player_id AND s.claimed_sub IS NULL
+      RETURNING s.game_id, s.role, s.team, s.won, s.survived, s.left_game
+    )
+    INSERT INTO game_players (game_id, sub, role, team, won, survived, left_game)
+    SELECT game_id, ${sub}, role, team, won, survived, left_game FROM claimed
+    ON CONFLICT DO NOTHING
+    RETURNING game_id`;
+  return rows.length;
 }
 
 /** Forgets a game whose ending was undone (or that no longer has anyone signed in). */
