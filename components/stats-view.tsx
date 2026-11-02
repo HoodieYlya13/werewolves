@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Crown, HeartPulse, Swords, Trophy } from "lucide-react";
+import { CalendarDays, Crown, HeartPulse, MoveHorizontal, PieChart, Swords, Trophy, Zap } from "lucide-react";
 import { AuthButton } from "@/components/account-button";
 import { useI18n } from "@/components/i18n-provider";
 import { StatsSkeleton } from "@/components/skeletons";
@@ -66,6 +66,7 @@ function Stats({ stats }: { stats: AccountStats }) {
   const date = new Intl.DateTimeFormat(locale, { dateStyle: "medium" });
   const roleName = (role: string) => dict.roles[role as RoleId]?.name ?? role;
   const teamName = (team: string | null) => (team ? (dict.teams[team as Team] ?? team) : "–");
+  const decimal = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
 
   if (stats.played === 0 && stats.mastered === 0) return <Message>{dict.stats.empty}</Message>;
 
@@ -92,6 +93,41 @@ function Stats({ stats }: { stats: AccountStats }) {
           detail={format(dict.stats.masteredShare, { share: rate(stats.mastered, stats.played + stats.mastered) })}
         />
       </div>
+
+      {stats.days && (
+        <section className="flex flex-col gap-3">
+          <div>
+            <h2 className="font-semibold">{dict.stats.daysTitle}</h2>
+            <p className="text-sm text-muted-foreground">{dict.stats.daysHint}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <Tile
+              icon={CalendarDays}
+              label={dict.stats.meanDays}
+              value={decimal.format(stats.days.mean)}
+              detail={format(dict.stats.gamesCounted, { count: String(stats.days.counted) })}
+            />
+            <Tile
+              icon={PieChart}
+              label={dict.stats.shareDays}
+              value={stats.days.share === null ? "–" : percent.format(stats.days.share)}
+              detail={dict.stats.shareDaysDetail}
+            />
+            <Tile
+              icon={MoveHorizontal}
+              label={dict.stats.rangeDays}
+              value={`${stats.days.min} – ${stats.days.max}`}
+              detail={dict.stats.rangeDaysDetail}
+            />
+            <Tile
+              icon={Zap}
+              label={dict.stats.fastestWin}
+              value={stats.days.fastestWin === null ? "–" : String(stats.days.fastestWin)}
+              detail={dict.stats.fastestWinDetail}
+            />
+          </div>
+        </section>
+      )}
 
       {stats.teams.length > 0 && (
         <section className="card flex flex-col gap-3 p-5">
@@ -121,6 +157,7 @@ function Stats({ stats }: { stats: AccountStats }) {
                 <th className="py-1.5 pl-3 text-right font-medium">{dict.stats.timesPlayed}</th>
                 <th className="py-1.5 pl-3 text-right font-medium">{dict.stats.use}</th>
                 <th className="py-1.5 pl-3 text-right font-medium">{dict.stats.winRate}</th>
+                {stats.days && <th className="py-1.5 pl-3 text-right font-medium">{dict.stats.cardDays}</th>}
               </tr>
             </thead>
             <tbody className="tabular-nums">
@@ -130,6 +167,10 @@ function Stats({ stats }: { stats: AccountStats }) {
                   <td className="py-2 pl-3 text-right whitespace-nowrap">{r.played}</td>
                   <td className="py-2 pl-3 text-right whitespace-nowrap">{rate(r.played, stats.played)}</td>
                   <td className="py-2 pl-3 text-right whitespace-nowrap">{rate(r.won, r.played)}</td>
+                  {/* Mean days alive with the card: short for an Angel who did their job. */}
+                  {stats.days && (
+                    <td className="py-2 pl-3 text-right whitespace-nowrap">{r.meanDays === null ? "–" : decimal.format(r.meanDays)}</td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -148,6 +189,9 @@ function Stats({ stats }: { stats: AccountStats }) {
                   <p className="text-sm text-muted-foreground">
                     {date.format(new Date(g.endedAt))} · {format(dict.stats.players, { count: String(g.playerCount) })} ·{" "}
                     {g.survived ? dict.stats.survived : dict.stats.died}
+                    {g.daysAlive !== null && g.days !== null && (
+                      <> · {format(dict.stats.daysAlive, { alive: String(g.daysAlive), days: String(g.days) })}</>
+                    )}
                   </p>
                 </div>
                 <span

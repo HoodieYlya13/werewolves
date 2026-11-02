@@ -9,6 +9,7 @@ import {
   publicGame,
   replay,
   teamOf,
+  daysBy,
   upgradeLog,
   type Action,
   type GameSetup,
@@ -899,12 +900,14 @@ export class RoomServer extends Server<Env> {
     const s = this.state!;
     const game = this.game!;
     const winners = new Set(game.winner!.playerIds);
+    const days = daysBy(stored.setup, game.phase);
+    const daysAlive = (p: (typeof game.players)[number]) => (p.death ? daysBy(stored.setup, p.death.phase) : days);
     const seats = [...s.players, ...(s.formerPlayers ?? [])];
     const players = new Map<string, GameResult["players"][number]>();
     for (const p of game.players) {
       const seat = seats.find((x) => x.id === p.id);
       if (!seat?.sub || seat.sub === s.hostSub) continue;
-      players.set(seat.sub, { sub: seat.sub, role: p.role, team: teamOf(game, p), won: winners.has(p.id), survived: p.alive, left: !!seat.left });
+      players.set(seat.sub, { sub: seat.sub, role: p.role, team: teamOf(game, p), won: winners.has(p.id), survived: p.alive, left: !!seat.left, daysAlive: daysAlive(p) });
     }
     // Phones without an account: the seat waits for its phone to sign in and claim it.
     const guests: GameResult["guests"] = [];
@@ -920,6 +923,7 @@ export class RoomServer extends Server<Env> {
         won: winners.has(p.id),
         survived: p.alive,
         left: false,
+        daysAlive: daysAlive(p),
       });
     }
     return {
@@ -929,6 +933,7 @@ export class RoomServer extends Server<Env> {
       startedAt: stored.startedAt ?? Date.now(),
       winnerTeam: game.winner!.team,
       playerCount: game.players.length,
+      days,
       masterSub: s.hostSub ?? null,
       players: [...players.values()],
       guests,

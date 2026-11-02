@@ -51,3 +51,11 @@ CREATE TABLE IF NOT EXISTS guest_seats (
   claimed_sub text,
   PRIMARY KEY (game_id, player_id)
 );
+
+-- How long things lasted, in days (each vote or dawn starts one; the Angel's
+-- opening day 0 counts). Missing on games saved before it was recorded.
+-- games.days: how long the game lasted. days_alive: how many of those days
+-- the player saw (dying in the night misses the next one).
+ALTER TABLE games ADD COLUMN IF NOT EXISTS days integer;
+ALTER TABLE game_players ADD COLUMN IF NOT EXISTS days_alive integer;
+ALTER TABLE guest_seats ADD COLUMN IF NOT EXISTS days_alive integer;

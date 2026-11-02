@@ -1,4 +1,4 @@
-import { alive, getAlive, getPlayer, hasPower, holders, isWolf, livingNeighbours, log } from "./helpers";
+import { alive, getAlive, getPlayer, hasPower, holders, isWolf, livingNeighbours, log, opensWithVote } from "./helpers";
 import { callsAnyway, nightSequence, roles, type SequenceEntry } from "./roles";
 import { validateSetup } from "./setup";
 import { getWinner } from "./win";
@@ -96,7 +96,7 @@ export function createGame(setup: GameSetup): GameState {
     });
 
   // With the Angel in play, the game may open with a vote before night 1.
-  const angel = players.some((p) => p.role === "angel") && setup.settings.angelRule !== "first-vote";
+  const angel = opensWithVote(setup);
 
   const state: GameState = {
     setup,

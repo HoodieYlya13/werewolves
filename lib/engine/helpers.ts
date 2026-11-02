@@ -1,7 +1,22 @@
 import { roles } from "./roles";
-import { EngineError, type GameEvent, type GameState, type Player, type RoleId, type Team } from "./types";
+import { EngineError, type GameEvent, type GameSetup, type GameState, type PhaseRef, type Player, type RoleId, type Team } from "./types";
 
 export const alive = (state: GameState) => state.players.filter((p) => p.alive);
+
+/** With the Angel and the opening-vote rule, the game opens with a vote (day 0) before night 1. */
+export function opensWithVote(setup: GameSetup) {
+  return Object.values(setup.roles).includes("angel") && setup.settings.angelRule !== "first-vote";
+}
+
+/**
+ * Days begun by the end of `phase`, the opening day 0 included: how long a
+ * game lasted, or how long a player lived in it. Dying in the night misses
+ * the next day; dying by day (a vote, the Hunter) still counts that day.
+ */
+export function daysBy(setup: GameSetup, phase: PhaseRef) {
+  const lastDay = phase.kind === "day" ? phase.number : phase.number - 1;
+  return Math.max(0, lastDay - (opensWithVote(setup) ? 0 : 1) + 1);
+}
 
 export function getPlayer(state: GameState, id: string) {
   const player = state.players.find((p) => p.id === id);
