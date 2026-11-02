@@ -2,7 +2,8 @@
 
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { BadgeCheck, ChevronDown, ChevronUp, GripVertical, History, Layers, Lock, LockOpen, Pencil, Smartphone, UserPlus, X } from "lucide-react";
+import { BadgeCheck, ChevronDown, ChevronUp, Copy, GripVertical, History, Layers, Lock, LockOpen, Pencil, Share2, Smartphone, UserPlus, X } from "lucide-react";
+import { toast } from "sonner";
 import { GameScreen } from "@/components/host/game-screen";
 import { ThemedI18n } from "@/components/themed-i18n";
 import { CloseRoomButton } from "@/components/host/close-room-button";
@@ -173,6 +174,10 @@ function HostContent({
 
   const joinUrl = `${window.location.origin}/play/${code}`;
   const players = seated;
+  // Phones (and some desktops) have a share sheet; elsewhere copying is enough.
+  const canShare = typeof navigator.share === "function";
+  const copy = (text: string, done: string) =>
+    navigator.clipboard.writeText(text).then(() => toast.success(done, { id: "copied" }), () => {});
 
   return (
     <main className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-[minmax(0,1fr)] gap-6 px-4 pb-10 sm:px-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
@@ -182,15 +187,41 @@ function HostContent({
 
       <section className="card flex flex-col items-center gap-4 p-6 text-center lg:sticky lg:top-6 lg:self-start">
         <p className="text-sm font-medium tracking-wide text-muted-foreground uppercase">{dict.host.roomCode}</p>
-        <p className="font-mono text-6xl font-bold tracking-[0.25em] sm:text-7xl">{code}</p>
+        {/* The copy button hangs off the right so the code itself stays centred. */}
+        <div className="relative">
+          <p className="selectable font-mono text-6xl font-bold tracking-[0.25em] sm:text-7xl">{code}</p>
+          <IconButton
+            label={dict.host.copyCode}
+            className="absolute top-1/2 -right-8 grid -translate-y-1/2"
+            onClick={() => copy(code, dict.host.codeCopied)}
+          >
+            <Copy aria-hidden className="size-4" />
+          </IconButton>
+        </div>
         <div className="rounded-2xl bg-white p-3 text-black">
           <QrCode value={joinUrl} className="size-48 sm:size-56" />
         </div>
         <p className="text-sm text-muted-foreground">
-          {dict.host.scanToJoin}{" "}
-          {/* Copied to send to someone who can't scan the code. */}
-          <span className="selectable font-mono break-all text-fg">{joinUrl.replace(/^https?:\/\//, "")}</span>
+          {dict.host.scanToJoin}
+          {/* Sent to someone who can't scan the code. */}
+          <span className="selectable block font-mono break-all text-fg">{joinUrl.replace(/^https?:\/\//, "")}</span>
         </p>
+        <div className="flex w-full gap-2 [&>*]:flex-1">
+          <Button type="button" variant="outline" onClick={() => copy(joinUrl, dict.host.linkCopied)}>
+            <Copy aria-hidden className="size-4" />
+            {dict.host.copyLink}
+          </Button>
+          {canShare && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => navigator.share({ url: joinUrl, text: format(dict.host.shareText, { code }) }).catch(() => {})}
+            >
+              <Share2 aria-hidden className="size-4" />
+              {dict.host.share}
+            </Button>
+          )}
+        </div>
         <Button
           type="button"
           variant="outline" className="w-full"
