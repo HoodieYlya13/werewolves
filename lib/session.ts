@@ -14,9 +14,11 @@ export type Session = {
   clientId: string | null;
   /** Whether finished games are saved, for the stats page. */
   stats: boolean;
+  /** The account has no passkey yet (see PasskeyReminder). */
+  noPasskey: boolean;
 };
 
-const signedOut: Session = { enabled: false, account: null, sessionId: null, issuer: null, clientId: null, stats: false };
+const signedOut: Session = { enabled: false, account: null, sessionId: null, issuer: null, clientId: null, stats: false, noPasskey: false };
 let session: Session | null = null;
 let pending: Promise<Session> | null = null;
 const listeners = new Set<() => void>();

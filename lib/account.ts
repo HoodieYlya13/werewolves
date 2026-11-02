@@ -56,7 +56,7 @@ async function keysFor(issuer: string) {
 export async function verifyIdToken(
   token: unknown,
   { issuer, clientId, nonce }: { issuer: string; clientId: string; nonce?: string },
-): Promise<(Account & { expiresAt: number }) | null> {
+): Promise<(Account & { expiresAt: number; noPasskey: boolean }) | null> {
   if (typeof token !== "string" || !token) return null;
   try {
     const { payload } = await jwtVerify(token, await keysFor(issuer), {
@@ -74,6 +74,8 @@ export async function verifyIdToken(
       // Only the auth server's own avatar URLs are shown to the room.
       picture: typeof payload.picture === "string" && payload.picture.startsWith(`${issuer}/`) ? payload.picture : null,
       expiresAt: payload.exp * 1000,
+      // Only said while the account has no passkey (see PasskeyReminder).
+      noPasskey: payload.no_passkey === true,
     };
   } catch {
     return null;

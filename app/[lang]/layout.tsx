@@ -9,6 +9,7 @@ import { ResumeRooms } from "@/components/resume-rooms";
 import { SessionGuard } from "@/components/session-guard";
 import { SiteTitle } from "@/components/site-title";
 import { Toaster } from "@/components/ui/sonner";
+import { PasskeyReminder } from "@/components/passkey-reminder";
 import { locales } from "@/lib/i18n/config";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { SITE_URL } from "@/lib/seo";
@@ -89,6 +90,7 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
           </div>
           <Toaster position="top-center" />
           <SessionGuard />
+          <PasskeyReminder />
         </I18nProvider>
       </body>
     </html>

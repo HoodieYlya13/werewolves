@@ -110,7 +110,7 @@ export async function currentAccount(request: NextRequest, config: AuthConfig, {
   const current = await verifyIdToken(idToken, config);
   // `fresh`: back from the account page, so the name or photo may have changed since.
   if (current && !fresh && current.expiresAt - Date.now() > MIN_VALIDITY_MS) {
-    return { account: publicAccount(current), sessionId, finish: keepSession };
+    return { account: publicAccount(current), noPasskey: current.noPasskey, sessionId, finish: keepSession };
   }
 
   const refreshToken = request.cookies.get(COOKIES.refresh)?.value;
@@ -119,6 +119,7 @@ export async function currentAccount(request: NextRequest, config: AuthConfig, {
   if (!tokens || !account) {
     return {
       account: null,
+      noPasskey: false,
       sessionId: null,
       finish: (response: NextResponse) => {
         if (refreshToken || idToken) clearTokens(request, response);
@@ -128,6 +129,7 @@ export async function currentAccount(request: NextRequest, config: AuthConfig, {
   }
   return {
     account: publicAccount(account),
+    noPasskey: account.noPasskey,
     sessionId,
     finish: (response: NextResponse) => {
       saveTokens(request, response, tokens, account.expiresAt);

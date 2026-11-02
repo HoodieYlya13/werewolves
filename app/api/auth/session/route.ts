@@ -10,11 +10,11 @@ export async function GET(request: NextRequest) {
   // Per request, never prerendered: the answer depends on cookies and env.
   await connection();
   const config = authConfig();
-  if (!config) return json({ enabled: false, account: null, sessionId: null });
+  if (!config) return json({ enabled: false, account: null, sessionId: null, noPasskey: false });
   // ?fresh=1: refreshed now, for the latest name and photo (see markAccountVisit).
   const fresh = request.nextUrl.searchParams.get("fresh") === "1";
-  const { account, sessionId, finish } = await currentAccount(request, config, { fresh });
-  return finish(json({ enabled: true, account, sessionId }));
+  const { account, sessionId, noPasskey, finish } = await currentAccount(request, config, { fresh });
+  return finish(json({ enabled: true, account, sessionId, noPasskey }));
 }
 
 function json(session: Omit<Session, "issuer" | "clientId" | "stats">) {
