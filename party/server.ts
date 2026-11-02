@@ -901,13 +901,18 @@ export class RoomServer extends Server<Env> {
     const game = this.game!;
     const winners = new Set(game.winner!.playerIds);
     const days = daysBy(stored.setup, game.phase);
-    const daysAlive = (p: (typeof game.players)[number]) => (p.death ? daysBy(stored.setup, p.death.phase) : days);
+    const details = (p: (typeof game.players)[number]) => ({
+      daysAlive: p.death ? daysBy(stored.setup, p.death.phase) : days,
+      deathCause: p.death?.cause ?? null,
+      wasMayor: game.events.some((e) => e.type === "mayor" && e.playerId === p.id),
+      lover: !!game.lovers?.includes(p.id),
+    });
     const seats = [...s.players, ...(s.formerPlayers ?? [])];
     const players = new Map<string, GameResult["players"][number]>();
     for (const p of game.players) {
       const seat = seats.find((x) => x.id === p.id);
       if (!seat?.sub || seat.sub === s.hostSub) continue;
-      players.set(seat.sub, { sub: seat.sub, role: p.role, team: teamOf(game, p), won: winners.has(p.id), survived: p.alive, left: !!seat.left, daysAlive: daysAlive(p) });
+      players.set(seat.sub, { sub: seat.sub, role: p.role, team: teamOf(game, p), won: winners.has(p.id), survived: p.alive, left: !!seat.left, ...details(p) });
     }
     // Phones without an account: the seat waits for its phone to sign in and claim it.
     const guests: GameResult["guests"] = [];
@@ -923,7 +928,7 @@ export class RoomServer extends Server<Env> {
         won: winners.has(p.id),
         survived: p.alive,
         left: false,
-        daysAlive: daysAlive(p),
+        ...details(p),
       });
     }
     return {

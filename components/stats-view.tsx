@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CalendarDays, Crown, HeartPulse, MoveHorizontal, PieChart, Swords, Trophy, Zap } from "lucide-react";
+import { CalendarDays, Crown, Flame, Heart, HeartPulse, Landmark, Medal, MoveHorizontal, PieChart, Swords, Trophy, Zap } from "lucide-react";
 import { AuthButton } from "@/components/account-button";
 import { useI18n } from "@/components/i18n-provider";
 import { StatsSkeleton } from "@/components/skeletons";
 import { Button } from "@/components/ui/button";
-import type { RoleId, Team } from "@/lib/engine";
+import type { DeathCause, RoleId, Team } from "@/lib/engine";
 import { format } from "@/lib/i18n/config";
 import { loadSession, useSession } from "@/lib/session";
 import type { AccountStats } from "@/lib/stats";
@@ -67,6 +67,21 @@ function Stats({ stats }: { stats: AccountStats }) {
   const roleName = (role: string) => dict.roles[role as RoleId]?.name ?? role;
   const teamName = (team: string | null) => (team ? (dict.teams[team as Team] ?? team) : "–");
   const decimal = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
+  const causeName = (cause: string) => {
+    const text = dict.game.causes[cause as DeathCause] ?? cause;
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  };
+  const deaths = stats.deaths.reduce((sum, d) => sum + d.count, 0);
+  const sideGames = stats.master?.sides.reduce((sum, s) => sum + s.count, 0) ?? 0;
+  /** A win rate with its "won out of played", or "Not yet" when it never happened. */
+  const titleTile = (icon: React.ComponentType<{ className?: string }>, label: string, { played, won }: { played: number; won: number }) => (
+    <Tile
+      icon={icon}
+      label={label}
+      value={rate(won, played)}
+      detail={played ? format(dict.stats.wonOf, { won: String(won), played: String(played) }) : dict.stats.notYet}
+    />
+  );
 
   if (stats.played === 0 && stats.mastered === 0) return <Message>{dict.stats.empty}</Message>;
 
@@ -93,6 +108,18 @@ function Stats({ stats }: { stats: AccountStats }) {
           detail={format(dict.stats.masteredShare, { share: rate(stats.mastered, stats.played + stats.mastered) })}
         />
       </div>
+
+      {stats.played > 0 && (
+        <section className="flex flex-col gap-3">
+          <h2 className="font-semibold">{dict.stats.streaksTitle}</h2>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <Tile icon={Flame} label={dict.stats.currentStreak} value={String(stats.streaks.current)} detail={dict.stats.currentStreakDetail} />
+            <Tile icon={Medal} label={dict.stats.bestStreak} value={String(stats.streaks.best)} detail={dict.stats.bestStreakDetail} />
+            {titleTile(Landmark, dict.stats.asMayor, stats.mayor)}
+            {titleTile(Heart, dict.stats.asLover, stats.lover)}
+          </div>
+        </section>
+      )}
 
       {stats.days && (
         <section className="flex flex-col gap-3">
@@ -146,6 +173,40 @@ function Stats({ stats }: { stats: AccountStats }) {
         </section>
       )}
 
+      {stats.byPlayers.length > 0 && (
+        <section className="card flex flex-col gap-3 p-5">
+          <h2 className="font-semibold">{dict.stats.bySize}</h2>
+          <ul className="flex flex-col gap-3">
+            {stats.byPlayers.map((s) => (
+              <li key={s.size} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1">
+                <span className="truncate">{format(dict.stats.size, { size: s.size.replace("-", "–") })}</span>
+                <span className="text-sm text-muted-foreground tabular-nums">
+                  {format(dict.stats.wonOf, { won: String(s.won), played: String(s.played) })}
+                </span>
+                <Bar value={s.won / s.played} label={rate(s.won, s.played)} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {stats.deaths.length > 0 && (
+        <section className="card flex flex-col gap-3 p-5">
+          <h2 className="font-semibold">{dict.stats.deathsTitle}</h2>
+          <ul className="flex flex-col gap-3">
+            {stats.deaths.map((d) => (
+              <li key={d.cause} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1">
+                <span className="truncate">{causeName(d.cause)}</span>
+                <span className="text-sm text-muted-foreground tabular-nums">
+                  {format(dict.stats.countOf, { count: String(d.count), total: String(deaths) })}
+                </span>
+                <Bar value={d.count / deaths} label={rate(d.count, deaths)} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {stats.roles.length > 0 && (
         <section className="card flex flex-col gap-3 p-5">
           <h2 className="font-semibold">{dict.stats.cards}</h2>
@@ -175,6 +236,34 @@ function Stats({ stats }: { stats: AccountStats }) {
               ))}
             </tbody>
           </table>
+        </section>
+      )}
+
+      {stats.master && (
+        <section className="card flex flex-col gap-3 p-5">
+          <div>
+            <h2 className="font-semibold">{dict.stats.masterTitle}</h2>
+            <p className="text-sm text-muted-foreground">
+              {stats.master.meanDays === null
+                ? format(dict.stats.masterAveragePlayers, { players: decimal.format(stats.master.meanPlayers) })
+                : format(dict.stats.masterAverage, {
+                    players: decimal.format(stats.master.meanPlayers),
+                    days: decimal.format(stats.master.meanDays),
+                  })}
+            </p>
+          </div>
+          <h3 className="text-sm font-medium text-muted-foreground">{dict.stats.masterSides}</h3>
+          <ul className="flex flex-col gap-3">
+            {stats.master.sides.map((s) => (
+              <li key={s.team ?? "none"} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1">
+                <span className="truncate">{s.team ? teamName(s.team) : dict.stats.nobodyWon}</span>
+                <span className="text-sm text-muted-foreground tabular-nums">
+                  {format(dict.stats.countOf, { count: String(s.count), total: String(sideGames) })}
+                </span>
+                <Bar value={s.count / sideGames} label={rate(s.count, sideGames)} />
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 

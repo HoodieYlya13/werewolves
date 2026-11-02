@@ -59,3 +59,13 @@ CREATE TABLE IF NOT EXISTS guest_seats (
 ALTER TABLE games ADD COLUMN IF NOT EXISTS days integer;
 ALTER TABLE game_players ADD COLUMN IF NOT EXISTS days_alive integer;
 ALTER TABLE guest_seats ADD COLUMN IF NOT EXISTS days_alive integer;
+
+-- How a player's game went, beyond winning (missing on games saved before):
+-- what killed them (a DeathCause, NULL if they survived), whether they were
+-- elected Mayor at some point, and whether Cupid made them a lover.
+ALTER TABLE game_players ADD COLUMN IF NOT EXISTS death_cause text;
+ALTER TABLE game_players ADD COLUMN IF NOT EXISTS was_mayor boolean;
+ALTER TABLE game_players ADD COLUMN IF NOT EXISTS lover boolean;
+ALTER TABLE guest_seats ADD COLUMN IF NOT EXISTS death_cause text;
+ALTER TABLE guest_seats ADD COLUMN IF NOT EXISTS was_mayor boolean;
+ALTER TABLE guest_seats ADD COLUMN IF NOT EXISTS lover boolean;
