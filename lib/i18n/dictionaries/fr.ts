@@ -25,6 +25,7 @@ const fr: Dictionary = {
     },
   },
   nav: {
+    home: "Accueil",
     label: "Découvrir le jeu",
     rules: "Règles",
     roles: "Rôles",

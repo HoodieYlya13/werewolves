@@ -21,6 +21,7 @@ import { useErrorToast } from "@/components/toasts";
 import { useI18n } from "@/components/i18n-provider";
 import { RoleName } from "@/components/host/role-chip";
 import { RoleCard } from "@/components/play/role-card";
+import { BackHome } from "@/components/back-home";
 import { PhotoPicker } from "@/components/photo-picker";
 import { rememberGuestGame } from "@/lib/guest-games";
 import { Avatar, Face, RoomProvider } from "@/components/room-context";
@@ -234,7 +235,13 @@ function PlayerScreen({ code }: { code: string }) {
     <RoomProvider value={room}>
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-10">
       <ConnectionBanner status={status} />
-      {!asleep && <p className="text-center font-mono text-sm tracking-[0.3em] text-muted-foreground">{code}</p>}
+      {!asleep && (
+        <div className="relative flex min-h-5 items-center justify-center">
+          {/* No seat yet (or not anymore): nothing to leave, so a plain way home. */}
+          {!me && <BackHome className="absolute left-0" />}
+          <p className="font-mono text-sm tracking-[0.3em] text-muted-foreground">{code}</p>
+        </div>
+      )}
 
       {(error === "removed" || error === "signed-in-elsewhere" || error === "left-elsewhere" || error === "moved-room" || error === "seat-given") && (
         <p role="alert" className="text-center text-primary">

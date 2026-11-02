@@ -6,6 +6,7 @@ import { BadgeCheck, ChevronDown, ChevronUp, Copy, GripVertical, History, Layers
 import { toast } from "sonner";
 import { GameScreen } from "@/components/host/game-screen";
 import { ThemedI18n } from "@/components/themed-i18n";
+import { BackHome } from "@/components/back-home";
 import { CloseRoomButton } from "@/components/host/close-room-button";
 import { useDragSort } from "@/components/host/drag-sort";
 import { PlayerEditor } from "@/components/host/player-editor";
@@ -181,8 +182,10 @@ function HostContent({
 
   return (
     <main className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-[minmax(0,1fr)] gap-6 px-4 pb-10 sm:px-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-      <div className="lg:col-span-2">
+      <div className="flex flex-col gap-3 lg:col-span-2">
         <ConnectionBanner status={status} />
+        {/* Leaving keeps the room open: home offers to resume it (ResumeRooms). */}
+        <BackHome />
       </div>
 
       <section className="card flex flex-col items-center gap-4 p-6 text-center lg:sticky lg:top-6 lg:self-start">

@@ -24,6 +24,7 @@ const en = {
   },
   nav: {
     label: "Learn the game",
+    home: "Home",
     rules: "Rules",
     roles: "Roles",
     faq: "FAQ",
