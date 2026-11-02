@@ -123,6 +123,10 @@ export type ErrorCode =
   | "invalid-setup"
   | "invalid-action"
   | "room-closed"
+  /** The room reached MAX_PLAYERS, or MAX_REQUESTS phones are already waiting. */
+  | "room-full"
+  /** This network opened too many rooms in a row. */
+  | "too-many-rooms"
   /** The account couldn't be checked (expired sign-in, accounts off): sign in again. */
   | "invalid-account"
   /** That account is already another player in this room. */
@@ -267,6 +271,10 @@ export type AccountServerMessage =
   | { type: "resolved"; takeOver: boolean; room: string; role: "player" | "host" };
 
 export const MAX_NAME_LENGTH = 24;
+/** Seats in a room: well above any real table, low enough that no script can bloat it. */
+export const MAX_PLAYERS = 50;
+/** Phones waiting for the game master's answer at once. */
+export const MAX_REQUESTS = 20;
 /** Photos are resized on the device; this caps the data URL sent to the server. */
 export const MAX_PHOTO_LENGTH = 200_000;
 export const PHOTO_SIZE = 256;

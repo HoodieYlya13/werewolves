@@ -306,6 +306,8 @@ const fr: Dictionary = {
     "invalid-action": "Cette action n'est pas possible maintenant.",
     backHome: "Retour à l'accueil",
     "room-closed": "Le meneur a fermé la partie.",
+    "room-full": "Cette partie est complète.",
+    "too-many-rooms": "Trop de parties créées depuis ce réseau. Attendez une minute, puis réessayez.",
     "invalid-account": "Votre connexion a expiré. Reconnectez-vous.",
     "account-in-use": "Ce compte joue déjà dans cette partie.",
     "host-moved": "Vous menez maintenant cette partie depuis un autre appareil.",

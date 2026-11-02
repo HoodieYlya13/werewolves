@@ -27,7 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 /** Errors the game master sees as toasts (the others end the session). */
-const HOST_TOASTS: ErrorCode[] = ["name-taken", "invalid-name", "game-in-progress", "invalid-setup", "invalid-action", "invalid-account", "account-in-use"];
+const HOST_TOASTS: ErrorCode[] = ["name-taken", "invalid-name", "game-in-progress", "invalid-setup", "invalid-action", "invalid-account", "account-in-use", "room-full"];
 
 export function HostRoom() {
   const { code } = useParams<{ code: string }>();
@@ -132,7 +132,7 @@ function HostContent({
   // While cards are picked, requests have their own row there instead.
   useHostToasts(view, screen === "setup" && !view?.game);
 
-  if (error === "room-not-found" || error === "not-host" || error === "room-closed" || error === "host-moved")
+  if (error === "room-not-found" || error === "not-host" || error === "room-closed" || error === "host-moved" || error === "too-many-rooms")
     return <FatalError code={error} />;
 
   // Nothing about the room is known yet: not even whether it's an empty lobby.

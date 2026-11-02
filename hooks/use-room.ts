@@ -7,7 +7,7 @@ import { clearHostTakeover, identity, isTakingHostOver, partyHost } from "@/lib/
 import { getTicket } from "@/lib/session";
 
 /** Errors after which reconnecting is pointless. */
-const FATAL: ErrorCode[] = ["room-not-found", "room-taken", "not-host", "room-closed", "host-moved"];
+const FATAL: ErrorCode[] = ["room-not-found", "room-taken", "not-host", "room-closed", "host-moved", "too-many-rooms"];
 
 export type RoomStatus = "connecting" | "open" | "reconnecting";
 

@@ -304,6 +304,8 @@ const en = {
     "invalid-action": "That move isn't allowed right now.",
     backHome: "Back to home",
     "room-closed": "The game master closed the room.",
+    "room-full": "This room is full.",
+    "too-many-rooms": "Too many rooms opened from this network. Wait a minute, then try again.",
     "invalid-account": "Your sign-in has expired. Sign in again.",
     "account-in-use": "That account is already playing in this room.",
     "host-moved": "You now run this room from another device.",

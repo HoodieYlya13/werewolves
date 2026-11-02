@@ -13,6 +13,8 @@
       { "name": "Account", "class_name": "AccountServer" }
     ]
   },
+  // Room creation per IP (party/server.ts): a real game master opens one at a time.
+  "ratelimits": [{ "name": "ROOM_CREATION", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } }],
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["RoomServer"] },
     { "tag": "v2", "new_sqlite_classes": ["AccountServer"] }
@@ -30,7 +32,8 @@
           { "name": "Main", "class_name": "RoomServer" },
           { "name": "Account", "class_name": "AccountServer" }
         ]
-      }
+      },
+      "ratelimits": [{ "name": "ROOM_CREATION", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } }]
     }
   }
 }

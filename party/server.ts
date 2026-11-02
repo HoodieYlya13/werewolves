@@ -21,6 +21,8 @@ import type { Ballot, Timer } from "../lib/ballot";
 import { deleteResult, saveResult, type GameResult } from "../lib/stats";
 import {
   MAX_NAME_LENGTH,
+  MAX_PLAYERS,
+  MAX_REQUESTS,
   MAX_PHOTO_LENGTH,
   type ClientMessage,
   type ErrorCode,
@@ -109,6 +111,8 @@ type RoomState = {
 
 const PHOTO_PREFIX = "photo:";
 const MAX_TIMER_SECONDS = 60 * 60;
+/** Past this, a connection's messages are dropped; past five times this, it's closed. */
+const MESSAGES_PER_SECOND = 20;
 
 /** Who a socket belongs to. Kept on the connection so it survives restarts. */
 type ConnState =
@@ -137,6 +141,8 @@ export class RoomServer extends Server<Env> {
   static options = { hibernate: true };
 
   private state: RoomState | null = null;
+  /** Each connection's message count this second (forgotten when the room hibernates, which is fine). */
+  private rates = new Map<string, { since: number; count: number }>();
   /** Cached result of replaying the game log. */
   private game: GameState | null = null;
   /**
@@ -173,6 +179,9 @@ export class RoomServer extends Server<Env> {
       const ticket = params.get("ticket");
       if (ticket && this.state) return this.takeHost(conn, ticket);
       if (!token) return this.reject(conn, "not-host");
+      if (!this.state && params.get("create") === "1" && !(await this.mayCreateRoom(ctx))) {
+        return this.reject(conn, "too-many-rooms");
+      }
       if (!this.state) {
         if (params.get("create") !== "1") return this.reject(conn, "room-not-found");
         this.state = {
@@ -227,6 +236,7 @@ export class RoomServer extends Server<Env> {
   }
 
   async onClose(conn: Conn) {
+    this.rates.delete(conn.id);
     // Players stay in the game when their phone disconnects; they're just shown offline.
     if (!this.state || conn.state?.kind !== "player") return;
     const { playerId } = conn.state;
@@ -242,6 +252,7 @@ export class RoomServer extends Server<Env> {
   }
 
   async onMessage(sender: Conn, raw: string | ArrayBuffer) {
+    if (this.flooding(sender)) return;
     if (typeof raw !== "string" || !this.state) return;
     let msg: ClientMessage;
     try {
@@ -304,6 +315,7 @@ export class RoomServer extends Server<Env> {
           if (!name) return;
           const state: { deviceId?: string; token?: string } = sender.state?.kind === "guest" ? sender.state : {};
           const id = state.deviceId ?? crypto.randomUUID();
+          if (this.tooManyRequests(sender, id)) return;
           const request: StoredRequest = { id, name, kind: "new", account: !!account, token: state.token };
           if (account) Object.assign(request, { signedIn: account, showUsername });
           this.state.requests = [...(this.state.requests ?? []).filter((r) => r.id !== id), request];
@@ -315,6 +327,7 @@ export class RoomServer extends Server<Env> {
           ? this.claimAccountName({ accountName: account.name, username: account.username, showUsername })
           : this.validateName(sender, msg.name);
         if (!name) return;
+        if (this.isFull(sender)) return;
         const { deviceId, token } = sender.state?.kind === "guest" ? sender.state : {};
         const taken = [...this.state.players, ...(this.state.formerPlayers ?? [])].some((p) => p.id === deviceId);
         const player = this.addPlayer(name, false, deviceId && token && !taken ? { id: deviceId, token } : undefined);
@@ -420,7 +433,7 @@ export class RoomServer extends Server<Env> {
         }
         // An account keeps its name; anyone else may come back under a new one.
         const name = known?.sub ? known.name : this.validateName(sender, msg.name, playerId);
-        if (!name) return;
+        if (!name || this.tooManyRequests(sender, playerId)) return;
         this.state.requests = [
           ...(this.state.requests ?? []).filter((r) => r.id !== playerId),
           { id: playerId, name, kind: "rejoin", account: !!known?.sub },
@@ -452,6 +465,8 @@ export class RoomServer extends Server<Env> {
           await this.answerNewPhone(sender, request, msg.allow, msg.seatId);
           break;
         }
+        // A former player takes a seat again.
+        if (msg.allow && !this.state.players.some((p) => p.id === request.id) && this.isFull(sender)) return;
         this.state.requests = this.state.requests!.filter((r) => r.id !== request.id);
         if (!msg.allow) {
           this.state.deniedIds = [...(this.state.deniedIds ?? []), request.id];
@@ -527,7 +542,7 @@ export class RoomServer extends Server<Env> {
         // The ended game no longer matches the table.
         this.state.endedGame = null;
         const name = this.validateName(sender, msg.name);
-        if (!name) return;
+        if (!name || this.isFull(sender)) return;
         this.addPlayer(name, true);
         break;
       }
@@ -1172,6 +1187,7 @@ export class RoomServer extends Server<Env> {
     if (allow && account && (this.findAccount(account.sub) || account.sub === s.hostSub)) {
       return this.send(host, { type: "error", code: "account-in-use" });
     }
+    if (allow && !seat && this.isFull(host)) return;
     s.requests = s.requests!.filter((r) => r.id !== request.id);
     if (!allow) {
       s.deniedIds = [...(s.deniedIds ?? []), request.id];
@@ -1348,6 +1364,39 @@ export class RoomServer extends Server<Env> {
 
   private send(conn: Conn, msg: ServerMessage) {
     conn.send(JSON.stringify(msg));
+  }
+
+  /** True (with an error) when the room has no seat left. */
+  private isFull(conn: Conn) {
+    if (this.state!.players.length < MAX_PLAYERS) return false;
+    this.send(conn, { type: "error", code: "room-full" });
+    return true;
+  }
+
+  /** True (with an error) when too many phones already wait, `id` aside. */
+  private tooManyRequests(conn: Conn, id: string) {
+    const others = (this.state!.requests ?? []).filter((r) => r.id !== id);
+    if (others.length < MAX_REQUESTS) return false;
+    this.send(conn, { type: "error", code: "room-full" });
+    return true;
+  }
+
+  /** Counts each connection's messages per second, and drops (then cuts off) a flood. */
+  private flooding(conn: Conn) {
+    const now = Date.now();
+    let rate = this.rates.get(conn.id);
+    if (!rate || now - rate.since >= 1000) this.rates.set(conn.id, (rate = { since: now, count: 0 }));
+    rate.count++;
+    if (rate.count > MESSAGES_PER_SECOND * 5) conn.close(1008, "Too many messages");
+    return rate.count > MESSAGES_PER_SECOND;
+  }
+
+  /** One network can only open so many rooms a minute (the ROOM_CREATION rate limit). */
+  private async mayCreateRoom(ctx: ConnectionContext) {
+    const ip = ctx.request.headers.get("CF-Connecting-IP");
+    if (!ip || !this.env.ROOM_CREATION) return true;
+    const { success } = await this.env.ROOM_CREATION.limit({ key: ip });
+    return success;
   }
 
   private reject(conn: Conn, code: ErrorCode) {
