@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { GameScreen } from "@/components/host/game-screen";
 import { ThemedI18n } from "@/components/themed-i18n";
 import { BackHome } from "@/components/back-home";
+import { AddFriendButton, InviteFriendsButton, useFriendToasts, useFriendsInRoom } from "@/components/friends/room-friends";
 import { CloseRoomButton } from "@/components/host/close-room-button";
 import { useDragSort } from "@/components/host/drag-sort";
 import { PlayerEditor } from "@/components/host/player-editor";
@@ -90,6 +91,10 @@ function HostContent({
     identity.setHost(next, { token });
     router.replace(`/${locale}/host/${next}`);
   }, [error, code, locale, router]);
+
+  // Signed in: friends to add from the seats, and to invite.
+  const friends = useFriendsInRoom();
+  useFriendToasts();
 
   // The games a signed-in game master runs count in their stats.
   const session = useSession();
@@ -235,6 +240,7 @@ function HostContent({
           {view?.locked ? dict.host.unlock : dict.host.lock}
         </Button>
         {view?.locked && <p className="text-sm text-muted-foreground">{dict.host.locked}</p>}
+        {friends && <InviteFriendsButton send={send} className="w-full" />}
       </section>
 
       <section className="card flex flex-col gap-4 p-4 sm:p-6">
@@ -287,6 +293,8 @@ function HostContent({
                     <span className="sr-only sm:not-sr-only">{dict.host.noPhone}</span>
                   </span>
                 )}
+                {/* An account player has no edit button: the space asks them to be friends instead. */}
+                {p.account && friends && <AddFriendButton name={p.name} playerId={p.id} send={send} />}
                 {/* On phones the row is too narrow: tapping the name edits too. */}
                 {!p.account && (
                   <IconButton

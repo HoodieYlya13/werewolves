@@ -106,6 +106,8 @@ export type PlayerView = BaseView & {
    * code, and claims the seat with it after signing in (lib/guest-games.ts).
    */
   claim: { gameId: string; code: string } | null;
+  /** The game master's account, when they're signed in: players can ask them to be friends. */
+  host: FriendFace | null;
 };
 
 export type RoomView = HostView | PlayerView;
@@ -162,7 +164,11 @@ export type ServerMessage =
   /** This device is now the game master (it took the room over from another device): its key from now on. */
   | { type: "host-token"; token: string }
   /** `detail` carries the engine's explanation for invalid setups and actions. */
-  | { type: "error"; code: ErrorCode; detail?: string };
+  | { type: "error"; code: ErrorCode; detail?: string }
+  /** What "add-friend" did (see RequestResult in lib/friends.ts). */
+  | { type: "friend-result"; result: "sent" | "accepted" | "already-friends" | "already-sent" | "self" | "unknown" }
+  /** How many friends "invite" reached (the others were invited a moment ago, or aren't friends). */
+  | { type: "invited"; count: number };
 
 export type StartGame = SetupOptions &
   (
@@ -236,7 +242,11 @@ export type ClientMessage =
   /** Starts a countdown of `seconds`, or removes it with null. */
   | { type: "set-timer"; seconds: number | null }
   | { type: "pause-timer" }
-  | { type: "resume-timer" };
+  | { type: "resume-timer" }
+  /** Signed in: asks another signed-in seat (or the game master, null) to be friends. */
+  | { type: "add-friend"; playerId: string | null }
+  /** Signed in: invites friends (by account) to this room. */
+  | { type: "invite"; subs: string[] };
 
 /** Query params sent when opening the socket. */
 export type ConnectQuery =
@@ -273,7 +283,14 @@ export type AccountServerMessage =
   | { type: "in-room"; room: string; inGame: boolean; role: "player"; playerId: string }
   | { type: "in-room"; room: string; inGame: boolean; role: "host" }
   /** Done: the other device is signed out (and out of the room unless `takeOver`). */
-  | { type: "resolved"; takeOver: boolean; room: string; role: "player" | "host" };
+  | { type: "resolved"; takeOver: boolean; room: string; role: "player" | "host" }
+  /** A friend invites this account to `room`. */
+  | { type: "invite"; room: string; from: FriendFace }
+  /** Someone met in a room asked to be friends (`accepted`: they answered this account's own request). */
+  | { type: "friend-request"; from: FriendFace; accepted: boolean };
+
+/** Who sent an invite or a request, as the toast shows them. */
+export type FriendFace = { name: string; picture: string | null };
 
 export const MAX_NAME_LENGTH = 24;
 /** Seats in a room: well above any real table, low enough that no script can bloat it. */

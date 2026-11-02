@@ -15,6 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { InviteCard } from "@/components/friends/invite-toast";
 import { format } from "@/lib/i18n/config";
 import type { AccountClientMessage, AccountServerMessage } from "@/lib/protocol";
 import { hostTakeoverKey, identity, partyHost, takeoverKey } from "@/lib/room";
@@ -81,6 +82,31 @@ function AccountSocket({ sub }: { sub: string }) {
             sessionStorage.setItem(takeoverKey(msg.room), "1");
           } catch {}
           router.push(`/${locale}/play/${msg.room}`);
+          break;
+        case "invite": {
+          // Already in that room: nothing to join.
+          if (window.location.pathname.includes(`/${msg.room}`)) break;
+          const room = msg.room;
+          toast.custom(
+            (id) => (
+              <InviteCard
+                from={msg.from}
+                room={room}
+                close={() => toast.dismiss(id)}
+                onJoin={() => {
+                  toast.dismiss(id);
+                  router.push(`/${locale}/play/${room}`);
+                }}
+              />
+            ),
+            { id: `invite-${room}`, duration: 60_000 },
+          );
+          break;
+        }
+        case "friend-request":
+          toast(format(msg.accepted ? dict.friends.acceptedToast : dict.friends.requestToast, { name: msg.from.name }), {
+            action: { label: dict.friends.see, onClick: () => router.push(`/${locale}/friends`) },
+          });
           break;
       }
     },

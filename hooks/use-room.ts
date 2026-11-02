@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import usePartySocket from "partysocket/react";
 import type { ClientMessage, ConnectQuery, ErrorCode, RoomView, ServerMessage } from "@/lib/protocol";
 import { clearHostTakeover, identity, isTakingHostOver, partyHost } from "@/lib/room";
@@ -27,6 +27,23 @@ function offsetFrom(serverNow: number) {
  * Connects to a room as the game master or as a phone. Must only render on the
  * client (it reads localStorage and window.location).
  */
+/** The window event that carries the room's answers to "add-friend" and "invite". */
+const ROOM_REPLY = "ww:room-reply";
+type RoomReply = Extract<ServerMessage, { type: "friend-result" | "invited" }>;
+
+/** Runs `onReply` for each answer the room sends to "add-friend" or "invite". */
+export function useRoomReply(onReply: (reply: RoomReply) => void) {
+  const handler = useRef(onReply);
+  useEffect(() => {
+    handler.current = onReply;
+  });
+  useEffect(() => {
+    const listen = (event: Event) => handler.current((event as CustomEvent<RoomReply>).detail);
+    window.addEventListener(ROOM_REPLY, listen);
+    return () => window.removeEventListener(ROOM_REPLY, listen);
+  }, []);
+}
+
 export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
   const cacheKey = `${as}:${code}`;
   const [view, setView] = useState<V | null>(() => (lastViews.get(cacheKey)?.view as V | undefined) ?? null);
@@ -79,6 +96,11 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
         case "host-token":
           identity.setHost(code, { token: msg.token });
           clearHostTakeover(code);
+          break;
+        case "friend-result":
+        case "invited":
+          // Answers to one button press: whoever pressed it listens (useRoomReply).
+          window.dispatchEvent(new CustomEvent(ROOM_REPLY, { detail: msg }));
           break;
         case "other-room":
           setOtherRoom({ room: msg.room, inGame: msg.inGame });

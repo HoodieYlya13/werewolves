@@ -57,6 +57,14 @@ Finished games are saved to Postgres (Neon) for signed-in players and game maste
 
 Each environment has its own database in `POSTGRES_URL` (Vercel's Neon integration sets it). Vercel builds create the tables (`scripts/db-migrate.mjs`, safe to rerun) and hand the URL to the room server as a Worker secret. Locally, `npm run db:migrate` applies the schema to the database in `.env.local`, and `wrangler dev` reads the URL from there too.
 
+## Friends
+
+Signed-in players can become friends, in the same database as the stats (`db/schema.sql`, `lib/friends.ts`). A request needs the other person to accept. Three ways to ask: the "add friend" button next to signed-in players (and the game master) in a room, which goes through the room server so account ids never reach other phones; a personal friend link (`/friends/add/CODE`); or a search by username. The Friends page (`/[lang]/friends`, in the account menu) lists friends and requests.
+
+The game master and signed-in players in the lobby can invite friends. The room checks they're friends, records the invite, and tells each friend's account server (`party/account.ts`), so every page they have open shows a card to join. Devices that turned notifications on also get a push, sent by the room server (`party/push.ts`). The push is empty: the service worker (`public/sw.js`) asks `/api/auth/invites` for the newest invite and shows it. On iPhone and iPad, notifications only work from the installed app.
+
+To turn push on: `node scripts/generate-vapid-keys.mjs`, then add `NEXT_PUBLIC_VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` to Vercel (production and preview) and `.env.local`. Without them, invites still show in the app.
+
 ## Sound
 
 The game master's screen plays a soundtrack (`lib/sound.ts`): music composed live with the Web Audio API for the day, the night, the vote and each night role, a bell for each death and a tune for the winners. Phones stay silent. The one recording is the wolves' howl in the Werewolves theme, `public/sounds/wolf-howl.m4a`: "Wolf howls.ogg" from Wikimedia Commons, recorded by the U.S. Fish and Wildlife Service, in the public domain.

@@ -1,7 +1,7 @@
 import { getServerByName, Server, type Connection } from "partyserver";
 import { verifyTicket } from "../lib/ticket";
 import { workerTicketKey } from "./keys";
-import { sessionTime, type AccountClientMessage, type AccountServerMessage } from "../lib/protocol";
+import { sessionTime, type AccountClientMessage, type AccountServerMessage, type FriendFace } from "../lib/protocol";
 
 const CURRENT_KEY = "session";
 const ROOMS_KEY = "rooms";
@@ -49,6 +49,27 @@ export class AccountServer extends Server<Env> {
       } catch {}
       if (!stillThere) await this.removeRoom(room);
     }
+  }
+
+  // --- called by RoomServer: friends ---
+
+  /** A friend invites this account to a room: every signed-in device hears it. */
+  async invite(room: string, from: FriendFace) {
+    this.tellDevices({ type: "invite", room, from });
+  }
+
+  /** Someone in a room asked to be friends, or accepted this account's request. */
+  async friendRequest(from: FriendFace, accepted: boolean) {
+    this.tellDevices({ type: "friend-request", from, accepted });
+  }
+
+  /** The devices of the current sign-in (the others are being signed out). */
+  private tellDevices(msg: AccountServerMessage) {
+    void this.ctx.storage.get<string>(CURRENT_KEY).then((current) => {
+      for (const conn of this.getConnections<DeviceState>()) {
+        if (current && conn.state?.sessionId === current && !conn.state.pending) this.send(conn, msg);
+      }
+    });
   }
 
   // --- devices ---

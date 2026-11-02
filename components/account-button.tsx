@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChartColumn, LogIn, LogOut, UserCog } from "lucide-react";
+import { ChartColumn, LogIn, LogOut, UserCog, Users } from "lucide-react";
 import { forgetPasskeyReminder } from "@/components/passkey-reminder";
 import { useI18n } from "@/components/i18n-provider";
 import { Face } from "@/components/room-context";
@@ -99,6 +99,14 @@ export function AccountButton({ accounts }: { accounts: boolean }) {
               <Link href={`/${locale}/stats`}>
                 <ChartColumn aria-hidden />
                 {dict.account.stats}
+              </Link>
+            </DropdownMenuItem>
+          )}
+          {session.stats && (
+            <DropdownMenuItem asChild>
+              <Link href={`/${locale}/friends`}>
+                <Users aria-hidden />
+                {dict.friends.menu}
               </Link>
             </DropdownMenuItem>
           )}

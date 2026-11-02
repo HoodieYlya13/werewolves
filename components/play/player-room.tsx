@@ -22,6 +22,7 @@ import { useI18n } from "@/components/i18n-provider";
 import { RoleName } from "@/components/host/role-chip";
 import { RoleCard } from "@/components/play/role-card";
 import { BackHome } from "@/components/back-home";
+import { AddFriendButton, InviteFriendsButton, useFriendToasts, useFriendsInRoom } from "@/components/friends/room-friends";
 import { PhotoPicker } from "@/components/photo-picker";
 import { rememberGuestGame } from "@/lib/guest-games";
 import { Avatar, Face, RoomProvider } from "@/components/room-context";
@@ -65,6 +66,9 @@ function PlayerScreen({ code }: { code: string }) {
   const [showUsername, setShowUsername] = useState(() => identity.getShowUsername());
   const session = useSession();
   const account = session?.account ?? null;
+  // Signed in, with an account seat: friends to add from the room, and to invite.
+  const friendsOn = useFriendsInRoom();
+  useFriendToasts();
   const me = view?.me;
 
   useErrorToast(error, PHONE_TOASTS);
@@ -382,12 +386,18 @@ function PlayerScreen({ code }: { code: string }) {
             </>
           )}
           <p className="text-muted-foreground">{dict.play.waiting}</p>
+          {me.account && friendsOn && !view?.game && <InviteFriendsButton send={send} />}
         </section>
       )}
 
       {me && view?.info && view.game && (
         <ThemedI18n theme={view.game.theme}>
-          <InGame view={view} live={live} onVote={(targetId) => send({ type: "cast-vote", targetId })} />
+          <InGame
+            view={view}
+            live={live}
+            onVote={(targetId) => send({ type: "cast-vote", targetId })}
+            send={me.account && friendsOn ? send : null}
+          />
         </ThemedI18n>
       )}
 
@@ -395,16 +405,28 @@ function PlayerScreen({ code }: { code: string }) {
         <section>
           <h2 className="mb-2 text-sm font-medium text-muted-foreground">{dict.play.roomPlayers}</h2>
           <ul className="flex flex-wrap gap-2">
-            {view.players.map((p) => (
-              <li
-                key={p.id}
-                className={`flex items-center gap-1.5 rounded-full py-1 pr-3 pl-1 text-sm ${p.id === me?.id ? "bg-primary text-primary-foreground" : "bg-surface-2"}`}
-              >
-                <Avatar playerId={p.id} name={p.name} className="size-6" />
-                {p.name}
-              </li>
-            ))}
+            {view.players.map((p) => {
+              // Another signed-in player, seen from an account seat: ask them to be friends.
+              const befriend = !!me?.account && friendsOn && p.account && p.id !== me.id;
+              return (
+                <li
+                  key={p.id}
+                  className={`flex items-center gap-1.5 rounded-full py-1 pl-1 text-sm ${befriend ? "pr-1" : "pr-3"} ${p.id === me?.id ? "bg-primary text-primary-foreground" : "bg-surface-2"}`}
+                >
+                  <Avatar playerId={p.id} name={p.name} className="size-6" />
+                  {p.name}
+                  {befriend && <AddFriendButton name={p.name} playerId={p.id} send={send} className="size-6 rounded-full" />}
+                </li>
+              );
+            })}
           </ul>
+          {view.host && me?.account && friendsOn && (
+            <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+              <Face name={view.host.name} src={view.host.picture} className="size-6 text-xs" />
+              {format(dict.friends.gameMaster, { name: view.host.name })}
+              <AddFriendButton name={view.host.name} playerId={null} send={send} className="size-6 rounded-full" />
+            </p>
+          )}
         </section>
       )}
 
@@ -463,7 +485,10 @@ function InGame({
   view,
   live,
   onVote,
+  send,
 }: {
+  /** Set when this seat can ask the others to be friends (signed in): offered once the game is over. */
+  send: ((msg: ClientMessage) => void) | null;
   view: PlayerView;
   /** The view is the server's current one: until then, nothing on it can be trusted to be this game's. */
   live: boolean;
@@ -562,6 +587,9 @@ function InGame({
                 {game.mayorId === p.id && <Crown aria-label={dict.game.mayor} className="size-4 text-moon" />}
                 {isDead && <Skull aria-label={dict.game.dead} className="size-4" />}
                 {role && <RoleName role={role} className="text-sm" />}
+                {game.winner && send && p.account && p.id !== me.id && (
+                  <AddFriendButton name={p.name} playerId={p.id} send={send} className="-my-1 size-7" />
+                )}
               </li>
             );
           })}

@@ -20,6 +20,8 @@ import { verifyTicket } from "../lib/ticket";
 import { workerTicketKey } from "./keys";
 import type { Ballot, Timer } from "../lib/ballot";
 import { deleteResult, hashClaimCode, saveResult, type GameResult } from "../lib/stats";
+import { friendsAmong, recordInvites, requestFriend, saveAccount } from "../lib/friends";
+import { sendPushes } from "./push";
 import {
   MAX_NAME_LENGTH,
   MAX_PLAYERS,
@@ -34,11 +36,16 @@ import {
   type SeatStatus,
   type ServerMessage,
   type StartGame,
+  type FriendFace,
 } from "../lib/protocol";
 
 /** Rooms with nobody connected are wiped after this, freeing the code. */
 const ROOM_TTL_MS = 24 * 60 * 60 * 1000;
 const STORAGE_KEY = "room";
+/** Friend requests and invite batches, per connection per minute. */
+const FRIEND_CALLS_PER_MINUTE = 10;
+/** Friends invited in one go. */
+const MAX_INVITES = 30;
 
 type StoredPlayer = Omit<PublicPlayer, "account" | "picture"> & {
   token: string | null;
@@ -96,6 +103,8 @@ type RoomState = {
   hostToken: string;
   /** The game master's account, when they're signed in. */
   hostSub?: string;
+  /** The game master's account name and photo, for their invites and friend requests. */
+  hostFace?: { name: string; picture: string | null };
   locked: boolean;
   players: StoredPlayer[];
   game: StoredGame | null;
@@ -527,6 +536,7 @@ export class RoomServer extends Server<Env> {
         const previous = this.state.hostSub;
         if (msg.ticket === null) {
           delete this.state.hostSub;
+          delete this.state.hostFace;
           await this.tellAccount(previous, false);
           await this.completePendingLinks();
           break;
@@ -538,6 +548,7 @@ export class RoomServer extends Server<Env> {
           return this.send(sender, { type: "error", code: "account-in-use" });
         }
         this.state.hostSub = account.sub;
+        this.state.hostFace = { name: account.name, picture: account.picture };
         if (previous !== account.sub) await this.tellAccount(previous, false);
         // The account server knows the master's room too, to ask a new device about it.
         await this.tellAccount(account.sub, true);
@@ -707,6 +718,10 @@ export class RoomServer extends Server<Env> {
         ballot.votes[voterId] = msg.targetId;
         break;
       }
+      case "add-friend":
+        return this.addFriend(sender, isHost, msg.playerId);
+      case "invite":
+        return this.invite(sender, isHost, msg.subs);
       case "set-timer": {
         if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
         if (msg.seconds === null) {
@@ -852,6 +867,72 @@ export class RoomServer extends Server<Env> {
     await this.persist();
     this.broadcastViews();
     return false;
+  }
+
+  // --- friends ---
+
+  /** The account behind a connection: the master's, or the seat's. */
+  private accountOf(conn: Conn, isHost: boolean): { sub: string; face: FriendFace } | null {
+    const s = this.state!;
+    if (isHost) return s.hostSub ? { sub: s.hostSub, face: s.hostFace ?? { name: "", picture: null } } : null;
+    const seat = conn.state?.kind === "player" ? s.players.find((p) => p.id === (conn.state as { playerId: string }).playerId) : null;
+    return seat?.sub ? { sub: seat.sub, face: { name: seat.accountName ?? seat.name, picture: seat.picture ?? null } } : null;
+  }
+
+  /** Friends and invites reach the database and other accounts: a few a minute per connection. */
+  private friendCalls = new Map<string, number[]>();
+  private tooManyFriendCalls(conn: Conn) {
+    const now = Date.now();
+    const recent = (this.friendCalls.get(conn.id) ?? []).filter((t) => now - t < 60_000);
+    this.friendCalls.set(conn.id, [...recent, now]);
+    return recent.length >= FRIEND_CALLS_PER_MINUTE;
+  }
+
+  /** Asks another signed-in seat, or the game master (null), to be friends. Account ids never reach the phones. */
+  private async addFriend(conn: Conn, isHost: boolean, playerId: string | null) {
+    const url = this.env.POSTGRES_URL;
+    const me = this.accountOf(conn, isHost);
+    if (!url || !me || this.tooManyFriendCalls(conn)) return;
+    const s = this.state!;
+    const target = playerId === null ? s.hostSub : [...s.players, ...(s.formerPlayers ?? [])].find((p) => p.id === playerId)?.sub;
+    let result: Awaited<ReturnType<typeof requestFriend>> = "unknown";
+    try {
+      if (target) result = await requestFriend(url, me.sub, target);
+    } catch (error) {
+      console.error("Adding a friend failed:", error);
+    }
+    this.send(conn, { type: "friend-result", result });
+    if (target && (result === "sent" || result === "accepted")) {
+      try {
+        await (await getServerByName(this.env.Account, target)).friendRequest(me.face, result === "accepted");
+      } catch {}
+    }
+  }
+
+  /** Invites friends to this room: on their open pages, and by push where they turned it on. */
+  private async invite(conn: Conn, isHost: boolean, subs: unknown) {
+    const url = this.env.POSTGRES_URL;
+    const me = this.accountOf(conn, isHost);
+    if (!url || !me || !Array.isArray(subs) || this.tooManyFriendCalls(conn)) return;
+    const s = this.state!;
+    const wanted = [...new Set(subs.filter((x): x is string => typeof x === "string"))]
+      .slice(0, MAX_INVITES)
+      // Already here (playing or running it): nothing to invite to.
+      .filter((sub) => sub !== s.hostSub && !this.findAccount(sub));
+    let invited: string[] = [];
+    try {
+      const friends = await friendsAmong(url, me.sub, wanted);
+      if (friends.length) invited = await recordInvites(url, me.sub, friends, this.name);
+    } catch (error) {
+      console.error("Inviting friends failed:", error);
+    }
+    this.send(conn, { type: "invited", count: invited.length });
+    for (const sub of invited) {
+      try {
+        await (await getServerByName(this.env.Account, sub)).invite(this.name, me.face);
+      } catch {}
+    }
+    this.ctx.waitUntil(sendPushes(this.env, url, invited).catch((error) => console.error("Sending invites failed:", error)));
   }
 
   // --- stats ---
@@ -1073,7 +1154,11 @@ export class RoomServer extends Server<Env> {
       return null;
     }
     this.usedTickets.set(ticket.jti, ticket.exp);
-    return { sub: ticket.sub, name: ticket.name, picture: ticket.picture, username: ticket.username };
+    const account = { sub: ticket.sub, name: ticket.name, picture: ticket.picture, username: ticket.username };
+    // Friends find and see accounts by what their sign-in says.
+    const url = this.env.POSTGRES_URL;
+    if (url) this.ctx.waitUntil(saveAccount(url, account).catch((error) => console.error("Saving the account failed:", error)));
+    return account;
   }
 
   /**
@@ -1397,6 +1482,7 @@ export class RoomServer extends Server<Env> {
       knock,
       renamed: !!(me && s.players.find((p) => p.id === me.id)?.renamed),
       claim: me ? this.claimFor(me.id) : null,
+      host: s.hostSub ? (s.hostFace ?? null) : null,
     };
   }
 

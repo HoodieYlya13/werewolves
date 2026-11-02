@@ -69,3 +69,48 @@ ALTER TABLE game_players ADD COLUMN IF NOT EXISTS lover boolean;
 ALTER TABLE guest_seats ADD COLUMN IF NOT EXISTS death_cause text;
 ALTER TABLE guest_seats ADD COLUMN IF NOT EXISTS was_mayor boolean;
 ALTER TABLE guest_seats ADD COLUMN IF NOT EXISTS lover boolean;
+
+-- Friends ---------------------------------------------------------------
+
+-- Signed-in accounts as friends see them, refreshed from their sign-in (at
+-- most daily, see app/api/auth/session) and by the rooms they play in.
+-- friend_code: their friend link (/friends/add/CODE).
+CREATE TABLE IF NOT EXISTS accounts (
+  sub         text PRIMARY KEY,
+  name        text NOT NULL,
+  username    text,
+  picture     text,
+  friend_code text NOT NULL UNIQUE DEFAULT upper(substr(md5(gen_random_uuid()::text), 1, 8)),
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS accounts_username ON accounts (lower(username) text_pattern_ops);
+
+-- One row per pair: requester asked, addressee accepts (or declines: deleted).
+CREATE TABLE IF NOT EXISTS friendships (
+  requester  text NOT NULL REFERENCES accounts (sub) ON DELETE CASCADE,
+  addressee  text NOT NULL REFERENCES accounts (sub) ON DELETE CASCADE,
+  accepted   boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (requester, addressee),
+  CHECK (requester <> addressee)
+);
+CREATE INDEX IF NOT EXISTS friendships_addressee ON friendships (addressee);
+
+-- Invites to a room, kept a little while: a push carries no content, so the
+-- service worker asks for the latest ones to show the notification.
+CREATE TABLE IF NOT EXISTS invites (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  from_sub   text NOT NULL,
+  to_sub     text NOT NULL,
+  room       text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS invites_to ON invites (to_sub, created_at);
+
+-- Devices that turned on notifications (Web Push), by account.
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  endpoint   text PRIMARY KEY,
+  sub        text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS push_subscriptions_sub ON push_subscriptions (sub);

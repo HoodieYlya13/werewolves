@@ -29,6 +29,10 @@ if (!args) {
   if (process.env.AUTH_CLIENT_ID && process.env.AUTH_CLIENT_SECRET) {
     secrets.TICKET_KEY = createHmac("sha256", process.env.AUTH_CLIENT_SECRET).update("werewolves-ticket-v1").digest("base64url");
   }
+  // - The push notification keys (party/push.ts), when they're set.
+  for (const name of ["NEXT_PUBLIC_VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY"]) {
+    if (process.env[name]) secrets[name] = process.env[name];
+  }
   if (process.env.POSTGRES_URL) {
     execFileSync("node", ["scripts/db-migrate.mjs"], { stdio: "inherit" });
     secrets.POSTGRES_URL = process.env.POSTGRES_URL;
