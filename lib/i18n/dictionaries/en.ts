@@ -586,6 +586,8 @@ const en = {
     dealManual: "Assign by hand",
     leftover: "Left face down",
     pickRole: "Choose a card",
+    dealRest: "Deal the rest at random",
+    dealAll: "Deal them all at random",
     back: "Back to lobby",
     begin: "Start the game",
     problems: {

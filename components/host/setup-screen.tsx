@@ -175,6 +175,18 @@ export function SetupScreen({
     ? players.length >= MIN_PLAYERS
     : problems.length === 0 && actorReady && groupsReady && (mode === "random" || everyoneAssigned);
 
+  /** Manual mode: whoever has no card yet gets one of the rest, at random. */
+  function dealRest() {
+    const rest = [...leftover];
+    for (let i = rest.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [rest[i], rest[j]] = [rest[j], rest[i]];
+    }
+    const dealt: Record<string, RoleId> = {};
+    for (const p of players) if (!holds.has(p.id) && rest.length) dealt[p.id] = rest.pop()!;
+    setAssignment((a) => ({ ...a, ...dealt }));
+  }
+
   function suggest(next: DeckStyle) {
     setStyle(next);
     setCounts(toCounts(suggestedDeck(players.length, next, Math.random, removed)));
@@ -737,6 +749,14 @@ export function SetupScreen({
                     </li>
                   );
                 })}
+                {!everyoneAssigned && leftover.length > 0 && (
+                  <li>
+                    <Button type="button" variant="outline" className="h-10 w-full" onClick={dealRest}>
+                      <Dices aria-hidden className="size-4" />
+                      {holds.size ? dict.setup.dealRest : dict.setup.dealAll}
+                    </Button>
+                  </li>
+                )}
                 {everyoneAssigned && leftover.length > 0 && (
                   <li className="text-sm text-muted-foreground">
                     {dict.setup.leftover}: {leftover.map((r) => dict.roles[r].name).join(", ")}

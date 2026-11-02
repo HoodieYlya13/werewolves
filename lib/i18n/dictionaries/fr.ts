@@ -587,6 +587,8 @@ const fr: Dictionary = {
     dealManual: "À la main",
     leftover: "Face cachée",
     pickRole: "Choisir une carte",
+    dealRest: "Distribuer le reste au hasard",
+    dealAll: "Tout distribuer au hasard",
     back: "Retour à la salle d'attente",
     begin: "Lancer la partie",
     problems: {
