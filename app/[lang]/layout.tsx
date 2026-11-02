@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Cinzel, Geist } from "next/font/google";
 import Link from "next/link";
+import { Suspense } from "react";
 import { AccountButton } from "@/components/account-button";
 import { I18nProvider } from "@/components/i18n-provider";
 import { LocaleSwitcher } from "@/components/locale-switcher";
@@ -90,7 +91,10 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
           </div>
           <Toaster position="top-center" />
           <SessionGuard />
-          <PasskeyReminder />
+          {/* It reads the URL, which only exists at runtime: kept out of the prerendered shell. */}
+          <Suspense fallback={null}>
+            <PasskeyReminder />
+          </Suspense>
         </I18nProvider>
       </body>
     </html>
