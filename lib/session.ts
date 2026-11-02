@@ -130,13 +130,17 @@ export const getSignOutGuard = () => signOutGuard;
  * lets it show a link back to this app, and `return_path` (a path on this
  * site, never a full URL) the page to come back to.
  */
-export function accountPageUrl(session: Session, locale: string, returnPath?: string): string | null {
+export function accountPageUrl(session: Session, locale: string, returnPath?: string, page = "account"): string | null {
   if (!session.issuer || !session.clientId) return null;
-  const url = new URL(`/${locale === "fr" ? "fr" : "en"}/account`, session.issuer);
+  const url = new URL(`/${locale === "fr" ? "fr" : "en"}/${page}`, session.issuer);
   url.searchParams.set("client_id", session.clientId);
   if (returnPath?.startsWith("/") && !returnPath.startsWith("//")) url.searchParams.set("return_path", returnPath);
   return url.toString();
 }
+
+/** The auth server's page for adding a passkey, which then comes back here. */
+export const passkeyPageUrl = (session: Session, locale: string, returnPath?: string) =>
+  accountPageUrl(session, locale, returnPath, "auth/passkey");
 
 /** This page as a path on the site, with its query string and hash. */
 export const currentPath = () => window.location.pathname + window.location.search + window.location.hash;

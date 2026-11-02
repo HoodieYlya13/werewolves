@@ -6,7 +6,7 @@ import { Fingerprint, X } from "lucide-react";
 import { toast } from "sonner";
 import { useI18n } from "@/components/i18n-provider";
 import { Button } from "@/components/ui/button";
-import { accountPageUrl, currentPath, markAccountVisit, useSession, type Session } from "@/lib/session";
+import { currentPath, markAccountVisit, passkeyPageUrl, useSession, type Session } from "@/lib/session";
 
 /** `{sub}:{day}`: the account, and the last day it was reminded (or signed in). */
 const SHOWN_KEY = "ww:passkey-reminder";
@@ -41,8 +41,8 @@ function reminderDue(sub: string): boolean {
 
 /**
  * Once a day, an account without a passkey (the auth server says so in the ID
- * token) is offered to add one on its account page. Never inside a room: it
- * would get in the way of the game.
+ * token) is offered to add one on the auth server, which brings it back
+ * here. Never inside a room: it would get in the way of the game.
  */
 export function PasskeyReminder() {
   const session = useSession();
@@ -70,7 +70,7 @@ export function PasskeyReminder() {
 function ReminderCard({ session, close }: { session: Session; close: () => void }) {
   const { dict, locale } = useI18n();
   function addPasskey() {
-    const href = accountPageUrl(session, locale, currentPath());
+    const href = passkeyPageUrl(session, locale, currentPath());
     if (!href) return;
     markAccountVisit();
     window.location.assign(href);
