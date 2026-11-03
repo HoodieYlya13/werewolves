@@ -158,17 +158,6 @@
     transform: scale(0.97);
     filter: brightness(0.88);
   }
-  /* Another window has the focus (a computer, two browsers side by side): the first
-     click only brings this one back, so the controls look asleep until then. */
-  @media (hover: hover) and (pointer: fine) {
-    :root[data-unfocused] :where(button, a[href], input, select, textarea, [role="button"], [role="checkbox"]) {
-      opacity: 0.5;
-      filter: grayscale(0.7);
-      transition:
-        opacity 150ms,
-        filter 150ms;
-    }
-  }
 }
 
 @layer components {
