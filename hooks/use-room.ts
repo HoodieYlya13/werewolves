@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import usePartySocket from "partysocket/react";
 import type { ClientMessage, ConnectQuery, ErrorCode, RoomView, ServerMessage } from "@/lib/protocol";
 import { clearHostTakeover, identity, isTakingHostOver, partyHost } from "@/lib/room";
@@ -141,6 +141,21 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
       }
     },
   });
+
+  // Next keeps a page visited earlier alive while away (React Activity), with the
+  // view it saw last: switching language back shows that page again. Before it
+  // paints, it takes the newest view any page of this room saw (else the lobby
+  // from before the game flashes by), and waits for its new socket's like a fresh one.
+  useLayoutEffect(() => {
+    const cached = lastViews.get(cacheKey);
+    if (cached) {
+      // On purpose, before paint: the page coming back must not show its stale view first.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setView(cached.view as V);
+      setClockOffset(cached.clockOffset);
+    }
+    setLive(false);
+  }, [cacheKey]);
 
   // Back from a locked screen or another app: reconnect rather than trust a
   // socket that may have died meanwhile, and wait for the view it sends.

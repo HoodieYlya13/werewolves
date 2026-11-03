@@ -119,15 +119,42 @@ function readCue(cue: Cue, locale: string, send: (message: ClientMessage) => voi
   });
 }
 
-/** Voices that are jokes or robots (macOS's "Whisper", "Bubbles", the Eloquence voices…): never the narrator. */
-const NOVELTY =
-  /whisper|albert|bad news|bahh|bells|boing|bubbles|cellos|deranged|good news|hysterical|jester|organ|superstar|trinoids|wobble|zarvox|junior|ralph|fred|kathy|grandma|grandpa|rocko|shelley|sandy|eddy|flo\b|reed|princess|bruce|agnes|vicki|victoria/i;
+/** Joke voices (macOS's "Whisper", "Bubbles", "Zarvox"…, named in the system's language): never the narrator. */
+const JOKE =
+  /whisper|murmure|albert|bad news|mauvaises nouvelles|bahh|bells|cloches|boing|bubbles|bulles|cellos|violoncelles|deranged|good news|bonnes nouvelles|hysterical|jester|bouffon|organ|orgue|superstar|trino[iï]d|wobble|zarvox|junior|ralph|fred|kathy|bruce|agnes|vicki|victoria|princess/i;
+/** The robotic Eloquence voices (Eddy, Flo…): only when nothing better speaks the language. */
+const ROBOTIC = /eddy|flo\b|grandma|grandpa|reed|rocko|sandy|shelley/i;
 /** Natural voices, best first. */
 const PREFERRED = /siri|premium|enhanced|natural|neural|google|samantha|daniel|serena|karen|moira|arthur|martha|thomas|amélie|amelie|audrey|aurélie|marie/i;
 
+/**
+ * The best voice that speaks the language, from natural down to robotic.
+ * Without one the browser falls back to the system voice, which may be
+ * another language's (a French voice reading English with its accent).
+ */
 function pickVoice(locale: string) {
-  const voices = window.speechSynthesis.getVoices().filter((v) => v.lang.replace("_", "-").toLowerCase().startsWith(locale) && !NOVELTY.test(v.name));
-  return voices.find((v) => PREFERRED.test(v.name)) ?? voices.find((v) => v.default) ?? voices.find((v) => v.localService) ?? voices[0];
+  const voices = window.speechSynthesis.getVoices().filter((v) => v.lang.replace("_", "-").toLowerCase().startsWith(locale) && !JOKE.test(v.name));
+  const human = voices.filter((v) => !ROBOTIC.test(v.name));
+  return (
+    human.find((v) => PREFERRED.test(v.name)) ??
+    human.find((v) => v.default) ??
+    human.find((v) => v.localService) ??
+    human[0] ??
+    voices[0]
+  );
+}
+
+/** The voice list, which some browsers fill in a moment after the page asks. */
+function voicesReady(): Promise<void> {
+  const synth = window.speechSynthesis;
+  return new Promise((resolve) => {
+    const done = () => {
+      synth.removeEventListener("voiceschanged", done);
+      resolve();
+    };
+    synth.addEventListener("voiceschanged", done);
+    setTimeout(done, 1_000);
+  });
 }
 
 /** Reads lines one after the other; resolves when done (or after a while, if the voice never says). */
@@ -137,7 +164,12 @@ function speak(lines: string[], locale: string): Promise<void> {
   if (!lines.length || !hasVoice()) return Promise.resolve();
   const synth = window.speechSynthesis;
   const lang = locale === "fr" ? "fr-FR" : "en-GB";
-  const voice = pickVoice(locale);
+  // Straight away when the voices are known: a phone only lets a tap's own call start speaking.
+  if (synth.getVoices().length) return speakWith(synth, lines, lang, pickVoice(locale), estimate);
+  return voicesReady().then(() => speakWith(synth, lines, lang, pickVoice(locale), estimate));
+}
+
+function speakWith(synth: SpeechSynthesis, lines: string[], lang: string, voice: SpeechSynthesisVoice | undefined, estimate: number): Promise<void> {
   return new Promise((resolve) => {
     let done = false;
     const finish = () => {

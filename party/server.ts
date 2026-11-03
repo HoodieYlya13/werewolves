@@ -176,6 +176,12 @@ type RoomState = {
 
 /** How long the leader's device may be away before the game pauses for it. */
 const LEADER_GRACE_MS = 20_000;
+/**
+ * The leader's device away for less than this keeps the narration: a page
+ * reload or a language switch reconnects within a second or two, and another
+ * phone shouldn't flash "this phone is the narrator" meanwhile.
+ */
+const SPEAKER_GRACE_MS = 6_000;
 /** How long the game master's screen may be away before a dead player takes over. */
 const MASTER_GRACE_MS = 60_000;
 
@@ -1917,6 +1923,8 @@ export class RoomServer extends Server<Env> {
     let next = room ? auto.nextWake(room, this.narration()) : null;
     // The leader's device away: check again when its grace runs out.
     if (room && s.leaderLostAt && !s.lostLeader) next = Math.min(next ?? Infinity, s.leaderLostAt + LEADER_GRACE_MS);
+    // …and hand the narration to another phone once a short absence turns out longer.
+    if (room && s.leaderLostAt && Date.now() < s.leaderLostAt + SPEAKER_GRACE_MS) next = Math.min(next ?? Infinity, s.leaderLostAt + SPEAKER_GRACE_MS);
     // The game master's screen away: a dead player takes over after a minute.
     if (!room && s.masterLostAt && !s.masterGone) next = Math.min(next ?? Infinity, s.masterLostAt + MASTER_GRACE_MS);
     await this.ctx.storage.setAlarm(Math.max(Date.now() + 50, Math.min(expires, next ?? Infinity)));
@@ -2262,6 +2270,8 @@ export class RoomServer extends Server<Env> {
     const conns = [...this.getConnections<ConnState>()];
     const host = conns.find((c) => c.state?.kind === "host");
     if (host) return host.id;
+    const lostAt = this.state.leaderLostAt;
+    if (lostAt && Date.now() - lostAt < SPEAKER_GRACE_MS) return null;
     const seats = new Map(this.state.players.map((p) => [p.id, p.seat]));
     const phones = conns.filter((c) => c.state?.kind === "player").sort((a, b) => (seats.get((a.state as { playerId: string }).playerId) ?? 0) - (seats.get((b.state as { playerId: string }).playerId) ?? 0));
     return phones[0]?.id ?? null;
