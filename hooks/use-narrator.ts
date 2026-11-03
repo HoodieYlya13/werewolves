@@ -28,6 +28,13 @@ export function useNarrator(speaker: Speaker | null, send: (message: ClientMessa
   useEffect(() => (on ? leaveScene : undefined), [on]);
   // No longer the narrator: stop reading.
   useEffect(() => (on ? () => hushVoice() : undefined), [on]);
+  // Any tap on the page lets it speak (browsers only allow a page that was touched).
+  useEffect(() => {
+    if (!on) return;
+    const tap = () => unlockVoice();
+    document.addEventListener("pointerdown", tap, true);
+    return () => document.removeEventListener("pointerdown", tap, true);
+  }, [on]);
 
   const cue = speaker?.cue ?? null;
   const locale = speaker?.locale ?? "en";
@@ -54,6 +61,13 @@ export function useNarrator(speaker: Speaker | null, send: (message: ClientMessa
       if (cue.sound) playStinger(cue.sound);
       // Voice off: someone reads the lines out and taps "next" (NarratorCard); the room moves on anyway after a while.
       if (!hasVoice() || !voiceOn) return;
+      // Not allowed to speak yet on this page (no tap since it loaded): the line
+      // waits for one (unlockVoice), and the narrator card asks for it.
+      if (!unlocked) {
+        waiting = { cue, locale, send: sender.current };
+        notify();
+        return;
+      }
       // The dawn sound plays first: the voice waits for it.
       const delay = cue.sound?.kind === "dawn" ? 2_500 : cue.sound?.kind === "win" ? 3_000 : 0;
       reading = setTimeout(() => readCue(cue, locale, sender.current), delay);
@@ -84,6 +98,13 @@ let voiceOn = readVoice();
 let speaking: number | null = null;
 /** The last cue this device started on (read out, or left to a person). */
 let lastRead = 0;
+/**
+ * Whether this page may speak: phones (and some browsers) only let a page
+ * speak once a tap has started speech on it. Until then, lines wait.
+ */
+let unlocked = false;
+/** The line waiting for that tap. */
+let waiting: { cue: Cue; locale: string; send: (message: ClientMessage) => void } | null = null;
 const voiceListeners = new Set<() => void>();
 const notify = () => voiceListeners.forEach((l) => l());
 
@@ -104,6 +125,29 @@ function subscribeVoice(listener: () => void) {
 export const useVoiceOn = () => useSyncExternalStore(subscribeVoice, () => voiceOn, () => false);
 /** The cue being read out loud right now (for "skip"). */
 export const useSpeaking = () => useSyncExternalStore(subscribeVoice, () => speaking, () => null);
+/** The voice is on but this page can't speak until tapped ("Start the voice"). */
+export const useVoiceLocked = () => useSyncExternalStore(subscribeVoice, () => voiceOn && !unlocked && hasVoice(), () => false);
+
+/**
+ * From a tap: lets this page speak, and reads the line that was waiting for
+ * it (or a silent word, which is what unlocks speech on a phone).
+ */
+export function unlockVoice() {
+  if (unlocked || !hasVoice()) return;
+  unlocked = true;
+  const line = waiting;
+  waiting = null;
+  if (voiceOn && line && line.cue.id === lastRead) readCue(line.cue, line.locale, line.send);
+  else speakSilently();
+  notify();
+}
+
+function speakSilently() {
+  // A silent word, not a blank: some browsers never finish a blank and stay stuck "speaking".
+  const word = new SpeechSynthesisUtterance(".");
+  word.volume = 0;
+  window.speechSynthesis.speak(word);
+}
 
 /**
  * Turns the voice on or off. Call it from the tap itself: phones (iPhone
@@ -119,13 +163,10 @@ export function setVoice(on: boolean, current?: { cue: Cue; locale: string; send
   if (!on) hushVoice();
   else if (hasVoice()) {
     window.speechSynthesis.cancel();
+    unlocked = true;
+    waiting = null;
     if (current?.cue.lines.length) readCue(current.cue, current.locale, current.send);
-    else {
-      // A silent word, not a blank: some browsers never finish a blank and stay stuck "speaking".
-      const unlock = new SpeechSynthesisUtterance(".");
-      unlock.volume = 0;
-      window.speechSynthesis.speak(unlock);
-    }
+    else speakSilently();
   }
   notify();
 }
@@ -164,7 +205,8 @@ function voicesFor(locale: string) {
 function pickVoice(locale: string) {
   const voices = voicesFor(locale);
   const chosen = readChoice(locale);
-  const mine = chosen && voices.find((v) => v.name === chosen);
+  // By its id; a name, as picked before ids were kept, still works.
+  const mine = chosen && (voices.find((v) => v.voiceURI === chosen) ?? voices.find((v) => v.name === chosen));
   if (mine) return mine;
   const score = (v: SpeechSynthesisVoice) => (ROBOTIC.test(v.name) ? 0 : 4) + (PREFERRED.test(v.name) ? 2 : 0) + (v.localService ? 1 : 0) + (v.default ? 0.5 : 0);
   return [...voices].sort((a, b) => score(b) - score(a))[0];
@@ -182,17 +224,30 @@ function readChoice(locale: string) {
   }
 }
 
-/** Picks the narrator's voice for a language on this device (null: back to automatic). */
-export function chooseVoice(locale: string, name: string | null) {
+/** Picks the narrator's voice for a language on this device, by its id (null: back to automatic). */
+export function chooseVoice(locale: string, id: string | null) {
   try {
-    if (name) localStorage.setItem(choiceKey(locale), name);
+    if (id) localStorage.setItem(choiceKey(locale), id);
     else localStorage.removeItem(choiceKey(locale));
   } catch {}
   voiceList = null;
   notify();
 }
 
-type VoiceList = { locale: string; voices: string[]; current: string | null; chosen: string | null };
+/** A voice as the menu shows it: `id` is its voiceURI (names repeat: a phone lists a voice once per quality or region). */
+type VoiceOption = { id: string; label: string };
+type VoiceList = { locale: string; voices: VoiceOption[]; current: VoiceOption | null; chosen: string | null };
+
+function labelled(voices: SpeechSynthesisVoice[]): VoiceOption[] {
+  const seen = new Set<string>();
+  return voices.flatMap((v) => {
+    if (seen.has(v.voiceURI)) return [];
+    seen.add(v.voiceURI);
+    const twins = voices.filter((o) => o.name === v.name).length > 1;
+    const quality = /premium/i.test(v.voiceURI) ? "premium" : /enhanced/i.test(v.voiceURI) ? "enhanced" : null;
+    return [{ id: v.voiceURI, label: twins ? `${v.name} (${quality ?? v.lang})` : v.name }];
+  });
+}
 let voiceList: VoiceList | null = null;
 
 function subscribeVoices(listener: () => void) {
@@ -215,8 +270,15 @@ export function useVoices(locale: string): VoiceList | null {
     () => {
       if (!hasVoice()) return null;
       if (voiceList?.locale === locale) return voiceList;
-      const voices = voicesFor(locale);
-      voiceList = { locale, voices: voices.map((v) => v.name), current: pickVoice(locale)?.name ?? null, chosen: readChoice(locale) };
+      const voices = labelled(voicesFor(locale));
+      const current = pickVoice(locale);
+      const chosen = readChoice(locale);
+      voiceList = {
+        locale,
+        voices,
+        current: voices.find((v) => v.id === current?.voiceURI) ?? null,
+        chosen: voices.find((v) => v.id === chosen || v.label === chosen)?.id ?? null,
+      };
       return voiceList;
     },
     () => null,

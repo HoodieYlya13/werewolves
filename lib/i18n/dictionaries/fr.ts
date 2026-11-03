@@ -769,6 +769,7 @@ const fr: Dictionary = {
     voiceOffHint: "La voix est coupée : lisez les phrases à voix haute, puis touchez « Lu, suivant ». Activez la voix pour que ce téléphone les lise.",
     voiceMute: "Couper la voix",
     voiceChoice: "Voix du narrateur",
+    startVoice: "Lancer la voix",
     voiceAuto: "Voix : automatique ({name})",
     skip: "Passer",
     language: "Langue de la narration",

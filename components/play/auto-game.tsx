@@ -18,7 +18,7 @@ import { RoleName } from "@/components/host/role-chip";
 import { Timeline } from "@/components/host/game-screen";
 import { Avatar, formatDuration, useRoomContext } from "@/components/room-context";
 import { Button } from "@/components/ui/button";
-import { chooseVoice, hushVoice, setVoice, useSpeaking, useVoiceOn, useVoices, useVoiceSupport } from "@/hooks/use-narrator";
+import { chooseVoice, hushVoice, setVoice, unlockVoice, useSpeaking, useVoiceLocked, useVoiceOn, useVoices, useVoiceSupport } from "@/hooks/use-narrator";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { pickAction, type PhoneTurn } from "@/lib/auto";
 import { format } from "@/lib/i18n/config";
@@ -173,6 +173,7 @@ export function NarratorCard({ view, send }: { view: PlayerView; send: Send }) {
   const cue = view.speaker?.cue;
   const [doneId, setDoneId] = useState(0);
   const voices = useVoices(view.speaker?.locale ?? "en");
+  const locked = useVoiceLocked();
   if (!view.speaker) return null;
   const locale = view.speaker.locale;
   const game = view.game;
@@ -220,18 +221,25 @@ export function NarratorCard({ view, send }: { view: PlayerView; send: Send }) {
           <NativeSelect
             aria-label={dict.auto.voiceChoice}
             className="h-9 max-w-56 py-0 text-sm"
-            value={voices.chosen && voices.voices.includes(voices.chosen) ? voices.chosen : ""}
+            value={voices.chosen ?? ""}
             onChange={(e) => chooseVoice(locale, e.target.value || null)}
           >
-            <NativeSelectOption value="">{format(dict.auto.voiceAuto, { name: voices.current ?? "?" })}</NativeSelectOption>
-            {voices.voices.map((name) => (
-              <NativeSelectOption key={name} value={name}>
-                {name}
+            <NativeSelectOption value="">{format(dict.auto.voiceAuto, { name: voices.current?.label ?? "?" })}</NativeSelectOption>
+            {voices.voices.map((v) => (
+              <NativeSelectOption key={v.id} value={v.id}>
+                {v.label}
               </NativeSelectOption>
             ))}
           </NativeSelect>
         )}
       </div>
+      {/* The voice is on, but this page may only speak once tapped (reloaded, or the game started elsewhere). */}
+      {locked && (
+        <Button type="button" className="h-12 text-base" onClick={unlockVoice}>
+          <Volume2 aria-hidden className="size-5" />
+          {dict.auto.startVoice}
+        </Button>
+      )}
       {reading && (
         <blockquote className="rounded-xl bg-surface-2 px-3 py-2 text-sm text-pretty">
           {cue.lines.map((line, i) => (

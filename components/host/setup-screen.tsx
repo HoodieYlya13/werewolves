@@ -28,6 +28,7 @@ import { defaultTheme, isThemeId, themeDictionary, themeIds, themes } from "@/li
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { unlockVoice } from "@/hooks/use-narrator";
 
 type Counts = Partial<Record<RoleId, number>>;
 
@@ -214,6 +215,8 @@ export function SetupScreen({
       groups: needs.groups && !hidden ? groups : undefined,
     };
     if (autoMode) {
+      // This tap is what lets the device read the game out loud (phones only allow speech started from one).
+      unlockVoice();
       send({ type: "start-game", mode: "random", deck: hidden ? [] : deck, settings, ...options, auto: { ...autoConfig, exclude: removed } });
       return;
     }

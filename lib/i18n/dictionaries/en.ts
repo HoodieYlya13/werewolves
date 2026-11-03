@@ -768,6 +768,7 @@ const en = {
     voiceOffHint: "The voice is off: read the lines out loud, then tap “Read, next”. Turn the voice on to let this phone read them.",
     voiceMute: "Turn the voice off",
     voiceChoice: "Narrator's voice",
+    startVoice: "Start the voice",
     voiceAuto: "Voice: automatic ({name})",
     skip: "Skip",
     language: "Language of the narration",
