@@ -768,6 +768,8 @@ const fr: Dictionary = {
     narratorHint: "Laissez-le sur la table, volume monté : il lit la partie à voix haute.",
     voiceOffHint: "La voix est coupée : lisez les phrases à voix haute, puis touchez « Lu, suivant ». Activez la voix pour que ce téléphone les lise.",
     voiceMute: "Couper la voix",
+    voiceChoice: "Voix du narrateur",
+    voiceAuto: "Voix : automatique ({name})",
     skip: "Passer",
     language: "Langue de la narration",
     readNext: "Lu, suivant",

@@ -18,7 +18,8 @@ import { RoleName } from "@/components/host/role-chip";
 import { Timeline } from "@/components/host/game-screen";
 import { Avatar, formatDuration, useRoomContext } from "@/components/room-context";
 import { Button } from "@/components/ui/button";
-import { hushVoice, setVoice, useSpeaking, useVoiceOn, useVoiceSupport } from "@/hooks/use-narrator";
+import { chooseVoice, hushVoice, setVoice, useSpeaking, useVoiceOn, useVoices, useVoiceSupport } from "@/hooks/use-narrator";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { pickAction, type PhoneTurn } from "@/lib/auto";
 import { format } from "@/lib/i18n/config";
 import type { ClientMessage, PlayerView } from "@/lib/protocol";
@@ -171,6 +172,7 @@ export function NarratorCard({ view, send }: { view: PlayerView; send: Send }) {
   const voice = useVoiceSupport();
   const cue = view.speaker?.cue;
   const [doneId, setDoneId] = useState(0);
+  const voices = useVoices(view.speaker?.locale ?? "en");
   if (!view.speaker) return null;
   const locale = view.speaker.locale;
   const game = view.game;
@@ -205,12 +207,30 @@ export function NarratorCard({ view, send }: { view: PlayerView; send: Send }) {
           </button>
         )}
       </div>
-      <div className="segmented self-start text-xs" aria-label={dict.auto.language}>
-        {(["en", "fr"] as const).map((l) => (
-          <button key={l} type="button" aria-current={locale === l} onClick={() => send({ type: "set-locale", locale: l })}>
-            {l.toUpperCase()}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="segmented text-xs" aria-label={dict.auto.language}>
+          {(["en", "fr"] as const).map((l) => (
+            <button key={l} type="button" aria-current={locale === l} onClick={() => send({ type: "set-locale", locale: l })}>
+              {l.toUpperCase()}
+            </button>
+          ))}
+        </div>
+        {/* The browser's own pick can be a poor one (another language's accent): this device's voice, by hand. */}
+        {voiceOn && voices && voices.voices.length > 1 && (
+          <NativeSelect
+            aria-label={dict.auto.voiceChoice}
+            className="h-9 max-w-56 py-0 text-sm"
+            value={voices.chosen && voices.voices.includes(voices.chosen) ? voices.chosen : ""}
+            onChange={(e) => chooseVoice(locale, e.target.value || null)}
+          >
+            <NativeSelectOption value="">{format(dict.auto.voiceAuto, { name: voices.current ?? "?" })}</NativeSelectOption>
+            {voices.voices.map((name) => (
+              <NativeSelectOption key={name} value={name}>
+                {name}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        )}
       </div>
       {reading && (
         <blockquote className="rounded-xl bg-surface-2 px-3 py-2 text-sm text-pretty">

@@ -767,6 +767,8 @@ const en = {
     narratorHint: "Keep it on the table with the volume up: it reads the game out loud.",
     voiceOffHint: "The voice is off: read the lines out loud, then tap “Read, next”. Turn the voice on to let this phone read them.",
     voiceMute: "Turn the voice off",
+    voiceChoice: "Narrator's voice",
+    voiceAuto: "Voice: automatic ({name})",
     skip: "Skip",
     language: "Language of the narration",
     readNext: "Read, next",

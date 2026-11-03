@@ -32,20 +32,37 @@ export function useNarrator(speaker: Speaker | null, send: (message: ClientMessa
   const cue = speaker?.cue ?? null;
   const locale = speaker?.locale ?? "en";
   const sender = useRef(send);
+  // Every view brings the cue as a new object: the reading follows its id, not
+  // the object, or the next view would cancel a line about to be read.
+  const current = useRef(cue);
   useEffect(() => {
     sender.current = send;
+    current.current = cue;
   });
+  const cueId = cue?.id ?? 0;
   useEffect(() => {
-    if (!cue || cue.id <= lastRead) return;
-    lastRead = cue.id;
-    if (cue.sound) playStinger(cue.sound);
-    // Voice off: someone reads the lines out and taps "next" (NarratorCard); the room moves on anyway after a while.
-    if (!hasVoice() || !voiceOn) return;
-    // The dawn sound plays first: the voice waits for it.
-    const delay = cue.sound?.kind === "dawn" ? 2_500 : cue.sound?.kind === "win" ? 3_000 : 0;
-    const timer = setTimeout(() => readCue(cue, locale, sender.current), delay);
-    return () => clearTimeout(timer);
-  }, [cue, locale]);
+    const cue = current.current;
+    if (!cue) return;
+    // A new game (or room) numbers its lines from 1 again.
+    if (cue.id < lastRead) lastRead = 0;
+    if (cue.id <= lastRead) return;
+    // The line counts as started only once it does: an effect run cut short
+    // (React's double run in development, a page hidden meanwhile) leaves it for the next.
+    let reading: ReturnType<typeof setTimeout> | undefined;
+    const start = setTimeout(() => {
+      lastRead = cue.id;
+      if (cue.sound) playStinger(cue.sound);
+      // Voice off: someone reads the lines out and taps "next" (NarratorCard); the room moves on anyway after a while.
+      if (!hasVoice() || !voiceOn) return;
+      // The dawn sound plays first: the voice waits for it.
+      const delay = cue.sound?.kind === "dawn" ? 2_500 : cue.sound?.kind === "win" ? 3_000 : 0;
+      reading = setTimeout(() => readCue(cue, locale, sender.current), delay);
+    }, 0);
+    return () => {
+      clearTimeout(start);
+      clearTimeout(reading);
+    };
+  }, [cueId, locale]);
 }
 
 const hasVoice = () => typeof window !== "undefined" && "speechSynthesis" in window;
@@ -103,7 +120,12 @@ export function setVoice(on: boolean, current?: { cue: Cue; locale: string; send
   else if (hasVoice()) {
     window.speechSynthesis.cancel();
     if (current?.cue.lines.length) readCue(current.cue, current.locale, current.send);
-    else window.speechSynthesis.speak(new SpeechSynthesisUtterance(" "));
+    else {
+      // A silent word, not a blank: some browsers never finish a blank and stay stuck "speaking".
+      const unlock = new SpeechSynthesisUtterance(".");
+      unlock.volume = 0;
+      window.speechSynthesis.speak(unlock);
+    }
   }
   notify();
 }
@@ -127,20 +149,77 @@ const ROBOTIC = /eddy|flo\b|grandma|grandpa|reed|rocko|sandy|shelley/i;
 /** Natural voices, best first. */
 const PREFERRED = /siri|premium|enhanced|natural|neural|google|samantha|daniel|serena|karen|moira|arthur|martha|thomas|amélie|amelie|audrey|aurélie|marie/i;
 
+/** The voices that can read `locale` (jokes left out), as the browser lists them. */
+function voicesFor(locale: string) {
+  return window.speechSynthesis.getVoices().filter((v) => v.lang.replace("_", "-").toLowerCase().startsWith(locale) && !JOKE.test(v.name));
+}
+
 /**
- * The best voice that speaks the language, from natural down to robotic.
- * Without one the browser falls back to the system voice, which may be
- * another language's (a French voice reading English with its accent).
+ * The voice chosen on this device for the language, else the best one that
+ * speaks it: natural before robotic, on the device before over the network
+ * (some browsers' network voices stop after a few seconds), the default last.
+ * Without one the browser falls back to the system voice, which may be another
+ * language's (a French voice reading English with its accent).
  */
 function pickVoice(locale: string) {
-  const voices = window.speechSynthesis.getVoices().filter((v) => v.lang.replace("_", "-").toLowerCase().startsWith(locale) && !JOKE.test(v.name));
-  const human = voices.filter((v) => !ROBOTIC.test(v.name));
-  return (
-    human.find((v) => PREFERRED.test(v.name)) ??
-    human.find((v) => v.default) ??
-    human.find((v) => v.localService) ??
-    human[0] ??
-    voices[0]
+  const voices = voicesFor(locale);
+  const chosen = readChoice(locale);
+  const mine = chosen && voices.find((v) => v.name === chosen);
+  if (mine) return mine;
+  const score = (v: SpeechSynthesisVoice) => (ROBOTIC.test(v.name) ? 0 : 4) + (PREFERRED.test(v.name) ? 2 : 0) + (v.localService ? 1 : 0) + (v.default ? 0.5 : 0);
+  return [...voices].sort((a, b) => score(b) - score(a))[0];
+}
+
+// --- the voice chosen on this device, per language (empty: automatic) ---
+
+const choiceKey = (locale: string) => `ww:voice-name:${locale}`;
+
+function readChoice(locale: string) {
+  try {
+    return localStorage.getItem(choiceKey(locale));
+  } catch {
+    return null;
+  }
+}
+
+/** Picks the narrator's voice for a language on this device (null: back to automatic). */
+export function chooseVoice(locale: string, name: string | null) {
+  try {
+    if (name) localStorage.setItem(choiceKey(locale), name);
+    else localStorage.removeItem(choiceKey(locale));
+  } catch {}
+  voiceList = null;
+  notify();
+}
+
+type VoiceList = { locale: string; voices: string[]; current: string | null; chosen: string | null };
+let voiceList: VoiceList | null = null;
+
+function subscribeVoices(listener: () => void) {
+  const changed = () => {
+    voiceList = null;
+    listener();
+  };
+  voiceListeners.add(listener);
+  window.speechSynthesis?.addEventListener("voiceschanged", changed);
+  return () => {
+    voiceListeners.delete(listener);
+    window.speechSynthesis?.removeEventListener("voiceschanged", changed);
+  };
+}
+
+/** The voices this device has for `locale`, the one the narrator uses, and the one picked by hand (if any). */
+export function useVoices(locale: string): VoiceList | null {
+  return useSyncExternalStore(
+    subscribeVoices,
+    () => {
+      if (!hasVoice()) return null;
+      if (voiceList?.locale === locale) return voiceList;
+      const voices = voicesFor(locale);
+      voiceList = { locale, voices: voices.map((v) => v.name), current: pickVoice(locale)?.name ?? null, chosen: readChoice(locale) };
+      return voiceList;
+    },
+    () => null,
   );
 }
 
@@ -170,6 +249,8 @@ function speak(lines: string[], locale: string): Promise<void> {
 }
 
 function speakWith(synth: SpeechSynthesis, lines: string[], lang: string, voice: SpeechSynthesisVoice | undefined, estimate: number): Promise<void> {
+  // One cue at a time: whatever is still queued (or stuck) goes first.
+  synth.cancel();
   return new Promise((resolve) => {
     let done = false;
     const finish = () => {
