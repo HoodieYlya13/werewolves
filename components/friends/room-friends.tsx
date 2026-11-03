@@ -2,14 +2,14 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { Check, Send, UserCheck, UserPlus } from "lucide-react";
+import { Check, Clock, ExternalLink, Send, UserCheck, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { useI18n } from "@/components/i18n-provider";
 import { Face } from "@/components/room-context";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useRoomReply } from "@/hooks/use-room";
-import type { Person } from "@/lib/friends";
+import type { Person, ProfilePeek } from "@/lib/friends";
 import { friendsApi } from "@/lib/friends-client";
 import { format } from "@/lib/i18n/config";
 import type { ClientMessage } from "@/lib/protocol";
@@ -26,7 +26,7 @@ export function useFriendToasts() {
   const { dict } = useI18n();
   const t = dict.friends;
   useRoomReply((reply) => {
-    if (reply.type === "friends-here") return;
+    if (reply.type === "friends-here" || reply.type === "profile") return;
     if (reply.type === "friend-result") toast(t.results[reply.result]);
     else toast(reply.count === 0 ? t.invitedNone : reply.count === 1 ? t.invitedOne : format(t.invitedMany, { count: String(reply.count) }));
   });
@@ -162,5 +162,92 @@ export function InviteFriendsButton({ send, className }: { send: (msg: ClientMes
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+/** Whose profile to show: a seat, or the game master (null). */
+export type ProfileTarget = { playerId: string | null; name: string };
+
+/**
+ * A signed-in player in brief, from a tap on their name in the room: photo,
+ * games and wins, where they stand with the viewer (and the button that goes
+ * with it), and their full profile in a new tab (the room stays open).
+ */
+export function ProfileDialog({
+  target,
+  onClose,
+  send,
+  children,
+}: {
+  target: ProfileTarget | null;
+  onClose: () => void;
+  send: (msg: ClientMessage) => void;
+  /** More for this profile, shown even when it couldn't load (one's own seat: account settings). */
+  children?: React.ReactNode;
+}) {
+  const { dict, locale } = useI18n();
+  const t = dict.friends.peek;
+  const key = target ? (target.playerId ?? HOST) : null;
+  const [answer, setAnswer] = useState<{ key: string; profile: ProfilePeek | null } | null>(null);
+  useEffect(() => {
+    if (target) send({ type: "profile", playerId: target.playerId });
+    // Only when another profile opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  useRoomReply((reply) => {
+    if (reply.type === "profile" && (reply.playerId ?? HOST) === key) setAnswer({ key, profile: reply.profile });
+    // A request from this dialog: show where things stand now.
+    if (reply.type === "friend-result" && target) send({ type: "profile", playerId: target.playerId });
+  });
+  const loaded = answer && answer.key === key ? answer : null;
+  const profile = loaded?.profile ?? null;
+
+  return (
+    <Dialog open={!!target} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-sm" closeLabel={dict.host.close}>
+        <DialogHeader className="items-center text-center">
+          {profile ? (
+            <Face name={profile.name} src={profile.picture} className="size-20 text-2xl" />
+          ) : (
+            <span aria-hidden className="size-20 animate-pulse rounded-full bg-surface-2" />
+          )}
+          <DialogTitle className="text-xl">{profile?.name ?? target?.name}</DialogTitle>
+          <DialogDescription>{profile?.username ? `@${profile.username}` : loaded && !profile ? t.failed : "\u00a0"}</DialogDescription>
+        </DialogHeader>
+        {profile && (
+          <div className="flex flex-col gap-3">
+            <p className="text-center text-muted-foreground">
+              {profile.played === 0 ? t.noGames : format(t.games, { played: String(profile.played), won: String(profile.won) })}
+            </p>
+            {profile.friendship === "friends" && (
+              <p className="flex items-center justify-center gap-2 font-medium text-ok">
+                <UserCheck aria-hidden className="size-4" />
+                {t.friends}
+              </p>
+            )}
+            {profile.friendship === "sent" && (
+              <p className="flex items-center justify-center gap-2 text-muted-foreground">
+                <Clock aria-hidden className="size-4" />
+                {t.sent}
+              </p>
+            )}
+            {(profile.friendship === "none" || profile.friendship === "received") && (
+              <Button type="button" onClick={() => send({ type: "add-friend", playerId: target!.playerId })}>
+                <UserPlus aria-hidden className="size-4" />
+                {profile.friendship === "received" ? t.accept : t.add}
+              </Button>
+            )}
+            {profile.friendship === "guest" && <p className="text-center text-sm text-muted-foreground">{t.guest}</p>}
+            <Button asChild variant="outline">
+              <a href={`/${locale}/players/${profile.code}`} target="_blank" rel="noopener">
+                <ExternalLink aria-hidden className="size-4" />
+                {profile.friendship === "self" ? t.yours : t.full}
+              </a>
+            </Button>
+          </div>
+        )}
+        {children && <div className="flex flex-col items-center gap-3 border-t border-line pt-4">{children}</div>}
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -22,7 +22,15 @@ import { useI18n } from "@/components/i18n-provider";
 import { RoleName } from "@/components/host/role-chip";
 import { RoleCard } from "@/components/play/role-card";
 import { BackHome } from "@/components/back-home";
-import { AddFriendButton, InviteFriendsButton, useFriendToasts, useFriendsHere, useFriendsInRoom } from "@/components/friends/room-friends";
+import {
+  AddFriendButton,
+  InviteFriendsButton,
+  ProfileDialog,
+  type ProfileTarget,
+  useFriendToasts,
+  useFriendsHere,
+  useFriendsInRoom,
+} from "@/components/friends/room-friends";
 import { PhotoPicker } from "@/components/photo-picker";
 import { rememberGuestGame } from "@/lib/guest-games";
 import { Avatar, Face, RoomProvider } from "@/components/room-context";
@@ -72,6 +80,8 @@ function PlayerScreen({ code }: { code: string }) {
   const friendsOn = useFriendsInRoom();
   useFriendToasts();
   const me = view?.me;
+  // A signed-in player's (or the game master's) profile, from a tap on their name.
+  const [profile, setProfile] = useState<ProfileTarget | null>(null);
   const accountSeats = view?.players.filter((p) => p.account).map((p) => p.id).join() ?? "";
   useFriendsHere(me?.account && friendsOn && status === "open" ? send : null, `${accountSeats}|${view?.host?.name ?? ""}`);
 
@@ -427,18 +437,29 @@ function PlayerScreen({ code }: { code: string }) {
                   key={p.id}
                   className={`flex items-center gap-1.5 rounded-full py-1 pl-1 text-sm ${befriend ? "pr-1" : "pr-3"} ${p.id === me?.id ? "bg-primary text-primary-foreground" : "bg-surface-2"}`}
                 >
-                  <Avatar playerId={p.id} name={p.name} className="size-6" />
-                  {p.name}
+                  {p.account ? (
+                    <button type="button" className="flex items-center gap-1.5" onClick={() => setProfile({ playerId: p.id, name: p.name })}>
+                      <Avatar playerId={p.id} name={p.name} className="size-6" />
+                      {p.name}
+                    </button>
+                  ) : (
+                    <>
+                      <Avatar playerId={p.id} name={p.name} className="size-6" />
+                      {p.name}
+                    </>
+                  )}
                   {befriend && <AddFriendButton name={p.name} playerId={p.id} send={send} className="size-6 rounded-full" />}
                 </li>
               );
             })}
           </ul>
-          {view.host && me?.account && friendsOn && (
+          {view.host && (
             <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-              <Face name={view.host.name} src={view.host.picture} className="size-6 text-xs" />
-              {format(dict.friends.gameMaster, { name: view.host.name })}
-              <AddFriendButton name={view.host.name} playerId={null} send={send} className="size-6 rounded-full" />
+              <button type="button" className="flex items-center gap-2" onClick={() => setProfile({ playerId: null, name: view.host!.name })}>
+                <Face name={view.host.name} src={view.host.picture} className="size-6 text-xs" />
+                {format(dict.friends.gameMaster, { name: view.host.name })}
+              </button>
+              {me?.account && friendsOn && <AddFriendButton name={view.host.name} playerId={null} send={send} className="size-6 rounded-full" />}
             </p>
           )}
         </section>
@@ -489,6 +510,7 @@ function PlayerScreen({ code }: { code: string }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <ProfileDialog target={profile} onClose={() => setProfile(null)} send={send} />
     </main>
     </RoomProvider>
   );
@@ -514,6 +536,7 @@ export function InGame({
 }) {
   const onVote = (targetId: string | null) => act({ type: "cast-vote", targetId });
   const { dict } = useI18n();
+  const [profile, setProfile] = useState<ProfileTarget | null>(null);
   const info = view.info!;
   const game = view.game!;
   const me = view.me!;
@@ -637,8 +660,17 @@ export function InGame({
                 key={p.id}
                 className={`flex items-center gap-2 rounded-lg px-3 py-1.5 ${p.id === me.id ? "bg-surface-2" : ""} ${isDead ? "opacity-50" : ""}`}
               >
-                <Avatar playerId={p.id} name={p.name} className="size-7" />
-                <span className={`min-w-0 flex-1 truncate ${isDead ? "line-through" : ""}`}>{p.name}</span>
+                {p.account ? (
+                  <button type="button" className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={() => setProfile({ playerId: p.id, name: p.name })}>
+                    <Avatar playerId={p.id} name={p.name} className="size-7" />
+                    <span className={`min-w-0 truncate ${isDead ? "line-through" : ""}`}>{p.name}</span>
+                  </button>
+                ) : (
+                  <>
+                    <Avatar playerId={p.id} name={p.name} className="size-7" />
+                    <span className={`min-w-0 flex-1 truncate ${isDead ? "line-through" : ""}`}>{p.name}</span>
+                  </>
+                )}
                 {game.mayorId === p.id && <Crown aria-label={dict.game.mayor} className="size-4 text-moon" />}
                 {isDead && <Skull aria-label={dict.game.dead} className="size-4" />}
                 {role && <RoleName role={role} className="text-sm" />}
@@ -649,6 +681,7 @@ export function InGame({
             );
           })}
         </ul>
+        <ProfileDialog target={profile} onClose={() => setProfile(null)} send={act} />
       </section>
     </>
   );
@@ -933,7 +966,7 @@ function RejoinCard({
 }
 
 /** Signed in: play under the account's first name, or under its username. */
-function UsernameChoice({ username, checked, onChange }: { username: string; checked: boolean; onChange: (value: boolean) => void }) {
+export function UsernameChoice({ username, checked, onChange }: { username: string; checked: boolean; onChange: (value: boolean) => void }) {
   const { dict } = useI18n();
   return (
     <label className="flex cursor-pointer items-center gap-2 text-sm">

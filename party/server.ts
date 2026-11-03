@@ -22,7 +22,7 @@ import { verifyTicket } from "../lib/ticket";
 import { workerTicketKey } from "./keys";
 import type { Ballot, Timer } from "../lib/ballot";
 import { deleteResult, hashClaimCode, saveResult, type GameResult } from "../lib/stats";
-import { friendsAmong, recordInvites, requestFriend, saveAccount } from "../lib/friends";
+import { friendsAmong, profilePeek, recordInvites, requestFriend, saveAccount } from "../lib/friends";
 import { sendPushes } from "./push";
 import * as auto from "../lib/auto";
 import { sceneFor } from "../lib/soundtrack";
@@ -507,8 +507,9 @@ export class RoomServer extends Server<Env> {
         break;
       }
       case "show-username": {
-        if (sender.state?.kind !== "player") return;
-        const playerId = sender.state.playerId;
+        // A player's own seat, or the creator's without a game master.
+        const playerId = isHost ? this.state.hostSeatId : sender.state?.kind === "player" ? sender.state.playerId : null;
+        if (!playerId) return;
         const player = this.state.players.find((p) => p.id === playerId);
         if (!player?.sub || !player.accountName) return;
         player.showUsername = msg.value === true && !!player.username;
@@ -962,6 +963,8 @@ export class RoomServer extends Server<Env> {
         return this.invite(sender, isHost, msg.subs);
       case "friends-here":
         return this.friendsHere(sender, isHost);
+      case "profile":
+        return this.profile(sender, isHost, msg.playerId);
       case "set-timer": {
         if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
         if (msg.seconds === null) {
@@ -1133,11 +1136,16 @@ export class RoomServer extends Server<Env> {
 
   /** Friends and invites reach the database and other accounts: a few a minute per connection. */
   private friendCalls = new Map<string, number[]>();
+  /** Profiles opened: a database read each, a few more allowed than friend calls. */
+  private profileCalls = new Map<string, number[]>();
   private tooManyFriendCalls(conn: Conn) {
+    return this.tooManyCalls(this.friendCalls, conn, FRIEND_CALLS_PER_MINUTE);
+  }
+  private tooManyCalls(calls: Map<string, number[]>, conn: Conn, max: number) {
     const now = Date.now();
-    const recent = (this.friendCalls.get(conn.id) ?? []).filter((t) => now - t < 60_000);
-    this.friendCalls.set(conn.id, [...recent, now]);
-    return recent.length >= FRIEND_CALLS_PER_MINUTE;
+    const recent = (calls.get(conn.id) ?? []).filter((t) => now - t < 60_000);
+    calls.set(conn.id, [...recent, now]);
+    return recent.length >= max;
   }
 
   /** Asks another signed-in seat, or the game master (null), to be friends. Account ids never reach the phones. */
@@ -1179,6 +1187,21 @@ export class RoomServer extends Server<Env> {
     } catch (error) {
       console.error("Looking up friends failed:", error);
     }
+  }
+
+  /** A signed-in seat's profile in brief (or the game master's: null), for anyone in the room; account ids stay here. */
+  private async profile(conn: Conn, isHost: boolean, playerId: string | null) {
+    const url = this.env.POSTGRES_URL;
+    if (!url || this.tooManyCalls(this.profileCalls, conn, 2 * FRIEND_CALLS_PER_MINUTE)) return;
+    const s = this.state!;
+    const sub = playerId === null ? s.hostSub : [...s.players, ...(s.formerPlayers ?? [])].find((p) => p.id === playerId)?.sub;
+    let profile = null;
+    try {
+      if (sub) profile = await profilePeek(url, this.accountOf(conn, isHost)?.sub ?? null, sub);
+    } catch (error) {
+      console.error("Looking up a profile failed:", error);
+    }
+    this.send(conn, { type: "profile", playerId, profile });
   }
 
   /** Invites friends to this room: on their open pages, and by push where they turned it on. */

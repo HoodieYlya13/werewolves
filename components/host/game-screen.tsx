@@ -29,6 +29,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ProfileDialog, type ProfileTarget } from "@/components/friends/room-friends";
 
 const HIDE_ROLES_KEY = "ww:hide-roles";
 
@@ -205,7 +206,8 @@ function Remaining({ game }: { game: GameState }) {
 function PlayersPanel({ game }: { game: GameState }) {
   const { dict } = useI18n();
   const [editing, setEditing] = useState<string | null>(null);
-  const { players: roomPlayers } = useRoomContext();
+  const [profile, setProfile] = useState<ProfileTarget | null>(null);
+  const { players: roomPlayers, send } = useRoomContext();
   const leftIds = new Set(roomPlayers.filter((p) => p.left).map((p) => p.id));
   const accountIds = new Set(roomPlayers.filter((p) => p.account).map((p) => p.id));
   return (
@@ -219,9 +221,8 @@ function PlayersPanel({ game }: { game: GameState }) {
               type="button"
               className="group flex min-w-0 flex-1 items-center gap-2 text-left"
               title={accountIds.has(p.id) ? dict.host.accountPlayer : format(dict.host.editPlayer, { name: p.name })}
-              // Account players' names and photos are theirs to change.
-              disabled={accountIds.has(p.id)}
-              onClick={() => setEditing(p.id)}
+              // Account players' names and photos are theirs to change: a tap shows their profile instead.
+              onClick={() => (accountIds.has(p.id) ? setProfile({ playerId: p.id, name: p.name }) : setEditing(p.id))}
             >
               <Avatar playerId={p.id} name={p.name} className="size-6" />
               <span className={`min-w-0 truncate font-medium ${p.alive ? "" : "line-through"}`}>{p.name}</span>
@@ -249,6 +250,7 @@ function PlayersPanel({ game }: { game: GameState }) {
         ))}
       </ol>
       {editing && <PlayerEditor playerId={editing} onClose={() => setEditing(null)} />}
+      {send && <ProfileDialog target={profile} onClose={() => setProfile(null)} send={send} />}
     </details>
   );
 }

@@ -1,5 +1,6 @@
 import type { AutoConfig, AutoPublic, Cue, PhoneTurn } from "./auto";
 import type { Ballot, Timer } from "./ballot";
+import type { ProfilePeek } from "./friends";
 import type { Action, GameState, PlayerInfo, PublicGame, RoleId, SetupOptions, Settings } from "./engine";
 import type { Locale } from "./i18n/config";
 import type { Scene } from "./sound-types";
@@ -221,7 +222,9 @@ export type ServerMessage =
   /** How many friends "invite" reached (the others were invited a moment ago, or aren't friends). */
   | { type: "invited"; count: number }
   /** The answer to "friends-here": seats by id, never account ids. */
-  | { type: "friends-here"; playerIds: string[]; host: boolean };
+  | { type: "friends-here"; playerIds: string[]; host: boolean }
+  /** The answer to "profile" (null: no such account, or the database is off). */
+  | { type: "profile"; playerId: string | null; profile: ProfilePeek | null };
 
 export type StartGame = SetupOptions & {
   /** Without a game master (random dealing only). A hidden deck is dealt by the room: `deck` is ignored. */
@@ -332,7 +335,9 @@ export type ClientMessage =
   /** Signed in: invites friends (by account) to this room. */
   | { type: "invite"; subs: string[] }
   /** Which seats (and whether the game master) this device's account is already friends with. */
-  | { type: "friends-here" };
+  | { type: "friends-here" }
+  /** A signed-in seat's (or the game master's: null) profile in brief, for the dialog a tap on their name opens. */
+  | { type: "profile"; playerId: string | null };
 
 /** Query params sent when opening the socket. */
 export type ConnectQuery =

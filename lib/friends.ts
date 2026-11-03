@@ -182,3 +182,44 @@ export async function pushEndpoints(url: string, subs: string[]): Promise<{ sub:
     WHERE sub IN (SELECT value FROM json_array_elements_text(${JSON.stringify(subs)}::json))`;
   return rows as { sub: string; endpoint: string }[];
 }
+
+/** Someone in a room as a tap on their name shows them: who they are, a few numbers, and where they stand with the viewer. */
+export type ProfilePeek = {
+  name: string;
+  username: string | null;
+  picture: string | null;
+  /** Their public profile (/players/CODE). */
+  code: string;
+  played: number;
+  won: number;
+  /** `guest`: the viewer isn't signed in. `sent`/`received`: a request waiting, from the viewer or to them. */
+  friendship: "self" | "friends" | "sent" | "received" | "none" | "guest";
+};
+
+export async function profilePeek(url: string, viewer: string | null, sub: string): Promise<ProfilePeek | null> {
+  const sql = neon(url);
+  const [people, totals, links] = await sql.transaction(
+    [
+      sql`SELECT name, username, picture, friend_code AS code FROM accounts WHERE sub = ${sub}`,
+      sql`SELECT count(*)::int AS played, count(*) FILTER (WHERE won)::int AS won FROM game_players WHERE sub = ${sub}`,
+      sql`SELECT requester, accepted FROM friendships
+          WHERE (requester = ${viewer ?? ""} AND addressee = ${sub}) OR (requester = ${sub} AND addressee = ${viewer ?? ""})`,
+    ],
+    { readOnly: true },
+  );
+  const person = people[0] as Omit<Person, "sub"> | undefined;
+  if (!person) return null;
+  const link = links[0] as { requester: string; accepted: boolean } | undefined;
+  const friendship: ProfilePeek["friendship"] = !viewer
+    ? "guest"
+    : viewer === sub
+      ? "self"
+      : link?.accepted
+        ? "friends"
+        : link
+          ? link.requester === viewer
+            ? "sent"
+            : "received"
+          : "none";
+  return { ...person, played: totals[0].played, won: totals[0].won, friendship };
+}

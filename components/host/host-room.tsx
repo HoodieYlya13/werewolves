@@ -4,7 +4,8 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { BadgeCheck, ChevronDown, ChevronUp, Copy, Crown, GripVertical, History, Layers, Lock, LockOpen, Pencil, Share2, Smartphone, UserPlus, Users, X } from "lucide-react";
 import { GiveLeadDialog, LeaderBar, LostLeaderCard } from "@/components/play/auto-game";
-import { InGame } from "@/components/play/player-room";
+import { InGame, UsernameChoice } from "@/components/play/player-room";
+import { AccountLinks } from "@/components/account-page-link";
 import { PhotoPicker } from "@/components/photo-picker";
 import { useNarrator, useWakeLock } from "@/hooks/use-narrator";
 import { QuitMenu } from "@/components/host/game-screen";
@@ -13,7 +14,15 @@ import { toast } from "sonner";
 import { GameScreen } from "@/components/host/game-screen";
 import { ThemedI18n } from "@/components/themed-i18n";
 import { BackHome } from "@/components/back-home";
-import { AddFriendButton, InviteFriendsButton, useFriendToasts, useFriendsHere, useFriendsInRoom } from "@/components/friends/room-friends";
+import {
+  AddFriendButton,
+  InviteFriendsButton,
+  ProfileDialog,
+  type ProfileTarget,
+  useFriendToasts,
+  useFriendsHere,
+  useFriendsInRoom,
+} from "@/components/friends/room-friends";
 import { CloseRoomButton } from "@/components/host/close-room-button";
 import { useDragSort } from "@/components/host/drag-sort";
 import { PlayerEditor } from "@/components/host/player-editor";
@@ -79,6 +88,7 @@ function HostContent({
   const [name, setName] = useState("");
   const [screen, setScreen] = useState<"lobby" | "setup">("lobby");
   const [editing, setEditing] = useState<string | null>(null);
+  const [profile, setProfile] = useState<ProfileTarget | null>(null);
   const [giving, setGiving] = useState<string | null>(null);
 
   // Seats can be dragged; a dropped row stays put until the room confirms the new order.
@@ -113,6 +123,21 @@ function HostContent({
   const session = useSession();
   const sub = session && (session.account?.sub ?? ""); // null while loading
   const connected = status === "open";
+
+  // Without a game master the creator's seat plays under the account like a player's: first name or username,
+  // as last chosen on this device (the room is told once the seat carries the account).
+  const account = session?.account ?? null;
+  const ownSeat = view?.players.find((p) => p.id === view.seatId) ?? null;
+  const toldUsername = useRef<string | null>(null);
+  useEffect(() => {
+    if (!ownSeat?.account || !account?.username || toldUsername.current === ownSeat.id) return;
+    toldUsername.current = ownSeat.id;
+    if (identity.getShowUsername() !== (ownSeat.name === account.username)) send({ type: "show-username", value: identity.getShowUsername() });
+  }, [ownSeat?.account, ownSeat?.id, ownSeat?.name, account?.username, send]);
+  function changeShowUsername(value: boolean) {
+    identity.setShowUsername(value);
+    send({ type: "show-username", value });
+  }
   useEffect(() => {
     if (!connected || sub === null) return;
     if (!sub) send({ type: "host-account", ticket: null });
@@ -320,10 +345,9 @@ function HostContent({
                 <button
                   type="button"
                   className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                  // Account players' names and photos are theirs to change.
-                  disabled={p.account}
+                  // Account players' names and photos are theirs to change: a tap shows their profile instead.
                   title={p.account ? dict.host.accountPlayer : undefined}
-                  onClick={() => setEditing(p.id)}
+                  onClick={() => (p.account ? setProfile({ playerId: p.id, name: p.name }) : setEditing(p.id))}
                 >
                   {/* Online or not, as a dot on the face: the row keeps its width for the name. */}
                   <span className="relative shrink-0">
@@ -437,6 +461,17 @@ function HostContent({
           send={send}
         />
         {editing && <PlayerEditor playerId={editing} onClose={() => setEditing(null)} />}
+        <ProfileDialog target={profile} onClose={() => setProfile(null)} send={send}>
+          {/* One's own seat (no game master): the account, and the name to play under, like a player's screen. */}
+          {profile?.playerId === view.seatId && (
+            <>
+              <AccountLinks />
+              {ownSeat?.account && account?.username && (
+                <UsernameChoice username={account.username} checked={ownSeat.name === account.username} onChange={changeShowUsername} />
+              )}
+            </>
+          )}
+        </ProfileDialog>
 
         {view?.canResume && (
           <Button type="button" variant="outline" className="h-12 text-base" onClick={() => send({ type: "resume-game" })}>
