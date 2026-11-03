@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { GameScreen } from "@/components/host/game-screen";
 import { ThemedI18n } from "@/components/themed-i18n";
 import { BackHome } from "@/components/back-home";
-import { AddFriendButton, InviteFriendsButton, useFriendToasts, useFriendsInRoom } from "@/components/friends/room-friends";
+import { AddFriendButton, InviteFriendsButton, useFriendToasts, useFriendsHere, useFriendsInRoom } from "@/components/friends/room-friends";
 import { CloseRoomButton } from "@/components/host/close-room-button";
 import { useDragSort } from "@/components/host/drag-sort";
 import { PlayerEditor } from "@/components/host/player-editor";
@@ -107,6 +107,7 @@ function HostContent({
   // Signed in: friends to add from the seats, and to invite.
   const friends = useFriendsInRoom();
   useFriendToasts();
+  useFriendsHere(friends && status === "open" ? send : null, view?.players.filter((p) => p.account).map((p) => p.id).join() ?? "");
 
   // The games a signed-in game master runs count in their stats.
   const session = useSession();

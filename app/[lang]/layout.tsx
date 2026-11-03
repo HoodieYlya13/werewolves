@@ -19,6 +19,9 @@ import { SITE_URL } from "@/lib/seo";
 import { themeScript } from "@/lib/theme";
 import "../globals.css";
 
+/** Marks the page while another window has the focus (see globals.css): before hydration too. */
+const focusScript = `(function(){var r=document.documentElement;function set(off){off?r.setAttribute("data-unfocused",""):r.removeAttribute("data-unfocused")}set(!document.hasFocus());addEventListener("blur",function(){set(true)});addEventListener("focus",function(){set(false)})})()`;
+
 const sans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
 const display = Cinzel({ subsets: ["latin"], variable: "--font-cinzel" });
 
@@ -61,6 +64,7 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script dangerouslySetInnerHTML={{ __html: focusScript }} />
       </head>
       <body className="font-sans antialiased">
         <I18nProvider locale={locale} dict={dict}>

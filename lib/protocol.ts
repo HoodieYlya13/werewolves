@@ -219,7 +219,9 @@ export type ServerMessage =
   /** What "add-friend" did (see RequestResult in lib/friends.ts). */
   | { type: "friend-result"; result: "sent" | "accepted" | "already-friends" | "already-sent" | "self" | "unknown" }
   /** How many friends "invite" reached (the others were invited a moment ago, or aren't friends). */
-  | { type: "invited"; count: number };
+  | { type: "invited"; count: number }
+  /** The answer to "friends-here": seats by id, never account ids. */
+  | { type: "friends-here"; playerIds: string[]; host: boolean };
 
 export type StartGame = SetupOptions & {
   /** Without a game master (random dealing only). A hidden deck is dealt by the room: `deck` is ignored. */
@@ -328,7 +330,9 @@ export type ClientMessage =
   /** Signed in: asks another signed-in seat (or the game master, null) to be friends. */
   | { type: "add-friend"; playerId: string | null }
   /** Signed in: invites friends (by account) to this room. */
-  | { type: "invite"; subs: string[] };
+  | { type: "invite"; subs: string[] }
+  /** Which seats (and whether the game master) this device's account is already friends with. */
+  | { type: "friends-here" };
 
 /** Query params sent when opening the socket. */
 export type ConnectQuery =

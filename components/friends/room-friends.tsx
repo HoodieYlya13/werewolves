@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { Check, Send, UserPlus } from "lucide-react";
+import { Check, Send, UserCheck, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { useI18n } from "@/components/i18n-provider";
 import { Face } from "@/components/room-context";
@@ -26,14 +26,50 @@ export function useFriendToasts() {
   const { dict } = useI18n();
   const t = dict.friends;
   useRoomReply((reply) => {
+    if (reply.type === "friends-here") return;
     if (reply.type === "friend-result") toast(t.results[reply.result]);
     else toast(reply.count === 0 ? t.invitedNone : reply.count === 1 ? t.invitedOne : format(t.invitedMany, { count: String(reply.count) }));
   });
 }
 
-/** Asks someone in the room (a seat, or the game master: null) to be friends. */
+// Who in the room is already a friend (seat ids, "host" for the game master), as the room last said.
+let friendsHere = new Set<string>();
+const friendsListeners = new Set<() => void>();
+const subscribeFriends = (listener: () => void) => {
+  friendsListeners.add(listener);
+  return () => friendsListeners.delete(listener);
+};
+const HOST = "host";
+
+/**
+ * Asks the room which accounts here are already friends, again whenever the
+ * signed-in seats (`key`) change or a request may have made a new friend.
+ * Mounted once per room screen, next to useFriendToasts.
+ */
+export function useFriendsHere(send: ((msg: ClientMessage) => void) | null, key: string) {
+  useEffect(() => {
+    if (send) send({ type: "friends-here" });
+  }, [send, key]);
+  useRoomReply((reply) => {
+    if (reply.type === "friend-result" && reply.result === "accepted" && send) send({ type: "friends-here" });
+    if (reply.type !== "friends-here") return;
+    friendsHere = new Set([...reply.playerIds, ...(reply.host ? [HOST] : [])]);
+    friendsListeners.forEach((l) => l());
+  });
+}
+
+/** Asks someone in the room (a seat, or the game master: null) to be friends; already friends, says so. */
 export function AddFriendButton({ name, playerId, send, className = "" }: { name: string; playerId: string | null; send: (msg: ClientMessage) => void; className?: string }) {
   const { dict } = useI18n();
+  const friend = useSyncExternalStore(subscribeFriends, () => friendsHere.has(playerId ?? HOST), () => false);
+  if (friend) {
+    const label = format(dict.friends.alreadyFriend, { name });
+    return (
+      <span role="img" aria-label={label} title={label} className={`grid size-8 shrink-0 place-items-center rounded-lg text-ok ${className}`}>
+        <UserCheck aria-hidden className="size-4" />
+      </span>
+    );
+  }
   const label = format(dict.friends.addFriend, { name });
   return (
     <button

@@ -423,6 +423,7 @@ const en = {
     sending: "Sending the request…",
     seeFriends: "See my friends",
     addFriend: "Add {name} as a friend",
+    alreadyFriend: "You and {name} are friends",
     gameMaster: "Game master: {name}",
     invite: "Invite friends",
     inviteHint: "They get an invite in the app, and a notification if they turned them on.",

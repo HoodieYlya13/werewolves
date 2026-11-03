@@ -960,6 +960,8 @@ export class RoomServer extends Server<Env> {
         return this.addFriend(sender, isHost, msg.playerId);
       case "invite":
         return this.invite(sender, isHost, msg.subs);
+      case "friends-here":
+        return this.friendsHere(sender, isHost);
       case "set-timer": {
         if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
         if (msg.seconds === null) {
@@ -1156,6 +1158,26 @@ export class RoomServer extends Server<Env> {
       try {
         await (await getServerByName(this.env.Account, target)).friendRequest(me.face, result === "accepted");
       } catch {}
+    }
+  }
+
+  /** Which accounts in the room are already this one's friends, as seats: their "add friend" buttons say so instead. */
+  private async friendsHere(conn: Conn, isHost: boolean) {
+    const url = this.env.POSTGRES_URL;
+    const me = this.accountOf(conn, isHost);
+    if (!url || !me || this.tooManyFriendCalls(conn)) return;
+    const s = this.state!;
+    const seats = s.players.filter((p) => p.sub && p.sub !== me.sub);
+    const subs = [...seats.map((p) => p.sub!), ...(s.hostSub && s.hostSub !== me.sub ? [s.hostSub] : [])];
+    try {
+      const friends = new Set(await friendsAmong(url, me.sub, subs));
+      this.send(conn, {
+        type: "friends-here",
+        playerIds: seats.filter((p) => friends.has(p.sub!)).map((p) => p.id),
+        host: !!s.hostSub && friends.has(s.hostSub),
+      });
+    } catch (error) {
+      console.error("Looking up friends failed:", error);
     }
   }
 

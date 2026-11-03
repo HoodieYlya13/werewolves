@@ -29,7 +29,7 @@ function offsetFrom(serverNow: number) {
  */
 /** The window event that carries the room's answers to "add-friend" and "invite". */
 const ROOM_REPLY = "ww:room-reply";
-type RoomReply = Extract<ServerMessage, { type: "friend-result" | "invited" }>;
+type RoomReply = Extract<ServerMessage, { type: "friend-result" | "invited" | "friends-here" }>;
 
 /** Runs `onReply` for each answer the room sends to "add-friend" or "invite". */
 export function useRoomReply(onReply: (reply: RoomReply) => void) {
@@ -116,6 +116,7 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
         }
         case "friend-result":
         case "invited":
+        case "friends-here":
           // Answers to one button press: whoever pressed it listens (useRoomReply).
           window.dispatchEvent(new CustomEvent(ROOM_REPLY, { detail: msg }));
           break;

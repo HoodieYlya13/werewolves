@@ -22,7 +22,7 @@ import { useI18n } from "@/components/i18n-provider";
 import { RoleName } from "@/components/host/role-chip";
 import { RoleCard } from "@/components/play/role-card";
 import { BackHome } from "@/components/back-home";
-import { AddFriendButton, InviteFriendsButton, useFriendToasts, useFriendsInRoom } from "@/components/friends/room-friends";
+import { AddFriendButton, InviteFriendsButton, useFriendToasts, useFriendsHere, useFriendsInRoom } from "@/components/friends/room-friends";
 import { PhotoPicker } from "@/components/photo-picker";
 import { rememberGuestGame } from "@/lib/guest-games";
 import { Avatar, Face, RoomProvider } from "@/components/room-context";
@@ -72,6 +72,8 @@ function PlayerScreen({ code }: { code: string }) {
   const friendsOn = useFriendsInRoom();
   useFriendToasts();
   const me = view?.me;
+  const accountSeats = view?.players.filter((p) => p.account).map((p) => p.id).join() ?? "";
+  useFriendsHere(me?.account && friendsOn && status === "open" ? send : null, `${accountSeats}|${view?.host?.name ?? ""}`);
 
   useErrorToast(error, PHONE_TOASTS);
   // Without a game master: one device reads the game out loud, and screens stay on.
@@ -246,8 +248,8 @@ function PlayerScreen({ code }: { code: string }) {
       <ConnectionBanner status={status} />
       {!asleep && (
         <div className="relative flex min-h-5 items-center justify-center">
-          {/* No seat yet (or not anymore): nothing to leave, so a plain way home. */}
-          {!me && <BackHome className="absolute left-0" />}
+          {/* No seat yet, or waiting in the lobby: a plain way home (the seat stays, and home leads back). */}
+          {(!me || !view?.game) && <BackHome className="absolute left-0" />}
           <p className="font-mono text-sm tracking-[0.3em] text-muted-foreground">{code}</p>
         </div>
       )}

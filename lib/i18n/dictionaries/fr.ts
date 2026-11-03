@@ -424,6 +424,7 @@ const fr: Dictionary = {
     sending: "Envoi de la demande…",
     seeFriends: "Voir mes amis",
     addFriend: "Ajouter {name} en ami",
+    alreadyFriend: "{name} et vous êtes amis",
     gameMaster: "Meneur : {name}",
     invite: "Inviter des amis",
     inviteHint: "Ils reçoivent une invitation dans l'application, et une notification s'ils les ont activées.",
