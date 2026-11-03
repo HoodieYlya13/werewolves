@@ -203,7 +203,7 @@ function voicesFor(locale: string) {
  * language's (a French voice reading English with its accent).
  */
 function pickVoice(locale: string) {
-  const voices = voicesFor(locale);
+  const voices = voicesFor(locale).filter((v) => !silentVoices.has(v.voiceURI));
   const chosen = readChoice(locale);
   // By its id; a name, as picked before ids were kept, still works.
   const mine = chosen && (voices.find((v) => v.voiceURI === chosen) ?? voices.find((v) => v.name === chosen));
@@ -235,7 +235,7 @@ export function chooseVoice(locale: string, id: string | null) {
 }
 
 /** A voice as the menu shows it: `id` is its voiceURI (names repeat: a phone lists a voice once per quality or region). */
-type VoiceOption = { id: string; label: string };
+type VoiceOption = { id: string; label: string; silent: boolean };
 type VoiceList = { locale: string; voices: VoiceOption[]; current: VoiceOption | null; chosen: string | null };
 
 function labelled(voices: SpeechSynthesisVoice[]): VoiceOption[] {
@@ -245,7 +245,7 @@ function labelled(voices: SpeechSynthesisVoice[]): VoiceOption[] {
     seen.add(v.voiceURI);
     const twins = voices.filter((o) => o.name === v.name).length > 1;
     const quality = /premium/i.test(v.voiceURI) ? "premium" : /enhanced/i.test(v.voiceURI) ? "enhanced" : null;
-    return [{ id: v.voiceURI, label: twins ? `${v.name} (${quality ?? v.lang})` : v.name }];
+    return [{ id: v.voiceURI, label: twins ? `${v.name} (${quality ?? v.lang})` : v.name, silent: silentVoices.has(v.voiceURI) }];
   });
 }
 let voiceList: VoiceList | null = null;
@@ -305,32 +305,72 @@ function speak(lines: string[], locale: string): Promise<void> {
   if (!lines.length || !hasVoice()) return Promise.resolve();
   const synth = window.speechSynthesis;
   const lang = locale === "fr" ? "fr-FR" : "en-GB";
+  // A first line can be dropped while the browser wakes a voice up (on a Mac, one
+  // in another language than the page's): the same voice tries once more. A voice
+  // silent twice isn't really on the device: the next best one tries, then the browser's own pick.
+  const attempt = (voice: SpeechSynthesisVoice | undefined, again = true): Promise<void> =>
+    speakWith(synth, lines, lang, voice, estimate).then((outcome) => {
+      if (outcome !== "silent") return;
+      if (again) return attempt(voice, false);
+      if (!voice) return;
+      silentVoices.add(voice.voiceURI);
+      voiceList = null;
+      notify();
+      return attempt(pickVoice(locale));
+    });
   // Straight away when the voices are known: a phone only lets a tap's own call start speaking.
-  if (synth.getVoices().length) return speakWith(synth, lines, lang, pickVoice(locale), estimate);
-  return voicesReady().then(() => speakWith(synth, lines, lang, pickVoice(locale), estimate));
+  if (synth.getVoices().length) return attempt(pickVoice(locale));
+  return voicesReady().then(() => attempt(pickVoice(locale)));
 }
 
-function speakWith(synth: SpeechSynthesis, lines: string[], lang: string, voice: SpeechSynthesisVoice | undefined, estimate: number): Promise<void> {
+/** Voices that never started speaking on this page (listed by the browser, not installed): skipped from then on. */
+const silentVoices = new Set<string>();
+/** Bumped by every new reading and by hushing: a reading cut short isn't a silent voice. */
+let generation = 0;
+/** How long a voice may take to start before it counts as silent. */
+const START_MS = 3_500;
+const UNAVAILABLE = ["voice-unavailable", "language-unavailable", "synthesis-unavailable", "synthesis-failed"];
+
+function speakWith(
+  synth: SpeechSynthesis,
+  lines: string[],
+  lang: string,
+  voice: SpeechSynthesisVoice | undefined,
+  estimate: number,
+): Promise<"done" | "silent"> {
   // One cue at a time: whatever is still queued (or stuck) goes first.
   synth.cancel();
+  const reading = ++generation;
   return new Promise((resolve) => {
+    let started = false;
     let done = false;
-    const finish = () => {
+    const finish = (outcome: "done" | "silent") => {
       if (done) return;
       done = true;
-      resolve();
+      clearTimeout(watchdog);
+      resolve(outcome);
     };
+    const silent = () => {
+      synth.cancel();
+      finish("silent");
+    };
+    // Nothing heard: the voice isn't really there (or the line was cut short, which isn't its fault).
+    const watchdog = setTimeout(() => !started && reading === generation && silent(), START_MS);
     // Some browsers drop the end event: the game must not wait forever.
-    setTimeout(finish, estimate * 2 + 5_000);
+    setTimeout(() => finish("done"), estimate * 2 + 5_000);
     lines.forEach((line, i) => {
       const utterance = new SpeechSynthesisUtterance(line);
       utterance.lang = voice?.lang ?? lang;
       if (voice) utterance.voice = voice;
       utterance.rate = 0.95;
-      if (i === lines.length - 1) {
-        utterance.onend = finish;
-        utterance.onerror = finish;
-      }
+      utterance.onstart = () => {
+        started = true;
+      };
+      utterance.onerror = (e) => {
+        if (!started && reading === generation && UNAVAILABLE.includes(e.error)) silent();
+        else if (i === lines.length - 1) finish("done");
+      };
+      if (i === lines.length - 1) utterance.onend = () => finish("done");
       synth.speak(utterance);
     });
   });
@@ -338,6 +378,7 @@ function speakWith(synth: SpeechSynthesis, lines: string[], lang: string, voice:
 
 /** Stops reading at once (voice off, skipped, or this device stopped being the narrator). */
 export function hushVoice() {
+  generation++;
   if (hasVoice()) window.speechSynthesis.cancel();
   speaking = null;
   notify();

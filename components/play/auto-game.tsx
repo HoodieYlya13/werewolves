@@ -227,7 +227,7 @@ export function NarratorCard({ view, send }: { view: PlayerView; send: Send }) {
             <NativeSelectOption value="">{format(dict.auto.voiceAuto, { name: voices.current?.label ?? "?" })}</NativeSelectOption>
             {voices.voices.map((v) => (
               <NativeSelectOption key={v.id} value={v.id}>
-                {v.label}
+                {v.silent ? format(dict.auto.voiceSilent, { name: v.label }) : v.label}
               </NativeSelectOption>
             ))}
           </NativeSelect>

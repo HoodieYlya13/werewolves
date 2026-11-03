@@ -770,6 +770,7 @@ const fr: Dictionary = {
     voiceMute: "Couper la voix",
     voiceChoice: "Voix du narrateur",
     startVoice: "Lancer la voix",
+    voiceSilent: "{name} (absente de cet appareil)",
     voiceAuto: "Voix : automatique ({name})",
     skip: "Passer",
     language: "Langue de la narration",

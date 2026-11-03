@@ -769,6 +769,7 @@ const en = {
     voiceMute: "Turn the voice off",
     voiceChoice: "Narrator's voice",
     startVoice: "Start the voice",
+    voiceSilent: "{name} (not on this device)",
     voiceAuto: "Voice: automatic ({name})",
     skip: "Skip",
     language: "Language of the narration",
