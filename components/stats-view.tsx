@@ -98,7 +98,12 @@ export function Stats({ stats, them = false }: { stats: AccountStats; them?: boo
           icon={Trophy}
           label={copy.winRate}
           value={rate(stats.won, stats.played)}
-          detail={format(copy.wonOf, { won: String(stats.won), played: String(stats.played) })}
+          detail={
+            // Games nobody won count as neither: the record then says so.
+            stats.drawn
+              ? format(copy.record, { won: String(stats.won), drawn: String(stats.drawn), lost: String(stats.played - stats.won - stats.drawn) })
+              : format(copy.wonOf, { won: String(stats.won), played: String(stats.played) })
+          }
         />
         <Tile
           icon={HeartPulse}
@@ -318,9 +323,9 @@ export function Stats({ stats, them = false }: { stats: AccountStats; them?: boo
                   </p>
                 </div>
                 <span
-                  className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${g.won ? "bg-ok/15 text-ok" : "bg-primary/15 text-primary"}`}
+                  className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${g.won ? "bg-ok/15 text-ok" : g.winnerTeam === null ? "bg-surface-2 text-muted-foreground" : "bg-primary/15 text-primary"}`}
                 >
-                  {g.won ? copy.won : copy.lost}
+                  {g.won ? copy.won : g.winnerTeam === null ? copy.drawn : copy.lost}
                 </span>
               </li>
             ))}

@@ -218,28 +218,13 @@ export function ProfileDialog({
         </DialogHeader>
         {profile && (
           <div className="flex flex-col gap-3">
-            {/* Records as people say them: 3–1 overall, and 2–0–1 against the viewer (draws: a third side won). */}
-            <div className="grid grid-cols-2 gap-2 text-center">
-              <div className={`rounded-xl bg-surface-2 px-3 py-2 ${profile.versus ? "" : "col-span-2"}`}>
-                <p className="font-mono text-2xl font-bold">
-                  {profile.won}–{profile.played - profile.won}
-                </p>
-                <p className="text-xs text-muted-foreground">{t.record}</p>
-              </div>
-              {profile.versus && (
-                <div className="rounded-xl bg-surface-2 px-3 py-2">
-                  <p className="font-mono text-2xl font-bold">
-                    {profile.versus.wonAgainst}–{profile.versus.opposed - profile.versus.wonAgainst - profile.versus.lostAgainst}–{profile.versus.lostAgainst}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{format(t.versus, { name: profile.name })}</p>
-                </div>
-              )}
-            </div>
-            {profile.versus && profile.versus.sameSide > 0 && (
-              <p className="text-center text-sm text-muted-foreground">
-                {format(t.together, { played: String(profile.versus.sameSide), won: String(profile.versus.wonTogether) })}
+            {/* A record as people say it: wins, draws (games nobody won), losses. How the viewer fares against them is on the full profile. */}
+            <div className="rounded-xl bg-surface-2 px-3 py-2 text-center">
+              <p className="font-mono text-2xl font-bold">
+                {profile.won}–{profile.drawn}–{profile.played - profile.won - profile.drawn}
               </p>
-            )}
+              <p className="text-xs text-muted-foreground">{t.record}</p>
+            </div>
             {profile.friendship === "friends" && (
               <p className="flex items-center justify-center gap-2 font-medium text-ok">
                 <UserCheck aria-hidden className="size-4" />

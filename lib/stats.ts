@@ -170,6 +170,8 @@ export async function deleteResult(url: string, id: string) {
 export type AccountStats = {
   played: number;
   won: number;
+  /** Games nobody won (everyone dead): neither a win nor a loss. */
+  drawn: number;
   survived: number;
   /** Games run as the game master, to the end. */
   mastered: number;
@@ -231,8 +233,9 @@ export async function accountStats(url: string, sub: string): Promise<AccountSta
   const sql = neon(url);
   const [totals, mastered, days, teams, roles, recent, sizes, results, deaths, titles, master, masterSides, partners, nemeses, organised] = await sql.transaction(
     [
-      sql`SELECT count(*)::int AS played, count(*) FILTER (WHERE won)::int AS won, count(*) FILTER (WHERE survived)::int AS survived
-          FROM game_players WHERE sub = ${sub}`,
+      sql`SELECT count(*)::int AS played, count(*) FILTER (WHERE p.won)::int AS won, count(*) FILTER (WHERE p.survived)::int AS survived,
+                 count(*) FILTER (WHERE g.winner_team IS NULL)::int AS drawn
+          FROM game_players p JOIN games g ON g.id = p.game_id WHERE p.sub = ${sub}`,
       sql`SELECT count(*)::int AS mastered FROM games WHERE master_sub = ${sub}`,
       sql`SELECT count(*)::int AS counted, avg(p.days_alive)::float AS mean, min(p.days_alive) AS min, max(p.days_alive) AS max,
                  avg(p.days_alive::float / NULLIF(g.days, 0)) AS share,
@@ -281,6 +284,7 @@ export async function accountStats(url: string, sub: string): Promise<AccountSta
   return {
     played: totals[0].played,
     won: totals[0].won,
+    drawn: totals[0].drawn,
     survived: totals[0].survived,
     mastered: mastered[0].mastered,
     organised: { total: organised[0].total, auto: organised[0].auto },

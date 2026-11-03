@@ -1,6 +1,5 @@
 import { neon } from "@neondatabase/serverless";
 import type { Account } from "./account";
-import { headToHead, type HeadToHead } from "./stats";
 
 /**
  * Friends, invites and push subscriptions, in Postgres (db/schema.sql).
@@ -193,10 +192,10 @@ export type ProfilePeek = {
   code: string;
   played: number;
   won: number;
+  /** Games nobody won (everyone dead). */
+  drawn: number;
   /** `guest`: the viewer isn't signed in. `sent`/`received`: a request waiting, from the viewer or to them. */
   friendship: "self" | "friends" | "sent" | "received" | "none" | "guest";
-  /** How the viewer fares with and against them (signed in, someone else). */
-  versus: HeadToHead | null;
 };
 
 export async function profilePeek(url: string, viewer: string | null, sub: string): Promise<ProfilePeek | null> {
@@ -204,7 +203,8 @@ export async function profilePeek(url: string, viewer: string | null, sub: strin
   const [people, totals, links] = await sql.transaction(
     [
       sql`SELECT name, username, picture, friend_code AS code FROM accounts WHERE sub = ${sub}`,
-      sql`SELECT count(*)::int AS played, count(*) FILTER (WHERE won)::int AS won FROM game_players WHERE sub = ${sub}`,
+      sql`SELECT count(*)::int AS played, count(*) FILTER (WHERE p.won)::int AS won, count(*) FILTER (WHERE g.winner_team IS NULL)::int AS drawn
+          FROM game_players p JOIN games g ON g.id = p.game_id WHERE p.sub = ${sub}`,
       sql`SELECT requester, accepted FROM friendships
           WHERE (requester = ${viewer ?? ""} AND addressee = ${sub}) OR (requester = ${sub} AND addressee = ${viewer ?? ""})`,
     ],
@@ -224,6 +224,5 @@ export async function profilePeek(url: string, viewer: string | null, sub: strin
             ? "sent"
             : "received"
           : "none";
-  const versus = viewer && viewer !== sub ? await headToHead(url, viewer, sub) : null;
-  return { ...person, played: totals[0].played, won: totals[0].won, friendship, versus };
+  return { ...person, played: totals[0].played, won: totals[0].won, drawn: totals[0].drawn, friendship };
 }
