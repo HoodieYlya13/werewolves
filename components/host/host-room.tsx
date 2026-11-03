@@ -37,6 +37,9 @@ import { Input } from "@/components/ui/input";
 /** Errors the game master sees as toasts (the others end the session). */
 const HOST_TOASTS: ErrorCode[] = ["name-taken", "invalid-name", "game-in-progress", "invalid-setup", "invalid-action", "invalid-account", "account-in-use", "room-full"];
 
+/** Marks the history entry of the card picker (see chooseCards). */
+const CARDS_ENTRY = "wwCards";
+
 export function HostRoom() {
   const { code } = useParams<{ code: string }>();
   // Keyed so a new code (after a collision) starts from fresh state.
@@ -127,8 +130,27 @@ function HostContent({
   function chooseCards() {
     if (!view || view.game || view.players.length < MIN_PLAYERS) return;
     if (!view.locked) send({ type: "set-locked", locked: true });
+    // The cards get a history entry of their own: a phone's back gesture (or the
+    // browser's back button) returns to the lobby, not to the home page.
+    window.history.pushState({ ...window.history.state, [CARDS_ENTRY]: true }, "");
     setScreen("setup");
   }
+  function backToLobby() {
+    if (window.history.state?.[CARDS_ENTRY]) window.history.back();
+    else setScreen("lobby");
+  }
+  // Back from the cards: the lobby. Back from a game started there lands on the
+  // lobby's entry, but a game is left for the home page (its banner leads back in).
+  const inGame = page === "game";
+  const onHistory = useEffectEvent(() => {
+    if (window.history.state?.[CARDS_ENTRY]) return;
+    if (inGame) router.replace(`/${locale}`);
+    else setScreen("lobby");
+  });
+  useEffect(() => {
+    window.addEventListener("popstate", onHistory);
+    return () => window.removeEventListener("popstate", onHistory);
+  }, []);
   // Enter with nothing to type into goes on to the cards too.
   const onEnter = useEffectEvent((e: KeyboardEvent) => {
     if (e.key !== "Enter" || e.repeat || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
@@ -194,7 +216,7 @@ function HostContent({
           players={view.players}
           canResume={view.canResume}
           send={send}
-          onBack={() => setScreen("lobby")}
+          onBack={backToLobby}
           mode={view.mode}
         />
       </>
