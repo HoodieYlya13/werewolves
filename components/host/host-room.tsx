@@ -134,6 +134,42 @@ function HostContent({
     toldUsername.current = ownSeat.id;
     if (identity.getShowUsername() !== (ownSeat.name === account.username)) send({ type: "show-username", value: identity.getShowUsername() });
   }, [ownSeat?.account, ownSeat?.id, ownSeat?.name, account?.username, send]);
+  /** What the row's small buttons do, as big ones in the player's dialog (easier on a phone). */
+  function seatActions(playerId: string, close: () => void) {
+    const p = view?.players.find((x) => x.id === playerId);
+    if (!p || p.id === view?.seatId) return null;
+    return (
+      <>
+        {!p.manual && p.connected && (
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={() => {
+              close();
+              setGiving(p.id);
+            }}
+          >
+            <Crown aria-hidden className="size-4" />
+            {format(dict.lead.giveRoom, { name: p.name })}
+          </Button>
+        )}
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full text-primary"
+          onClick={() => {
+            close();
+            send({ type: "remove-player", playerId: p.id });
+          }}
+        >
+          <X aria-hidden className="size-4" />
+          {format(dict.host.remove, { name: p.name })}
+        </Button>
+      </>
+    );
+  }
+
   function changeShowUsername(value: boolean) {
     identity.setShowUsername(value);
     send({ type: "show-username", value });
@@ -460,8 +496,13 @@ function HostContent({
           eligible={(id) => id === giving}
           send={send}
         />
-        {editing && <PlayerEditor playerId={editing} onClose={() => setEditing(null)} />}
+        {editing && (
+          <PlayerEditor playerId={editing} onClose={() => setEditing(null)}>
+            {seatActions(editing, () => setEditing(null))}
+          </PlayerEditor>
+        )}
         <ProfileDialog target={profile} onClose={() => setProfile(null)} send={send}>
+          {profile?.playerId && profile.playerId !== view.seatId && seatActions(profile.playerId, () => setProfile(null))}
           {/* One's own seat (no game master): the account, and the name to play under, like a player's screen. */}
           {profile?.playerId === view.seatId && (
             <>

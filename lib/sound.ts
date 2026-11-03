@@ -37,17 +37,61 @@ function audio() {
   const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
   if (session) session.type = "playback";
   ctx = new AudioContext();
+  const made = ctx;
+  made.addEventListener("statechange", () => made.state === "running" && played.add(made));
   master = ctx.createGain();
   master.gain.value = muted ? 0 : VOLUME;
   const limiter = ctx.createDynamicsCompressor();
   master.connect(limiter).connect(ctx.destination);
-  const resume = () => {
-    if (ctx?.state === "suspended" && !muted) void ctx.resume();
-  };
-  // A touch only allows sound once the finger lifts (pointerdown counts for a mouse, not a finger).
-  for (const event of ["pointerdown", "pointerup", "touchend", "click", "keydown"]) addEventListener(event, resume);
+  if (!listening) {
+    listening = true;
+    // A touch only allows sound once the finger lifts (pointerdown counts for a mouse, not a finger).
+    for (const event of ["pointerdown", "pointerup", "touchend", "click", "keydown"]) addEventListener(event, recover);
+    // Back from another app or a call: try again straight away.
+    document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && recover());
+  }
   return { ctx, master };
 }
+
+let listening = false;
+/** Engines that played once: only those count as broken when they stop (one never allowed yet just waits for a tap). */
+const played = new WeakSet<AudioContext>();
+
+/**
+ * Brings the sound back when it stopped without being muted: the browser
+ * suspended it, or a phone call or Siri interrupted it (iPhone). If resuming
+ * doesn't take, the audio engine is built again.
+ */
+function recover() {
+  const c = ctx;
+  if (!c || muted || c.state === "running" || c.state === "closed") return;
+  void c.resume().catch(() => {});
+  setTimeout(() => {
+    if (ctx === c && played.has(c) && !muted && c.state !== "running" && document.visibilityState === "visible") restartSound();
+  }, 400);
+}
+
+/**
+ * Builds the audio engine again and picks the music up where it was: for a
+ * sound that stopped for good (see recover), or on demand (muting and
+ * unmuting within a second). Recordings stay loaded.
+ */
+export function restartSound() {
+  const scene = current?.scene ?? null;
+  current?.stop();
+  current = null;
+  const old = ctx;
+  ctx = null;
+  master = null;
+  void old?.close().catch(() => {});
+  const fresh = audio().ctx;
+  if (!muted) void fresh.resume().catch(() => {});
+  if (scene) setScene(scene);
+}
+
+/** When the sound was last muted: unmuted within a second, it's a restart. */
+let mutedAt = 0;
+export const RESTART_MS = 1_000;
 
 /** From a tap: lets the soundtrack play (the game's start, "Start the voice"). */
 export function unlockSound() {
@@ -99,6 +143,8 @@ export function subscribeSound(listener: () => void) {
 }
 
 export function setMuted(value: boolean) {
+  const restart = !value && muted && Date.now() - mutedAt < RESTART_MS;
+  if (value) mutedAt = Date.now();
   muted = value;
   try {
     if (value) localStorage.setItem(SOUND_KEY, "off");
@@ -110,6 +156,8 @@ export function setMuted(value: boolean) {
     if (value) setTimeout(() => muted && void ctx?.suspend(), 600);
     else void ctx.resume();
   }
+  // Muted and unmuted straight away: the sound is stuck, start it over.
+  if (restart) restartSound();
   listeners.forEach((l) => l());
 }
 

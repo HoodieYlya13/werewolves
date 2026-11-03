@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useSyncExternalStore } from "react";
-import { DAWN, HOWL, leaveScene, loadSample, playStinger, setScene } from "@/lib/sound";
+import { DAWN, HOWL, RESTART_MS, leaveScene, loadSample, playStinger, restartSound, setScene } from "@/lib/sound";
 import type { Cue } from "@/lib/auto";
 import type { ClientMessage, Speaker } from "@/lib/protocol";
 
@@ -92,6 +92,7 @@ export function useVoiceSupport() {
 // --- the voice: off until someone turns it on (that tap is what lets a phone speak) ---
 
 const VOICE_KEY = "ww:voice";
+let voiceOffAt = 0;
 let voiceOn = readVoice();
 /** The cue being read out loud, if any. */
 let speaking: number | null = null;
@@ -156,6 +157,9 @@ function speakSilently() {
  * turning it on reads the current lines straight away.
  */
 export function setVoice(on: boolean, current?: { cue: Cue; locale: string; send: (message: ClientMessage) => void }) {
+  // Off and on again within a second: the sound is stuck, the music starts over too (the voice always does).
+  if (on && !voiceOn && Date.now() - voiceOffAt < RESTART_MS) restartSound();
+  if (!on) voiceOffAt = Date.now();
   voiceOn = on;
   try {
     if (on) localStorage.setItem(VOICE_KEY, "on");

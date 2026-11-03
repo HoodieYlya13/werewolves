@@ -12,7 +12,7 @@ import { format } from "@/lib/i18n/config";
 import { MAX_NAME_LENGTH } from "@/lib/protocol";
 
 /** The game master renames a player or sets their photo, in the lobby or mid-game. */
-export function PlayerEditor({ playerId, onClose }: { playerId: string; onClose: () => void }) {
+export function PlayerEditor({ playerId, onClose, children }: { playerId: string; onClose: () => void; children?: React.ReactNode }) {
   const { dict } = useI18n();
   const { players, send } = useRoomContext();
   const player = players.find((p) => p.id === playerId);
@@ -45,6 +45,7 @@ export function PlayerEditor({ playerId, onClose }: { playerId: string; onClose:
             {dict.host.save}
           </Button>
         </form>
+        {children && <div className="flex flex-col gap-2 border-t border-line pt-4">{children}</div>}
       </DialogContent>
     </Dialog>
   );
