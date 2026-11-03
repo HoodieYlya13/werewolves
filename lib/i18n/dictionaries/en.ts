@@ -425,8 +425,9 @@ const en = {
     addFriend: "Add {name} as a friend",
     alreadyFriend: "You and {name} are friends",
     peek: {
-      games: "{played} games played, {won} won",
-      noGames: "No finished games yet.",
+      record: "Wins – losses",
+      versus: "You vs {name}: wins – draws – losses",
+      together: "On the same side {played}×, won {won}",
       friends: "You're friends",
       sent: "Friend request sent",
       accept: "Accept their friend request",

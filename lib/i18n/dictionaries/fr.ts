@@ -426,8 +426,9 @@ const fr: Dictionary = {
     addFriend: "Ajouter {name} en ami",
     alreadyFriend: "{name} et vous êtes amis",
     peek: {
-      games: "{played} parties jouées, {won} gagnées",
-      noGames: "Aucune partie terminée pour l'instant.",
+      record: "Victoires – défaites",
+      versus: "Vous contre {name} : victoires – nuls – défaites",
+      together: "Dans le même camp {played}×, gagné {won}",
       friends: "Vous êtes amis",
       sent: "Demande d'ami envoyée",
       accept: "Accepter sa demande d'ami",

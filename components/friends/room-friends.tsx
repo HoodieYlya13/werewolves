@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { Check, Clock, ExternalLink, Send, UserCheck, UserPlus } from "lucide-react";
+import { ChartColumn, Check, Clock, Send, UserCheck, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { useI18n } from "@/components/i18n-provider";
 import { Face } from "@/components/room-context";
@@ -12,6 +12,7 @@ import { useRoomReply } from "@/hooks/use-room";
 import type { Person, ProfilePeek } from "@/lib/friends";
 import { friendsApi } from "@/lib/friends-client";
 import { format } from "@/lib/i18n/config";
+import { cn } from "@/lib/utils";
 import type { ClientMessage } from "@/lib/protocol";
 import { useSession } from "@/lib/session";
 
@@ -65,7 +66,7 @@ export function AddFriendButton({ name, playerId, send, className = "" }: { name
   if (friend) {
     const label = format(dict.friends.alreadyFriend, { name });
     return (
-      <span role="img" aria-label={label} title={label} className={`grid size-8 shrink-0 place-items-center rounded-lg text-ok ${className}`}>
+      <span role="img" aria-label={label} title={label} className={cn("grid size-8 shrink-0 place-items-center rounded-lg text-ok", className)}>
         <UserCheck aria-hidden className="size-4" />
       </span>
     );
@@ -77,7 +78,8 @@ export function AddFriendButton({ name, playerId, send, className = "" }: { name
       aria-label={label}
       title={label}
       onClick={() => send({ type: "add-friend", playerId })}
-      className={`grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-surface hover:text-fg ${className}`}
+      // Merged, so a smaller size from the caller wins (a pill's height stays the avatar's).
+      className={cn("grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-surface hover:text-fg", className)}
     >
       <UserPlus aria-hidden className="size-4" />
     </button>
@@ -216,9 +218,28 @@ export function ProfileDialog({
         </DialogHeader>
         {profile && (
           <div className="flex flex-col gap-3">
-            <p className="text-center text-muted-foreground">
-              {profile.played === 0 ? t.noGames : format(t.games, { played: String(profile.played), won: String(profile.won) })}
-            </p>
+            {/* Records as people say them: 3–1 overall, and 2–0–1 against the viewer (draws: a third side won). */}
+            <div className="grid grid-cols-2 gap-2 text-center">
+              <div className={`rounded-xl bg-surface-2 px-3 py-2 ${profile.versus ? "" : "col-span-2"}`}>
+                <p className="font-mono text-2xl font-bold">
+                  {profile.won}–{profile.played - profile.won}
+                </p>
+                <p className="text-xs text-muted-foreground">{t.record}</p>
+              </div>
+              {profile.versus && (
+                <div className="rounded-xl bg-surface-2 px-3 py-2">
+                  <p className="font-mono text-2xl font-bold">
+                    {profile.versus.wonAgainst}–{profile.versus.opposed - profile.versus.wonAgainst - profile.versus.lostAgainst}–{profile.versus.lostAgainst}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{format(t.versus, { name: profile.name })}</p>
+                </div>
+              )}
+            </div>
+            {profile.versus && profile.versus.sameSide > 0 && (
+              <p className="text-center text-sm text-muted-foreground">
+                {format(t.together, { played: String(profile.versus.sameSide), won: String(profile.versus.wonTogether) })}
+              </p>
+            )}
             {profile.friendship === "friends" && (
               <p className="flex items-center justify-center gap-2 font-medium text-ok">
                 <UserCheck aria-hidden className="size-4" />
@@ -239,10 +260,10 @@ export function ProfileDialog({
             )}
             {profile.friendship === "guest" && <p className="text-center text-sm text-muted-foreground">{t.guest}</p>}
             <Button asChild variant="outline">
-              <a href={`/${locale}/players/${profile.code}`} target="_blank" rel="noopener">
-                <ExternalLink aria-hidden className="size-4" />
+              <Link href={`/${locale}/players/${profile.code}`}>
+                <ChartColumn aria-hidden className="size-4" />
                 {profile.friendship === "self" ? t.yours : t.full}
-              </a>
+              </Link>
             </Button>
           </div>
         )}

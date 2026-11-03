@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { Crosshair, ShieldHalf, Skull, Swords, UserPlus } from "lucide-react";
+import { Clock, Crosshair, ShieldHalf, Skull, Swords, UserCheck, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { useI18n } from "@/components/i18n-provider";
 import { Face } from "@/components/room-context";
@@ -12,11 +12,14 @@ import { Button } from "@/components/ui/button";
 import { friendsApi } from "@/lib/friends-client";
 import { format } from "@/lib/i18n/config";
 import { loadSession, useSession } from "@/lib/session";
+import type { ProfilePeek } from "@/lib/friends";
 import type { AccountStats, HeadToHead } from "@/lib/stats";
 
 type Profile = {
   person: { name: string; username: string | null; picture: string | null; code: string };
   self: boolean;
+  /** Where the viewer stands with them (signed in, someone else). */
+  friendship: ProfilePeek["friendship"] | null;
   stats: AccountStats;
   headToHead: HeadToHead | null;
 };
@@ -59,8 +62,9 @@ export function PlayerProfile() {
       </Message>
     );
   }
-  const { person, self, stats, headToHead } = profile.value;
-  const canAdd = !!session?.account && !self;
+  const { person, self, friendship, stats, headToHead } = profile.value;
+  // Already friends, or asked: says so instead of offering to add them.
+  const canAdd = !!session?.account && !self && (friendship === "none" || friendship === "received" || friendship === null);
 
   return (
     <div className="flex flex-col gap-6">
@@ -75,11 +79,28 @@ export function PlayerProfile() {
             type="button"
             variant="outline"
             className="shrink-0"
-            onClick={() => void friendsApi.request({ code: person.code }).then((a) => toast(a ? dict.friends.results[a.result] : dict.friends.failed))}
+            onClick={() =>
+              void friendsApi.request({ code: person.code }).then((a) => {
+                toast(a ? dict.friends.results[a.result] : dict.friends.failed);
+                if (a) setAttempt((n) => n + 1);
+              })
+            }
           >
             <UserPlus aria-hidden />
-            <span className="max-sm:sr-only">{t.addFriend}</span>
+            <span className="max-sm:sr-only">{friendship === "received" ? dict.friends.peek.accept : t.addFriend}</span>
           </Button>
+        )}
+        {friendship === "friends" && (
+          <span className="flex shrink-0 items-center gap-1.5 text-sm font-medium text-ok">
+            <UserCheck aria-hidden className="size-4" />
+            <span className="max-sm:sr-only">{dict.friends.peek.friends}</span>
+          </span>
+        )}
+        {friendship === "sent" && (
+          <span className="flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground">
+            <Clock aria-hidden className="size-4" />
+            <span className="max-sm:sr-only">{dict.friends.peek.sent}</span>
+          </span>
         )}
       </header>
       {self && <p className="text-sm text-muted-foreground">{t.yours}</p>}

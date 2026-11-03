@@ -3,7 +3,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useParams, useRouter } from "next/navigation";
-import { Check, Crown, LogIn, LogOut, Pencil, Skull, Sun, UserPlus, UserRound, Vote } from "lucide-react";
+import { BadgeCheck, Check, Crown, LogIn, LogOut, Pencil, Skull, Sun, UserPlus, UserRound, Vote } from "lucide-react";
 import { AuthButton, goToAuth } from "@/components/account-button";
 import { AccountLinks, AddAccountPhoto } from "@/components/account-page-link";
 import { ConfirmButton } from "@/components/confirm-button";
@@ -441,6 +441,8 @@ function PlayerScreen({ code }: { code: string }) {
                     <button type="button" className="flex items-center gap-1.5" onClick={() => setProfile({ playerId: p.id, name: p.name })}>
                       <Avatar playerId={p.id} name={p.name} className="size-6" />
                       {p.name}
+                      {/* Signed in: the badge says a tap shows their profile. */}
+                      <BadgeCheck aria-label={dict.host.accountPlayer} className={`size-3.5 shrink-0 ${p.id === me?.id ? "" : "text-ok"}`} />
                     </button>
                   ) : (
                     <>
@@ -664,6 +666,7 @@ export function InGame({
                   <button type="button" className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={() => setProfile({ playerId: p.id, name: p.name })}>
                     <Avatar playerId={p.id} name={p.name} className="size-7" />
                     <span className={`min-w-0 truncate ${isDead ? "line-through" : ""}`}>{p.name}</span>
+                    <BadgeCheck aria-label={dict.host.accountPlayer} className="size-3.5 shrink-0 text-ok" />
                   </button>
                 ) : (
                   <>

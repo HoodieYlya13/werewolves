@@ -1,6 +1,6 @@
 import { connection, NextResponse, type NextRequest } from "next/server";
 import { authConfig, currentAccount } from "@/lib/auth";
-import { accountByCode } from "@/lib/friends";
+import { accountByCode, profilePeek } from "@/lib/friends";
 import { accountStats, headToHead } from "@/lib/stats";
 
 /**
@@ -18,9 +18,13 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/auth/pla
   const config = authConfig();
   const viewer = config ? await currentAccount(request, config) : null;
   const me = viewer?.account?.sub ?? null;
-  const [stats, versus] = await Promise.all([accountStats(url, person.sub), me && me !== person.sub ? headToHead(url, me, person.sub) : null]);
+  const [stats, versus, peek] = await Promise.all([
+    accountStats(url, person.sub),
+    me && me !== person.sub ? headToHead(url, me, person.sub) : null,
+    me && me !== person.sub ? profilePeek(url, me, person.sub) : null,
+  ]);
   const response = NextResponse.json(
-    { person: { name: person.name, username: person.username, picture: person.picture, code: person.code }, self: me === person.sub, stats, headToHead: versus },
+    { person: { name: person.name, username: person.username, picture: person.picture, code: person.code }, self: me === person.sub, friendship: peek?.friendship ?? null, stats, headToHead: versus },
     { headers: { "Cache-Control": "private, no-store" } },
   );
   return viewer ? viewer.finish(response) : response;

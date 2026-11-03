@@ -1,5 +1,6 @@
 import { neon } from "@neondatabase/serverless";
 import type { Account } from "./account";
+import { headToHead, type HeadToHead } from "./stats";
 
 /**
  * Friends, invites and push subscriptions, in Postgres (db/schema.sql).
@@ -194,6 +195,8 @@ export type ProfilePeek = {
   won: number;
   /** `guest`: the viewer isn't signed in. `sent`/`received`: a request waiting, from the viewer or to them. */
   friendship: "self" | "friends" | "sent" | "received" | "none" | "guest";
+  /** How the viewer fares with and against them (signed in, someone else). */
+  versus: HeadToHead | null;
 };
 
 export async function profilePeek(url: string, viewer: string | null, sub: string): Promise<ProfilePeek | null> {
@@ -221,5 +224,6 @@ export async function profilePeek(url: string, viewer: string | null, sub: strin
             ? "sent"
             : "received"
           : "none";
-  return { ...person, played: totals[0].played, won: totals[0].won, friendship };
+  const versus = viewer && viewer !== sub ? await headToHead(url, viewer, sub) : null;
+  return { ...person, played: totals[0].played, won: totals[0].won, friendship, versus };
 }
