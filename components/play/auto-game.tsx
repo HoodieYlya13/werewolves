@@ -23,6 +23,7 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { pickAction, type PhoneTurn } from "@/lib/auto";
 import { format } from "@/lib/i18n/config";
 import type { ClientMessage, PlayerView } from "@/lib/protocol";
+import { unlockSound } from "@/lib/sound";
 
 type Send = (message: ClientMessage) => void;
 
@@ -235,7 +236,14 @@ export function NarratorCard({ view, send }: { view: PlayerView; send: Send }) {
       </div>
       {/* The voice is on, but this page may only speak once tapped (reloaded, or the game started elsewhere). */}
       {locked && (
-        <Button type="button" className="h-12 text-base" onClick={unlockVoice}>
+        <Button
+          type="button"
+          className="h-12 text-base"
+          onClick={() => {
+            unlockSound();
+            unlockVoice();
+          }}
+        >
           <Volume2 aria-hidden className="size-5" />
           {dict.auto.startVoice}
         </Button>

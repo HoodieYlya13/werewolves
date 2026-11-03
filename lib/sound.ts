@@ -33,6 +33,9 @@ function readMuted() {
 /** The audio graph, made on first use. Browsers keep it silent until a tap, so any tap resumes it. */
 function audio() {
   if (ctx && master) return { ctx, master };
+  // On iPhone, web audio follows the silent switch unless it says it's playback (like the voice, which ignores it).
+  const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+  if (session) session.type = "playback";
   ctx = new AudioContext();
   master = ctx.createGain();
   master.gain.value = muted ? 0 : VOLUME;
@@ -41,9 +44,15 @@ function audio() {
   const resume = () => {
     if (ctx?.state === "suspended" && !muted) void ctx.resume();
   };
-  addEventListener("pointerdown", resume);
-  addEventListener("keydown", resume);
+  // A touch only allows sound once the finger lifts (pointerdown counts for a mouse, not a finger).
+  for (const event of ["pointerdown", "pointerup", "touchend", "click", "keydown"]) addEventListener(event, resume);
   return { ctx, master };
+}
+
+/** From a tap: lets the soundtrack play (the game's start, "Start the voice"). */
+export function unlockSound() {
+  const { ctx } = audio();
+  if (!muted && ctx.state !== "running") void ctx.resume();
 }
 
 // --- recordings ---

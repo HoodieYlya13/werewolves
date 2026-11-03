@@ -28,6 +28,7 @@ import { defaultTheme, isThemeId, themeDictionary, themeIds, themes } from "@/li
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { unlockSound } from "@/lib/sound";
 
 type Counts = Partial<Record<RoleId, number>>;
 
@@ -214,6 +215,8 @@ export function SetupScreen({
       groups: needs.groups && !hidden ? groups : undefined,
     };
     if (autoMode) {
+      // This tap lets the music play from the start; the voice waits for its own ("Start the voice").
+      unlockSound();
       send({ type: "start-game", mode: "random", deck: hidden ? [] : deck, settings, ...options, auto: { ...autoConfig, exclude: removed } });
       return;
     }
