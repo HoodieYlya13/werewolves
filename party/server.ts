@@ -1842,7 +1842,7 @@ export class RoomServer extends Server<Env> {
       pause: room && s.paused ? { reason: s.paused, leader: (s.paused === "leader" && s.lostLeader?.name) || (this.hostSeat()?.name ?? ""), next: this.hostSeat()?.name ?? "" } : null,
       masterGone: !room && !!s.masterGone && !!game && !game.winner,
       auto: room && dict ? auto.autoPublic(room, me?.id ?? null, dict) : null,
-      speaker: room && speaking ? { cue: room.auto.cue, scene: game!.winner ? null : sceneFor(game!), locale: s.locale ?? "en" } : null,
+      speaker: room && speaking ? { cue: room.auto.cue, scene: game!.winner ? null : sceneFor(game!), locale: s.locale ?? "en", game: s.game?.id ?? "" } : null,
       // The dead see everything, without a game master: there's nobody else to watch the game with.
       spectate: (room && info && !info.alive) || (spectator && game) ? game : null,
       canStand: !!info?.alive && this.mayorRaceOpen(),

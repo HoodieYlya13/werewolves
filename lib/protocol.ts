@@ -153,7 +153,8 @@ export type PlayerView = BaseView & {
 };
 
 /** What the narrator device plays: the lines to read, in the room's language, and the music. */
-export type Speaker = { cue: Cue | null; scene: Scene | null; locale: Locale };
+/** `game`: which game the lines belong to (each game numbers its lines from 1, and starts its voice from a tap). */
+export type Speaker = { cue: Cue | null; scene: Scene | null; locale: Locale; game: string };
 
 export type RoomView = HostView | PlayerView;
 

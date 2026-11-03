@@ -28,13 +28,6 @@ export function useNarrator(speaker: Speaker | null, send: (message: ClientMessa
   useEffect(() => (on ? leaveScene : undefined), [on]);
   // No longer the narrator: stop reading.
   useEffect(() => (on ? () => hushVoice() : undefined), [on]);
-  // Any tap on the page lets it speak (browsers only allow a page that was touched).
-  useEffect(() => {
-    if (!on) return;
-    const tap = () => unlockVoice();
-    document.addEventListener("pointerdown", tap, true);
-    return () => document.removeEventListener("pointerdown", tap, true);
-  }, [on]);
 
   const cue = speaker?.cue ?? null;
   const locale = speaker?.locale ?? "en";
@@ -47,11 +40,17 @@ export function useNarrator(speaker: Speaker | null, send: (message: ClientMessa
     current.current = cue;
   });
   const cueId = cue?.id ?? 0;
+  const gameId = speaker?.game ?? "";
   useEffect(() => {
     const cue = current.current;
     if (!cue) return;
-    // A new game (or room) numbers its lines from 1 again.
-    if (cue.id < lastRead) lastRead = 0;
+    // A new game numbers its lines from 1 again, and its voice starts from a tap again.
+    if (gameId !== lastGame) {
+      lastGame = gameId;
+      lastRead = 0;
+      unlocked = false;
+      waiting = null;
+    }
     if (cue.id <= lastRead) return;
     // The line counts as started only once it does: an effect run cut short
     // (React's double run in development, a page hidden meanwhile) leaves it for the next.
@@ -76,7 +75,7 @@ export function useNarrator(speaker: Speaker | null, send: (message: ClientMessa
       clearTimeout(start);
       clearTimeout(reading);
     };
-  }, [cueId, locale]);
+  }, [cueId, locale, gameId]);
 }
 
 const hasVoice = () => typeof window !== "undefined" && "speechSynthesis" in window;
@@ -96,11 +95,13 @@ const VOICE_KEY = "ww:voice";
 let voiceOn = readVoice();
 /** The cue being read out loud, if any. */
 let speaking: number | null = null;
-/** The last cue this device started on (read out, or left to a person). */
+/** The last cue this device started on (read out, or left to a person), and the game it was in. */
 let lastRead = 0;
+let lastGame = "";
 /**
- * Whether this page may speak: phones (and some browsers) only let a page
- * speak once a tap has started speech on it. Until then, lines wait.
+ * Whether this page may speak. Each game's voice starts from a tap ("Start
+ * the voice"): a first line started any other way (a message from the room)
+ * can stay silent, on phones and on some computers. Until then, lines wait.
  */
 let unlocked = false;
 /** The line waiting for that tap. */
