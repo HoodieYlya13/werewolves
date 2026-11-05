@@ -993,6 +993,8 @@ const en = {
         thumbs: "{name} answers with a thumb up or down.",
         used: "Already used: ask anyway, so the village can't tell.",
         pickPoison: "Tap the player {name} poisons, then confirm.",
+        cantHeal: "Your healing potion is used: you can't save anyone anymore.",
+        cantPoison: "Your poison is used.",
       },
       deaths: {
         dawn: "The sun rises. Everyone wakes up!",

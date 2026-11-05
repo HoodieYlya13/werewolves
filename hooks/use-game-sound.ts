@@ -8,9 +8,14 @@ import { isWerewolves, sceneFor } from "@/lib/soundtrack";
 /** The last stinger played, so a remount or a re-render doesn't ring it twice. */
 let lastStinger = "";
 
-/** Plays the game's soundtrack on the game master's device. */
-export function useGameSound(game: GameState, actionCount: number) {
-  const scene = sceneFor(game);
+/**
+ * Plays the game's soundtrack on the game master's device. `lead`: a line the
+ * game master reads before the step. While the last turn's "go back to sleep"
+ * is on, its music keeps playing; while the night falls, it's the night's.
+ */
+export function useGameSound(game: GameState, actionCount: number, lead: "sleep" | "night" | null = null) {
+  const scene = lead === "night" ? "night" : sceneFor(game);
+  const held = lead === "sleep";
   const howl = isWerewolves(game);
   const theme = game.setup.settings.theme ?? "werewolves";
   // Fetched ahead, so the wolves' first howl and the first dawn don't wait for them.
@@ -18,7 +23,9 @@ export function useGameSound(game: GameState, actionCount: number) {
     if (howl) void loadSample(HOWL);
     void loadSample(DAWN[theme] ?? DAWN.werewolves);
   }, [howl, theme]);
-  useEffect(() => setScene(scene), [scene]);
+  useEffect(() => {
+    if (!held) setScene(scene);
+  }, [scene, held]);
   useEffect(() => leaveScene, []);
 
   const step = game.step;
@@ -28,12 +35,12 @@ export function useGameSound(game: GameState, actionCount: number) {
   const winner = step.kind === "game-over" ? (step.winner.team ?? "other") : null;
   useEffect(() => {
     const key = `${game.setup.players.map((p) => p.id).join()}:${actionCount}`;
-    if (key === lastStinger || (deaths === 0 && !winner && !dawn)) return;
+    if (lead || key === lastStinger || (deaths === 0 && !winner && !dawn)) return;
     lastStinger = key;
     if (winner) playStinger({ kind: "win", team: winner === "village" || winner === "wolves" ? winner : "other", howl });
     else if (dawn) playStinger({ kind: "dawn", theme, count: deaths });
     else playStinger({ kind: "deaths", count: deaths });
-  }, [game.setup.players, actionCount, deaths, dawn, winner, howl, theme]);
+  }, [game.setup.players, actionCount, deaths, dawn, winner, howl, theme, lead]);
 }
 
 export function useSoundMuted() {

@@ -993,6 +993,8 @@ const fr: Dictionary = {
         thumbs: "{name} répond pouce en l'air ou pouce en bas.",
         used: "Déjà utilisée : posez quand même la question, pour que le village ne devine rien.",
         pickPoison: "Touchez le joueur que {name} empoisonne, puis validez.",
+        cantHeal: "Ta potion de vie est utilisée : tu ne peux plus sauver personne.",
+        cantPoison: "Ta potion de mort est utilisée.",
       },
       deaths: {
         dawn: "Le jour se lève. Tout le monde se réveille !",

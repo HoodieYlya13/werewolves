@@ -23,22 +23,42 @@ type Props<K extends Step["kind"]> = {
 };
 
 /**
- * What the game master reads and taps for the current step. The parent keys it
- * by action count, so any local selection resets on each new step.
+ * Lines that close the last turn or open the night, read on their own before
+ * the step, one Continue each, so every turn starts by itself. Only on this
+ * screen: the game doesn't wait for them.
  */
-export function StepPanel({ game, act }: { game: GameState; act: (action: Action) => void }) {
-  const { dict } = useI18n();
+export function leadLines(game: GameState, dict: ReturnType<typeof useI18n>["dict"]): string[] {
   const sleeper = game.backToSleep;
   // Every night opens with the whole village closing their eyes.
   const nightFalls =
     game.phase.kind === "night" && game.phaseStep === 0 && game.step.kind !== "prologue" && game.step.kind !== "phase-end";
-  // Lines that close the last turn or open the night are read on their own, one Continue each,
-  // so every turn starts by itself. Only on this screen: the game doesn't wait for them.
-  const lead = [
+  return [
     sleeper && (sleeper === "wolves" ? dict.game.wolvesSleep : format(dict.game.sleep, { role: dict.roles[sleeper].name })),
     nightFalls && dict.game.nightFalls,
   ].filter((line): line is string => !!line);
-  const [read, setRead] = useState(0);
+}
+
+/**
+ * What the game master reads and taps for the current step. The parent keys it
+ * by action count, so any local selection resets on each new step, and keeps
+ * how many lead lines were read (the soundtrack waits for them). `onTouched`:
+ * the step itself was tapped, so Undo first starts it over.
+ */
+export function StepPanel({
+  game,
+  act,
+  read,
+  onRead,
+  onTouched,
+}: {
+  game: GameState;
+  act: (action: Action) => void;
+  read: number;
+  onRead: (read: number) => void;
+  onTouched: () => void;
+}) {
+  const { dict } = useI18n();
+  const lead = leadLines(game, dict);
 
   if (read < lead.length) {
     return (
@@ -46,14 +66,23 @@ export function StepPanel({ game, act }: { game: GameState; act: (action: Action
         <Say>{lead[read]}</Say>
         <NextButton
           onClick={() => {
-            setRead(read + 1);
+            onRead(read + 1);
             window.scrollTo({ top: 0, behavior: "smooth" });
           }}
         />
       </>
     );
   }
-  return <StepContent game={game} act={act} />;
+  return (
+    <div
+      className="contents"
+      onClickCapture={(e) => {
+        if ((e.target as HTMLElement).closest("button, input, label, select, a")) onTouched();
+      }}
+    >
+      <StepContent game={game} act={act} />
+    </div>
+  );
 }
 
 function StepContent({ game, act }: { game: GameState; act: (action: Action) => void }) {

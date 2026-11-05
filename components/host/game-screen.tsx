@@ -12,7 +12,7 @@ import { useGameTheme } from "@/hooks/use-game-theme";
 import { JoinRequests } from "@/components/host/join-requests";
 import { RoleName, teamColor } from "@/components/host/role-chip";
 import { Avatar, useRoomContext } from "@/components/room-context";
-import { StepPanel } from "@/components/host/step-panel";
+import { leadLines, StepPanel } from "@/components/host/step-panel";
 import { GiveLeadDialog } from "@/components/play/auto-game";
 import { format } from "@/lib/i18n/config";
 import { isWolf, remainingTeams, roles, teamOf, type GameEvent, type GameState } from "@/lib/engine";
@@ -47,8 +47,16 @@ export function GameScreen({
   const prologue = game.step.kind === "prologue";
   const isNight = game.phase.kind === "night" && !prologue;
   useGameTheme(isNight);
+  // The step panel's own state, kept here: the lead lines read, and whether the step was tapped.
+  const [panel, setPanel] = useState({ at: view.actionCount, read: 0, touched: false, reset: 0 });
+  if (panel.at !== view.actionCount) {
+    // Undone: the step comes back as it starts, without the last turn's closing lines again.
+    setPanel({ at: view.actionCount, read: view.actionCount < panel.at ? Infinity : 0, touched: false, reset: panel.reset });
+  }
+  const lead = leadLines(game, dict);
+  const reading = panel.at === view.actionCount && panel.read < lead.length;
   // The soundtrack plays here only: phones stay silent in the dark.
-  useGameSound(game, view.actionCount);
+  useGameSound(game, view.actionCount, !reading ? null : panel.read === 0 && game.backToSleep ? "sleep" : "night");
   const muted = useSoundMuted();
   const over = game.step.kind === "game-over";
   // Each step starts at the top: the next thing to read is there, not where the last button was.
@@ -131,8 +139,9 @@ export function GameScreen({
               variant="outline"
               className="size-10 p-0"
               title={dict.game.undo}
-              disabled={view.actionCount === 0}
-              onClick={() => send({ type: "undo" })}
+              disabled={view.actionCount === 0 && !panel.touched}
+              // A step already under way starts over first: Undo only then goes back to the last turn.
+              onClick={() => (panel.touched ? setPanel({ ...panel, touched: false, reset: panel.reset + 1 }) : send({ type: "undo" }))}
             >
               <Undo2 aria-hidden className="size-4" />
               <span className="sr-only">{dict.game.undo}</span>
@@ -166,9 +175,12 @@ export function GameScreen({
 
         <section className="flex flex-col gap-5">
           <StepPanel
-            key={view.actionCount}
+            key={`${view.actionCount}:${panel.reset}`}
             game={game}
             act={(action) => send({ type: "game-action", action })}
+            read={panel.at === view.actionCount ? panel.read : 0}
+            onRead={(read) => setPanel({ ...panel, read })}
+            onTouched={() => !panel.touched && setPanel({ ...panel, touched: true })}
           />
         </section>
       </div>

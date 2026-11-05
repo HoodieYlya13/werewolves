@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Clock, Crown, Eye, EyeOff, FlaskConical, Hand, HeartCrack, Layers, Megaphone, Moon, Pause, Play, SkipForward, Skull, Volume2, VolumeX } from "lucide-react";
+import { Check, Clock, Crown, Eye, EyeOff, FlaskConical, Hand, HeartCrack, Layers, Megaphone, Moon, Pause, Play, SkipForward, Skull, ThumbsDown, ThumbsUp, Volume2, VolumeX } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -759,58 +759,84 @@ function WitchTurn({ turn, onConfirm }: { turn: Extract<PhoneTurn, { kind: "witc
   const { dict } = useI18n();
   const name = useName();
   const t = dict.game.steps.witch;
+  // One question at a time, as the narrator asks them: the healing potion, then the poison.
+  const [stage, setStage] = useState<"heal" | "poison" | "target">("heal");
   const [heal, setHeal] = useState(false);
   const [poison, setPoison] = useState<string[]>([]);
-  const [nothing, setNothing] = useState(false);
   const victim = turn.victimId ? name(turn.victimId) : null;
+  const answer = (yes: string, onYes: () => void, onNo: () => void) => (
+    <div className="grid grid-cols-2 gap-2">
+      <Button type="button" className="h-auto min-h-12 text-base whitespace-normal" onClick={onYes}>
+        <ThumbsUp aria-hidden className="size-5" />
+        {yes}
+      </Button>
+      <Button type="button" variant="outline" className="h-auto min-h-12 text-base" onClick={onNo}>
+        <ThumbsDown aria-hidden className="size-5" />
+        {dict.auto.no}
+      </Button>
+    </div>
+  );
+
+  if (stage === "heal") {
+    const toPoison = (healed: boolean) => {
+      setHeal(healed);
+      setStage("poison");
+    };
+    return (
+      <>
+        <p className="text-2xl font-semibold wrap-anywhere">{victim ? format(t.victim, { name: victim }) : t.noVictim}</p>
+        {victim && turn.canHeal ? (
+          <>
+            <p className="flex items-center gap-2 font-medium">
+              <FlaskConical aria-hidden className="size-5 text-ok" />
+              {t.askHeal}
+            </p>
+            {answer(format(t.heal, { name: victim }), () => toPoison(true), () => toPoison(false))}
+          </>
+        ) : (
+          <>
+            {!turn.canHeal && <p className="text-muted-foreground">{t.cantHeal}</p>}
+            <PlayButton ready label={dict.game.continue} onClick={() => toPoison(false)} />
+          </>
+        )}
+      </>
+    );
+  }
+  if (stage === "poison") {
+    return (
+      <>
+        {heal && victim && <p className="font-medium text-ok wrap-anywhere">{format(t.heal, { name: victim })}</p>}
+        {turn.canPoison ? (
+          <>
+            <p className="flex items-center gap-2 font-medium">
+              <Skull aria-hidden className="size-5 text-primary" />
+              {t.askPoison}
+            </p>
+            {answer(dict.auto.yes, () => setStage("target"), () => onConfirm(heal, null))}
+          </>
+        ) : (
+          <>
+            <p className="text-muted-foreground">{t.cantPoison}</p>
+            <PlayButton ready onClick={() => onConfirm(heal, null)} />
+          </>
+        )}
+        <Button type="button" variant="ghost" className="h-10" onClick={() => setStage("heal")}>
+          {dict.ballot.back}
+        </Button>
+      </>
+    );
+  }
   return (
     <>
-      <p className="text-2xl font-semibold">{victim ? format(t.victim, { name: victim }) : t.noVictim}</p>
-      {turn.canHeal && victim && (
-        <label className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 px-4 py-3 ${heal ? "border-ok" : "border-line"}`}>
-          <input
-            type="checkbox"
-            className="size-5 accent-[var(--ok)]"
-            checked={heal}
-            onChange={(e) => {
-              setHeal(e.target.checked);
-              setNothing(false);
-            }}
-          />
-          <FlaskConical aria-hidden className="size-5 text-ok" />
-          {format(t.heal, { name: victim })}
-        </label>
-      )}
-      {!turn.canHeal && <p className="text-sm text-muted-foreground line-through">{t.healUsed}</p>}
-      {turn.canPoison ? (
-        <>
-          <p className="flex items-center gap-2 font-medium">
-            <Skull aria-hidden className="size-5 text-primary" />
-            {t.poison}
-          </p>
-          <PickList
-            targets={turn.targets}
-            selected={poison}
-            onToggle={(id) => {
-              setPoison((s) => toggle(s, id, 1));
-              setNothing(false);
-            }}
-          />
-        </>
-      ) : (
-        <p className="text-sm text-muted-foreground line-through">{t.poisonUsed}</p>
-      )}
-      <OptionButton
-        on={nothing}
-        onClick={() => {
-          setNothing(!nothing);
-          setHeal(false);
-          setPoison([]);
-        }}
-      >
-        {t.nothing}
-      </OptionButton>
-      <PlayButton ready={nothing || heal || poison.length > 0} onClick={() => onConfirm(heal, poison[0] ?? null)} />
+      <p className="flex items-center gap-2 font-medium">
+        <Skull aria-hidden className="size-5 text-primary" />
+        {t.poison}
+      </p>
+      <PickList targets={turn.targets} selected={poison} onToggle={(id) => setPoison((s) => toggle(s, id, 1))} />
+      <PlayButton ready={poison.length > 0} onClick={() => onConfirm(heal, poison[0])} />
+      <Button type="button" variant="ghost" className="h-10" onClick={() => setStage("poison")}>
+        {dict.ballot.back}
+      </Button>
     </>
   );
 }
