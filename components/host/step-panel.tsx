@@ -12,7 +12,7 @@ import { RoleName } from "@/components/host/role-chip";
 import { useRoomContext } from "@/components/room-context";
 import { TimerControls } from "@/components/vote-timer";
 import { format } from "@/lib/i18n/config";
-import { elderCostsPowers, isWolf, type Action, type Death, type GameState, type PhaseRef, type Player, type Step } from "@/lib/engine";
+import { elderCostsPowers, isWolf, nightFalls, type Action, type Death, type GameState, type PhaseRef, type Player, type Step } from "@/lib/engine";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/lib/session";
 
@@ -29,12 +29,10 @@ type Props<K extends Step["kind"]> = {
  */
 export function leadLines(game: GameState, dict: ReturnType<typeof useI18n>["dict"]): string[] {
   const sleeper = game.backToSleep;
-  // Every night opens with the whole village closing their eyes.
-  const nightFalls =
-    game.phase.kind === "night" && game.phaseStep === 0 && game.step.kind !== "prologue" && game.step.kind !== "phase-end";
   return [
     sleeper && (sleeper === "wolves" ? dict.game.wolvesSleep : format(dict.game.sleep, { role: dict.roles[sleeper].name })),
-    nightFalls && dict.game.nightFalls,
+    // Every night opens with the whole village closing their eyes.
+    nightFalls(game) && dict.game.nightFalls,
   ].filter((line): line is string => !!line);
 }
 

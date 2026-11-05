@@ -11,6 +11,7 @@ import {
   teamOf,
   daysBy,
   killersOf,
+  hasLeadLine,
   suggestedDeck,
   upgradeLog,
   type Action,
@@ -172,6 +173,8 @@ type RoomState = {
   masterSeatId?: string | null;
   /** With a game master: what phones chose for the step at `at` (players may play on their phones). */
   phonePlays?: { at: number; actions: Record<string, Action>; wolfPicks: Record<string, string> } | null;
+  /** With a game master: the log length whose lead lines ("go back to sleep"…) the game master has read. */
+  leadReadAt?: number | null;
 };
 
 /** How long the leader's device may be away before the game pauses for it. */
@@ -851,6 +854,11 @@ export class RoomServer extends Server<Env> {
         } catch (e) {
           return this.sendEngineError(sender, e, "invalid-action");
         }
+        break;
+      }
+      case "lead-read": {
+        if (!isHost || !this.state.game || msg.at !== this.state.game.log.length || this.state.leadReadAt === msg.at) return;
+        this.state.leadReadAt = msg.at;
         break;
       }
       case "undo": {
@@ -1853,6 +1861,8 @@ export class RoomServer extends Server<Env> {
   /** With a game master: what a phone may play for the current step, if its player likes. */
   private masterTurn(game: GameState, playerId: string) {
     const s = this.state!;
+    // Not while the game master still reads the last turn's "go back to sleep": that phone would light up too soon.
+    if (hasLeadLine(game) && s.leadReadAt !== s.game?.log.length) return null;
     const plays = s.phonePlays?.at === s.game?.log.length ? s.phonePlays : null;
     return auto.turnFor(game, playerId, auto.masterShow(game.step), !!plays?.actions[playerId], plays?.wolfPicks ?? {});
   }

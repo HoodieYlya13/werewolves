@@ -57,6 +57,11 @@ export function GameScreen({
   const reading = panel.at === view.actionCount && panel.read < lead.length;
   // The soundtrack plays here only: phones stay silent in the dark.
   useGameSound(game, view.actionCount, !reading ? null : panel.read === 0 && game.backToSleep ? "sleep" : "night");
+  // Phones get their turn once those lines are read, not while the last turn's player goes back to sleep.
+  const leadRead = lead.length > 0 && !reading && panel.at === view.actionCount;
+  useEffect(() => {
+    if (leadRead) send({ type: "lead-read", at: view.actionCount });
+  }, [leadRead, view.actionCount, send]);
   const muted = useSoundMuted();
   const over = game.step.kind === "game-over";
   // Each step starts at the top: the next thing to read is there, not where the last button was.

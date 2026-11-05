@@ -304,6 +304,8 @@ export type ClientMessage =
   | ({ type: "start-game" } & StartGame)
   | { type: "game-action"; action: Action }
   | { type: "undo" }
+  /** The game master read the lines before the step at log length `at`: its phone turns open. */
+  | { type: "lead-read"; at: number }
   /** Back to the lobby with the same players. The game is kept until the lineup changes. */
   | { type: "end-game" }
   | { type: "resume-game" }

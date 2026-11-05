@@ -3,6 +3,19 @@ import { EngineError, type GameEvent, type GameSetup, type GameState, type Phase
 
 export const alive = (state: GameState) => state.players.filter((p) => p.alive);
 
+/** The night's first step: the game master opens it with the village falling asleep. */
+export function nightFalls(state: GameState) {
+  return state.phase.kind === "night" && state.phaseStep === 0 && state.step.kind !== "prologue" && state.step.kind !== "phase-end";
+}
+
+/**
+ * The game master reads a line of their own before this step (the last turn's
+ * "go back to sleep", or night falling): phones wait for it to be read.
+ */
+export function hasLeadLine(state: GameState) {
+  return !!state.backToSleep || nightFalls(state);
+}
+
 /** With the Angel and the opening-vote rule, the game opens with a vote (day 0) before night 1. */
 export function opensWithVote(setup: GameSetup) {
   return Object.values(setup.roles).includes("angel") && setup.settings.angelRule !== "first-vote";
