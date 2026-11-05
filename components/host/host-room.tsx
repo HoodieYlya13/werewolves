@@ -469,6 +469,8 @@ function HostContent({
           <div className="flex gap-2">
             <Input
               id="add-player"
+              autoCorrect="off"
+              spellCheck={false}
               ref={nameInput}
               placeholder={dict.host.addPlayerPlaceholder}
               maxLength={MAX_NAME_LENGTH}
@@ -611,7 +613,7 @@ function ModeChoice({ view, send }: { view: HostView; send: (message: ClientMess
             {t.yourName}
           </label>
           <div className="flex gap-2">
-            <Input id="creator-name" maxLength={MAX_NAME_LENGTH} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+            <Input id="creator-name" autoCorrect="off" spellCheck={false} maxLength={MAX_NAME_LENGTH} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
             <Button type="submit" className="shrink-0" disabled={!name.trim()}>
               {dict.play.join}
             </Button>

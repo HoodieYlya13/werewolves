@@ -504,7 +504,7 @@ export function TurnPanel({ view, turn, send }: { view: PlayerView; turn: PhoneT
             {turn.ids.map((id) => (
               <li key={id} className="flex flex-col items-center gap-1">
                 <Avatar playerId={id} name={name(id)} className="size-16 text-xl" />
-                <span className="font-medium">{name(id)}</span>
+                <span className="max-w-24 text-center font-medium wrap-anywhere">{name(id)}</span>
               </li>
             ))}
           </ul>
@@ -653,7 +653,7 @@ function PickList({ targets, selected, onToggle }: { targets: string[]; selected
               className={`flex min-h-14 w-full items-center gap-2 rounded-xl border-2 px-2 py-2 text-left font-semibold ${on ? "border-primary bg-primary/10" : "border-line bg-surface-2"}`}
             >
               <Avatar playerId={id} name={name(id)} className="size-8" />
-              <span className="min-w-0 flex-1 truncate">{name(id)}</span>
+              <span className="min-w-0 flex-1 wrap-anywhere">{name(id)}</span>
               {on && <Check aria-hidden className="size-4 shrink-0 text-primary" />}
             </button>
           </li>
@@ -724,7 +724,7 @@ function WolvesTurn({ turn, me, send }: { turn: Extract<PhoneTurn, { kind: "wolv
               >
                 <span className="flex w-full items-center gap-2">
                   <Avatar playerId={id} name={name(id)} className="size-8" />
-                  <span className="min-w-0 flex-1 truncate">{name(id)}</span>
+                  <span className="min-w-0 flex-1 wrap-anywhere">{name(id)}</span>
                 </span>
                 {pickers.length > 0 && (
                   <span className="flex -space-x-1">

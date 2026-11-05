@@ -244,6 +244,7 @@ const en = {
     validateEliminate: "Validate: eliminate {name}",
     validateTie: "Validate: tie between {names}",
     validateTieScapegoat: "Validate: tie (the Scapegoat dies)",
+    validateTieMayor: "Validate: tie, the Mayor decides",
     validateNobody: "Validate: nobody is eliminated",
     phoneTitle: "Vote",
     phoneHint: "Tap the player you vote against. You can change your mind until the game master closes the vote.",
@@ -551,7 +552,7 @@ const en = {
     start: "Choose the cards",
     needPlayers: "At least {min} players are needed.",
     cards: "{count} / {needed} cards",
-    thiefNote: "The Thief needs 2 extra cards left face down.",
+    thiefNote: "With the Thief, the deck has 2 more cards than players: they stay face down in the middle.",
     suggest: "Classic deck",
     suggestHint: "Base-game roles, then villagers",
     suggestSpecials: "No villagers",
@@ -699,6 +700,8 @@ const en = {
     tallyEntry: "{name} {count}",
     tie: "It's a tie: nobody is eliminated.",
     tieScapegoat: "It's a tie: the Scapegoat pays for it.",
+    tieMayor: "It's a tie: the Mayor decides.",
+    tieBreak: "{name}, as Mayor, choose who leaves the village among {names}.",
     nobody: "Nobody is eliminated.",
 
     // --- phones ---
@@ -718,6 +721,7 @@ const en = {
       hunter: "Who do you take with you?",
       "mayor-succession": "Choose the next Mayor",
       scapegoat: "Who may vote tomorrow?",
+      "tie-break": "Who leaves the village?",
     },
     lastProtected: "{name} was protected last night: not again.",
     wolvesHint: "The kill happens once you all pick the same victim. If you don't agree in time, nobody dies.",
@@ -819,6 +823,7 @@ const en = {
     },
     confirm: "Confirm",
     continue: "Continue",
+    skipTurn: "Skip: nothing done",
     say: "Say",
     showTo: "Show to {name}",
     /** Cards shown on the game master's device, to players without a phone. */
@@ -980,11 +985,18 @@ const en = {
         healAvailable: "Healing potion available",
         poisonAvailable: "Poison available",
         nothing: "Use nothing",
+        wake: "Witch, wake up. Here is tonight's victim.",
+        askHeal: "Will you use your healing potion?",
+        askPoison: "And your poison?",
+        thumbs: "{name} answers with a thumb up or down.",
+        used: "Already used: ask anyway, so the village can't tell.",
+        pickPoison: "Tap the player {name} poisons, then confirm.",
       },
       deaths: {
         dawn: "The sun rises. Everyone wakes up!",
         vote: "The village has decided.",
         hunter: "The Hunter takes a shot.",
+        powersLost: "The Elder was killed by the village: every villager loses their power until the end of the game!",
         sudden: "Terrible news: a sudden death.",
         /** Dawn says who died, never how: only grief, which the lovers' link makes plain. */
         found: [
@@ -1024,6 +1036,8 @@ const en = {
         nobody: "No elimination",
         tie: "Tie",
         tieScapegoat: "Tie: the Scapegoat dies",
+        tieMayor: "Tie: the Mayor decides",
+        noVoters: "Nobody may vote today: the Scapegoat decided so. The village can still talk, then night falls.",
         raven: "{name} starts with 2 votes against them (Raven).",
         cannotVote: "Can't vote: {names}.",
         second: "Second vote, called by the Stuttering Judge.",
@@ -1101,6 +1115,11 @@ const en = {
       },
       idiot: {
         say: "{name} is the Village Idiot! They survive, but can no longer vote.",
+      },
+      "tie-break": {
+        say: "It's a tie! {name}, as Mayor, you decide: who leaves the village?",
+        do: "Tap the player the Mayor names, then confirm.",
+        tied: "Tied: {names}.",
       },
       servant: {
         say: "Before the card is revealed: does the Devoted Servant want to take {name}'s role?",

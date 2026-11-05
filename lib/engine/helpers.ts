@@ -78,6 +78,15 @@ export function hasPower(state: GameState, player: Player) {
   return true;
 }
 
+/**
+ * The Elder killed in plain sight (the vote, the Hunter's shot) among these
+ * deaths: the village must hear it lost its powers. A poisoned Elder keeps the
+ * mystery: the village finds out when its roles stop being called at night.
+ */
+export function elderCostsPowers(state: GameState, deaths: { playerId: string; cause: string }[]) {
+  return state.villagePowersLost && deaths.some((d) => (d.cause === "vote" || d.cause === "hunter") && getPlayer(state, d.playerId).role === "elder");
+}
+
 /** Living holders of a role who can still use it, in seating order. */
 export function holders(state: GameState, role: RoleId) {
   return state.players.filter((p) => p.alive && p.role === role && hasPower(state, p));

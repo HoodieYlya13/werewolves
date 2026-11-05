@@ -246,6 +246,7 @@ const fr: Dictionary = {
     validateEliminate: "Valider : éliminer {name}",
     validateTie: "Valider : égalité entre {names}",
     validateTieScapegoat: "Valider : égalité (le Bouc Émissaire meurt)",
+    validateTieMayor: "Valider : égalité, le Maire tranche",
     validateNobody: "Valider : personne n'est éliminé",
     phoneTitle: "Vote",
     phoneHint: "Touchez le joueur contre qui vous votez. Vous pouvez changer d'avis jusqu'à ce que le meneur clôture le vote.",
@@ -552,7 +553,7 @@ const fr: Dictionary = {
     start: "Choisir les cartes",
     needPlayers: "Il faut au moins {min} joueurs.",
     cards: "{count} / {needed} cartes",
-    thiefNote: "Le Voleur a besoin de 2 cartes en plus, laissées face cachée.",
+    thiefNote: "Avec le Voleur, le paquet a 2 cartes de plus que de joueurs : elles restent face cachée au milieu.",
     suggest: "Paquet classique",
     suggestHint: "Les rôles du jeu de base, puis des villageois",
     suggestSpecials: "Sans villageois",
@@ -700,6 +701,8 @@ const fr: Dictionary = {
     tallyEntry: "{name} {count}",
     tie: "Égalité : personne n'est éliminé.",
     tieScapegoat: "Égalité : le Bouc Émissaire en fait les frais.",
+    tieMayor: "Égalité : le Maire tranche.",
+    tieBreak: "{name}, en tant que Maire, choisis qui quitte le village parmi {names}.",
     nobody: "Personne n'est éliminé.",
 
     // --- téléphones ---
@@ -719,6 +722,7 @@ const fr: Dictionary = {
       hunter: "Qui emportes-tu avec toi ?",
       "mayor-succession": "Choisis le prochain Maire",
       scapegoat: "Qui pourra voter demain ?",
+      "tie-break": "Qui quitte le village ?",
     },
     lastProtected: "{name} était protégé la nuit dernière : pas deux fois de suite.",
     wolvesHint: "La victime meurt dès que vous choisissez tous la même. Sans accord à temps, personne ne meurt.",
@@ -820,6 +824,7 @@ const fr: Dictionary = {
     },
     confirm: "Valider",
     continue: "Continuer",
+    skipTurn: "Passer : rien n'est fait",
     say: "À dire",
     showTo: "Montrer à {name}",
     /** Cards shown on the game master's device, to players without a phone. */
@@ -980,11 +985,18 @@ const fr: Dictionary = {
         healAvailable: "Potion de vie disponible",
         poisonAvailable: "Potion de mort disponible",
         nothing: "Ne rien utiliser",
+        wake: "Sorcière, réveille-toi. Voici la victime de cette nuit.",
+        askHeal: "Veux-tu utiliser ta potion de vie ?",
+        askPoison: "Et ta potion de mort ?",
+        thumbs: "{name} répond pouce en l'air ou pouce en bas.",
+        used: "Déjà utilisée : posez quand même la question, pour que le village ne devine rien.",
+        pickPoison: "Touchez le joueur que {name} empoisonne, puis validez.",
       },
       deaths: {
         dawn: "Le jour se lève. Tout le monde se réveille !",
         vote: "Le village a tranché.",
         hunter: "Le Chasseur tire.",
+        powersLost: "L'Ancien a été tué par le village : tous les villageois perdent leurs pouvoirs jusqu'à la fin de la partie !",
         sudden: "Terrible nouvelle : une mort subite.",
         /** Dawn says who died, never how: only grief, which the lovers' link makes plain. */
         found: [
@@ -1024,6 +1036,8 @@ const fr: Dictionary = {
         nobody: "Aucun éliminé",
         tie: "Égalité",
         tieScapegoat: "Égalité : le Bouc Émissaire meurt",
+        tieMayor: "Égalité : le Maire tranche",
+        noVoters: "Personne ne peut voter aujourd'hui : le Bouc Émissaire l'a décidé. Le village peut quand même discuter, puis la nuit tombe.",
         raven: "2 voix sont déjà comptées contre {name} (Corbeau).",
         cannotVote: "Ne votent pas : {names}.",
         second: "Second vote, demandé par le Juge Bègue.",
@@ -1101,6 +1115,11 @@ const fr: Dictionary = {
       },
       idiot: {
         say: "{name} est l'Idiot du Village ! L'Idiot reste en vie, mais ne vote plus.",
+      },
+      "tie-break": {
+        say: "Égalité ! {name}, en tant que Maire, c'est toi qui tranches : qui quitte le village ?",
+        do: "Touchez le joueur désigné par le Maire, puis validez.",
+        tied: "À égalité : {names}.",
       },
       servant: {
         say: "Avant de révéler la carte : est-ce que la Servante Dévouée veut prendre le rôle de {name} ?",

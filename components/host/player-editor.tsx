@@ -39,7 +39,7 @@ export function PlayerEditor({ playerId, onClose, children }: { playerId: string
           <PhotoPicker hasPhoto={player.photo !== null} onChange={(data) => send({ type: "set-photo", playerId, data })} />
           <div className="flex w-full flex-col gap-1.5">
             <Label htmlFor="player-name">{dict.host.name}</Label>
-            <Input id="player-name" maxLength={MAX_NAME_LENGTH} value={name} onChange={(e) => setName(e.target.value)} />
+            <Input id="player-name" autoCorrect="off" spellCheck={false} maxLength={MAX_NAME_LENGTH} value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <Button type="submit" className="w-full" disabled={!name.trim()}>
             {dict.host.save}

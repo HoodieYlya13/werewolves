@@ -181,6 +181,8 @@ export type Step =
       /** The Stuttering Judge's extra vote. */
       second: boolean;
     }
+  /** A tie with a living Mayor (and no Scapegoat): the Mayor picks who goes. Empty `tiedIds`: anyone. */
+  | { kind: "tie-break"; playerId: string; tiedIds: string[] }
   | { kind: "idiot"; playerId: string }
   | { kind: "servant"; playerId: string; victimId: string; roleTriggers: Step[] }
   | { kind: "scapegoat"; playerId: string }
@@ -193,7 +195,8 @@ export type StepKind = Step["kind"];
 export type Action =
   | { type: "continue" }
   | { type: "thief"; pick: number | null }
-  | { type: "cupid"; lovers: [string, string] }
+  /** null: Cupid didn't choose (no game master, or skipped): no lovers. */
+  | { type: "cupid"; lovers: [string, string] | null }
   /** null: the Seer didn't choose in time (no game master). */
   | { type: "seer"; targetId: string | null }
   /** null: the pack couldn't agree (no game master: they must all pick the same victim). */
@@ -202,8 +205,11 @@ export type Action =
   /** null: the Hunter didn't shoot in time (no game master). */
   | { type: "hunter"; targetId: string | null }
   | { type: "mayor"; targetId: string }
-  /** `tie: true` = no majority (kills the Scapegoat if there is one). */
-  | { type: "vote"; targetId: string | null; tie?: boolean }
+  /**
+   * `tie: true` = no majority: kills the Scapegoat if there is one, else the
+   * Mayor breaks it, among `tiedIds` when known.
+   */
+  | { type: "vote"; targetId: string | null; tie?: boolean; tiedIds?: string[] }
   /** Players picked on steps added after the base game. Empty = skip. */
   | { type: "pick"; targetIds: string[] }
   /** A choice on steps added after the base game (index, side, yes/no). */

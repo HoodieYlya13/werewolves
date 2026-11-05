@@ -61,7 +61,7 @@ export function BallotPanel({
       return;
     }
     if (outcome.kind === "eliminate") act({ type: "vote", targetId: outcome.targetId });
-    else if (outcome.kind === "tie") act({ type: "vote", targetId: null, tie: true });
+    else if (outcome.kind === "tie") act({ type: "vote", targetId: null, tie: true, tiedIds: outcome.targetIds });
     else act({ type: "vote", targetId: null });
   }
 
@@ -159,14 +159,16 @@ export function BallotPanel({
           </Button>
         )
       ) : (
-        <Button type="button" className="h-12 w-full text-base sm:w-auto sm:self-start" onClick={validate}>
+        <Button type="button" className="h-auto min-h-12 w-full text-base whitespace-normal sm:w-auto sm:self-start" onClick={validate}>
           <Check aria-hidden className="size-5" />
           {outcome.kind === "eliminate"
             ? format(t.validateEliminate, { name: nameOf(outcome.targetId) })
             : outcome.kind === "tie"
               ? vote.scapegoatId
                 ? t.validateTieScapegoat
-                : format(t.validateTie, { names: outcome.targetIds.map(nameOf).join(", ") })
+                : vote.mayorId
+                  ? t.validateTieMayor
+                  : format(t.validateTie, { names: outcome.targetIds.map(nameOf).join(", ") })
               : t.validateNobody}
         </Button>
       )}

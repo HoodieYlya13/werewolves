@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FlaskConical, LogIn, Megaphone, Moon, Quote, Skull, Smartphone, Sun, Trophy } from "lucide-react";
+import { Check, FlaskConical, LogIn, Megaphone, Moon, Quote, Skull, Smartphone, Sun, ThumbsDown, ThumbsUp, Trophy } from "lucide-react";
 import { AuthButton } from "@/components/account-button";
 import { useI18n } from "@/components/i18n-provider";
 import { BallotPanel } from "@/components/host/ballot-panel";
@@ -12,7 +12,7 @@ import { RoleName } from "@/components/host/role-chip";
 import { useRoomContext } from "@/components/room-context";
 import { TimerControls } from "@/components/vote-timer";
 import { format } from "@/lib/i18n/config";
-import { isWolf, type Action, type Death, type GameState, type PhaseRef, type Player, type Step } from "@/lib/engine";
+import { elderCostsPowers, isWolf, type Action, type Death, type GameState, type PhaseRef, type Player, type Step } from "@/lib/engine";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/lib/session";
 
@@ -121,7 +121,7 @@ function describe(game: GameState, action: Action, dict: ReturnType<typeof useI1
     case "mayor":
       return nameOf(game, action.targetId);
     case "cupid":
-      return names(game, action.lovers);
+      return action.lovers ? names(game, action.lovers) : "—";
     case "pick":
       return action.targetIds.length ? names(game, action.targetIds) : "—";
     case "witch": {
@@ -207,6 +207,8 @@ function StepBody({ game, act }: { game: GameState; act: (action: Action) => voi
       return <MayorStep game={game} step={step} act={act} />;
     case "vote":
       return <VoteStep game={game} step={step} act={act} />;
+    case "tie-break":
+      return <TieBreakStep game={game} step={step} act={act} />;
     case "bluff":
       return <BluffStep game={game} step={step} act={act} />;
     case "game-over":
@@ -296,6 +298,8 @@ function PickPlayers({
   onConfirm,
   skip,
   extra,
+  initial = [],
+  players,
 }: {
   game: GameState;
   count: number;
@@ -304,13 +308,17 @@ function PickPlayers({
   onConfirm: (ids: string[]) => void;
   skip?: string;
   extra?: React.ReactNode;
+  /** Already selected when the step opens (back from an undo). */
+  initial?: string[];
+  /** Who can be picked: everyone alive by default. */
+  players?: Player[];
 }) {
-  const [selected, setSelected] = useState<string[]>([]);
+  const [selected, setSelected] = useState<string[]>(initial);
   return (
     <>
       <PlayerGrid
         game={game}
-        players={living(game)}
+        players={players ?? living(game)}
         selected={selected}
         onToggle={(id) => setSelected((s) => toggle(s, id, count))}
         isDisabled={isDisabled}
@@ -339,7 +347,7 @@ function ChoiceButtons({ options }: { options: { label: React.ReactNode; onClick
   return (
     <div className="flex flex-wrap gap-2 [&>*]:grow sm:[&>*]:grow-0">
       {options.map((o, i) => (
-        <Button key={i} type="button" variant={o.ghost ? "outline" : "default"} className="h-12 px-6 text-base" onClick={o.onClick}>
+        <Button key={i} type="button" variant={o.ghost ? "outline" : "default"} className="h-auto min-h-12 px-6 text-base whitespace-normal" onClick={o.onClick}>
           {o.label}
         </Button>
       ))}
@@ -390,31 +398,56 @@ function PhaseEndStep({ game, step, act }: Props<"phase-end">) {
 function ThiefStep({ game, step, act }: Props<"thief">) {
   const { dict } = useI18n();
   const t = dict.game.steps.thief;
+  const { phonePlays } = useRoomContext();
+  // The Thief may have chosen on their phone: shown picked here, ready to validate.
+  const phone = phonePlays?.actions[step.playerId];
+  const fromPhone = phone?.type === "thief" ? phone.pick : undefined;
+  const [mine, setMine] = useState<number | null | undefined>(undefined);
+  const pick = mine !== undefined ? mine : fromPhone;
+  const picked = "border-primary bg-primary/10 ring-2 ring-primary";
   return (
     <>
       <Say>{t.say}</Say>
       <Do>{format(t.do, { name: nameOf(game, step.playerId) })}</Do>
       {/* The Thief may see these two cards, nothing else: the choice happens in the reveal. */}
       <Reveal to={nameOf(game, step.playerId)}>
+        {fromPhone !== undefined && (
+          <p className="flex items-center gap-2 text-sm font-semibold text-moon">
+            <Smartphone aria-hidden className="size-4" />
+            {dict.lead.fromPhones}
+          </p>
+        )}
         <div className="grid w-full grid-cols-2 gap-4">
           {step.cards.map((role, i) => (
             <button
               key={i}
               type="button"
-              onClick={() => act({ type: "thief", pick: i })}
-              className="card flex aspect-[3/4] flex-col items-center justify-center gap-2 p-4 text-center text-2xl font-semibold hover:border-fg/40"
+              aria-pressed={pick === i}
+              onClick={() => setMine(i)}
+              className={`card flex aspect-[3/4] flex-col items-center justify-center gap-2 p-4 text-center text-2xl font-semibold ${pick === i ? picked : "hover:border-fg/40"}`}
             >
               <RoleName role={role} />
             </button>
           ))}
         </div>
-        {step.mustTakeWolf ? (
-          <p className="text-primary">{t.mustTakeWolf}</p>
-        ) : (
-          <Button type="button" variant="outline" className="h-12 w-full sm:w-auto sm:self-start" onClick={() => act({ type: "thief", pick: null })}>
-            {t.keep}
+        {step.mustTakeWolf && <p className="text-primary">{t.mustTakeWolf}</p>}
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-center">
+          {!step.mustTakeWolf && (
+            <Button
+              type="button"
+              variant="outline"
+              aria-pressed={pick === null}
+              className={`h-12 px-6 ${pick === null ? picked : ""}`}
+              onClick={() => setMine(null)}
+            >
+              {t.keep}
+            </Button>
+          )}
+          <Button type="button" className="h-12 px-6" disabled={pick === undefined} onClick={() => act({ type: "thief", pick: pick ?? null })}>
+            <Check aria-hidden className="size-5" />
+            {dict.lead.validate}
           </Button>
-        )}
+        </div>
       </Reveal>
     </>
   );
@@ -427,7 +460,12 @@ function CupidStep({ game, step, act }: Props<"cupid">) {
     <>
       <Say>{t.say}</Say>
       <Do>{format(t.do, { name: nameOf(game, step.playerId) })}</Do>
-      <PickPlayers game={game} count={2} onConfirm={([a, b]) => act({ type: "cupid", lovers: [a, b] })} />
+      <PickPlayers
+        game={game}
+        count={2}
+        onConfirm={(ids) => act({ type: "cupid", lovers: ids.length === 2 ? [ids[0], ids[1]] : null })}
+        skip={dict.game.skipTurn}
+      />
     </>
   );
 }
@@ -445,9 +483,18 @@ function LoversStep({ game, step, act }: Props<"lovers">) {
   );
 }
 
+/**
+ * The Seer's last pick each night, so an undo back to the Seer's turn comes
+ * back with it selected. Keyed by the deal and the night: never another game's.
+ */
+const seerPicks = new Map<string, string>();
+const seerKey = (game: GameState, seerId: string) => `${JSON.stringify(game.setup.roles)}:${game.phase.number}:${seerId}`;
+
 function SeerStep({ game, step, act }: Props<"seer">) {
   const { dict } = useI18n();
   const t = dict.game.steps.seer;
+  const key = seerKey(game, step.playerId);
+  const last = seerPicks.get(key);
   return (
     <>
       <Say>{t.say}</Say>
@@ -455,26 +502,36 @@ function SeerStep({ game, step, act }: Props<"seer">) {
       <PickPlayers
         game={game}
         count={1}
+        initial={last && game.players.some((p) => p.id === last && p.alive) ? [last] : []}
         isDisabled={(p) => p.id === step.playerId}
-        onConfirm={([targetId]) => act({ type: "seer", targetId })}
+        onConfirm={([targetId]) => {
+          if (targetId) seerPicks.set(key, targetId);
+          act({ type: "seer", targetId: targetId ?? null });
+        }}
+        skip={dict.game.skipTurn}
       />
     </>
   );
 }
 
+/** Opens on the card straight away; Continue closes it, then the Seer goes back to sleep. */
 function SeerResultStep({ game, step, act }: Props<"seer-result">) {
   const { dict } = useI18n();
   const t = dict.game.steps["seer-result"];
+  const [seen, setSeen] = useState(false);
+  if (seen) {
+    return (
+      <>
+        <Say>{t.say}</Say>
+        <ContinueButton act={act} />
+      </>
+    );
+  }
   return (
-    <>
-      <Do>{format(t.do, { name: nameOf(game, step.playerId) })}</Do>
-      <Reveal to={nameOf(game, step.playerId)}>
-        <p className="text-2xl">{format(t.reveal, { target: nameOf(game, step.targetId) })}</p>
-        <RoleName role={step.role} className="font-display text-5xl font-bold sm:text-7xl" />
-      </Reveal>
-      <Say>{t.say}</Say>
-      <ContinueButton act={act} />
-    </>
+    <Reveal to={nameOf(game, step.playerId)} defaultOpen closeLabel={dict.game.continue} onClose={() => setSeen(true)}>
+      <p className="text-2xl">{format(t.reveal, { target: nameOf(game, step.targetId) })}</p>
+      <RoleName role={step.role} className="font-display text-5xl font-bold sm:text-7xl" />
+    </Reveal>
   );
 }
 
@@ -494,78 +551,107 @@ function WolvesStep({ game, step, act }: Props<"wolves">) {
         game={game}
         count={1}
         isDisabled={isWolf}
-        onConfirm={([targetId]) => act({ type: "wolves", targetId })}
+        onConfirm={([targetId]) => act({ type: "wolves", targetId: targetId ?? null })}
+        skip={dict.game.skipTurn}
       />
     </>
   );
 }
 
+/**
+ * The Witch's turn, one question at a time, as the narrator asks it: the
+ * victim shown, then the healing potion, then the poison (thumb up or down).
+ * Both questions are asked even with a potion gone, so the village can't tell.
+ */
 function WitchStep({ game, step, act }: Props<"witch">) {
   const { dict } = useI18n();
   const t = dict.game.steps.witch;
+  const [stage, setStage] = useState<"show" | "heal" | "poison" | "target">("show");
   const [heal, setHeal] = useState(false);
-  const [poison, setPoison] = useState<string[]>([]);
   const victim = step.victimId ? nameOf(game, step.victimId) : null;
+  const witch = nameOf(game, step.playerId);
+  const potion = (on: boolean, Icon: typeof FlaskConical, available: string, used: string, color: string) => (
+    <li className={`flex items-center justify-center gap-3 ${on ? color : "text-muted-foreground line-through"}`}>
+      <Icon aria-hidden className="size-8" />
+      {on ? available : used}
+    </li>
+  );
+  const answer = (yes: { label: string; onClick: () => void; disabled?: boolean }, no: () => void) => (
+    <div className="grid grid-cols-2 gap-2 sm:flex">
+      <Button type="button" className="h-auto min-h-12 px-6 text-base whitespace-normal" disabled={yes.disabled} onClick={yes.onClick}>
+        <ThumbsUp aria-hidden className="size-5" />
+        {yes.label}
+      </Button>
+      <Button type="button" variant="outline" className="h-auto min-h-12 px-6 text-base" onClick={no}>
+        <ThumbsDown aria-hidden className="size-5" />
+        {dict.auto.no}
+      </Button>
+    </div>
+  );
 
+  if (stage === "show") {
+    return (
+      <>
+        <Say>{t.wake}</Say>
+        <Do>{format(t.do, { name: witch })}</Do>
+        <Reveal to={witch} closeLabel={dict.game.continue} onClose={() => setStage("heal")}>
+          <p className="font-display text-5xl font-bold text-balance wrap-anywhere sm:text-7xl">{victim ?? t.noVictim}</p>
+          <ul className="flex flex-col gap-3 text-2xl font-semibold sm:text-3xl">
+            {potion(step.canHeal, FlaskConical, t.healAvailable, t.healUsed, "text-ok")}
+            {potion(step.canPoison, Skull, t.poisonAvailable, t.poisonUsed, "text-primary")}
+          </ul>
+        </Reveal>
+      </>
+    );
+  }
+  if (stage === "heal") {
+    return (
+      <>
+        <Say>{t.askHeal}</Say>
+        <Do>{step.canHeal ? format(t.thumbs, { name: witch }) : t.used}</Do>
+        {answer(
+          {
+            label: victim && step.canHeal ? format(t.heal, { name: victim }) : dict.auto.yes,
+            disabled: !step.canHeal,
+            onClick: () => {
+              setHeal(true);
+              setStage("poison");
+            },
+          },
+          () => {
+            setHeal(false);
+            setStage("poison");
+          },
+        )}
+      </>
+    );
+  }
+  if (stage === "poison") {
+    return (
+      <>
+        <Say>{t.askPoison}</Say>
+        <Do>{step.canPoison ? format(t.thumbs, { name: witch }) : t.used}</Do>
+        {answer({ label: dict.auto.yes, disabled: !step.canPoison, onClick: () => setStage("target") }, () =>
+          act({ type: "witch", heal, poisonId: null }),
+        )}
+      </>
+    );
+  }
   return (
     <>
-      <Say>{t.say}</Say>
-      <Do>{format(t.do, { name: nameOf(game, step.playerId) })}</Do>
-      <Reveal to={nameOf(game, step.playerId)}>
-        <p className="text-3xl font-semibold sm:text-4xl">{victim ? format(t.victim, { name: victim }) : t.noVictim}</p>
-        <ul className="flex flex-col gap-2 text-lg">
-          <li className={step.canHeal ? "text-ok" : "text-muted-foreground line-through"}>
-            <FlaskConical aria-hidden className="mr-2 inline size-5" />
-            {step.canHeal ? t.healAvailable : t.healUsed}
-          </li>
-          <li className={step.canPoison ? "text-primary" : "text-muted-foreground line-through"}>
-            <Skull aria-hidden className="mr-2 inline size-5" />
-            {step.canPoison ? t.poisonAvailable : t.poisonUsed}
-          </li>
-        </ul>
-      </Reveal>
-      <p className="text-lg font-semibold">{victim ? format(t.victim, { name: victim }) : t.noVictim}</p>
-
-      <label
-        className={`flex items-center gap-3 rounded-xl border-2 px-4 py-3 ${heal ? "border-ok" : "border-line"} ${step.canHeal ? "cursor-pointer" : "opacity-50"}`}
-      >
-        <input
-          type="checkbox"
-          className="size-5 accent-[var(--ok)]"
-          checked={heal}
-          disabled={!step.canHeal}
-          onChange={(e) => setHeal(e.target.checked)}
-        />
-        <FlaskConical aria-hidden className="size-5 text-ok" />
-        {step.canHeal && victim ? format(t.heal, { name: victim }) : t.healUsed}
-      </label>
-
-      <div className={`flex flex-col gap-3 ${step.canPoison ? "" : "opacity-50"}`}>
-        <p className="flex items-center gap-2 font-medium">
-          <Skull aria-hidden className="size-5 text-primary" />
-          {step.canPoison ? t.poison : t.poisonUsed}
-        </p>
-        {step.canPoison && (
-          <PlayerGrid
-            game={game}
-            players={living(game)}
-            selected={poison}
-            onToggle={(id) => setPoison((s) => toggle(s, id, 1))}
-            // Already dying: the poison would only tell the village who used it.
-            isDisabled={(p) => p.id === step.victimId}
-          />
-        )}
-      </div>
-
-      <div className="flex flex-wrap gap-2 [&>*]:grow sm:[&>*]:grow-0">
-        <Button
-          type="button"
-          className="h-12 px-8 text-base"
-          onClick={() => act({ type: "witch", heal, poisonId: poison[0] ?? null })}
-        >
-          {heal || poison.length > 0 ? dict.game.confirm : t.nothing}
-        </Button>
-      </div>
+      <Do>{format(t.pickPoison, { name: witch })}</Do>
+      <PickPlayers
+        game={game}
+        count={1}
+        // Already dying: the poison would only tell the village who used it.
+        isDisabled={(p) => p.id === step.victimId}
+        onConfirm={([poisonId]) => act({ type: "witch", heal, poisonId: poisonId ?? null })}
+        extra={
+          <Button type="button" variant="outline" className="h-12" onClick={() => setStage("poison")}>
+            {dict.ballot.back}
+          </Button>
+        }
+      />
     </>
   );
 }
@@ -620,6 +706,7 @@ function DeathsStep({ game, step, act }: Props<"deaths">) {
           })}
         </ul>
       )}
+      {!dawn && elderCostsPowers(game, step.deaths) && <Say>{t.powersLost}</Say>}
       <ContinueButton act={act} />
     </>
   );
@@ -633,7 +720,7 @@ function HunterStep({ game, step, act }: Props<"hunter">) {
     <>
       <Say>{format(t.say, { name })}</Say>
       <Do>{format(t.do, { name })}</Do>
-      <PickPlayers game={game} count={1} onConfirm={([targetId]) => act({ type: "hunter", targetId })} />
+      <PickPlayers game={game} count={1} onConfirm={([targetId]) => act({ type: "hunter", targetId: targetId ?? null })} skip={dict.game.skipTurn} />
     </>
   );
 }
@@ -698,6 +785,15 @@ function MayorStep({ game, step, act }: Props<"mayor-election" | "mayor-successi
 function VoteStep({ game, step, act }: Props<"vote">) {
   const { dict } = useI18n();
   const t = dict.game.steps.vote;
+  // The Scapegoat let nobody vote today: the village talks, then night falls.
+  if (living(game).every((p) => step.cannotVote.includes(p.id))) {
+    return (
+      <>
+        <Say>{t.noVoters}</Say>
+        <NextButton onClick={() => act({ type: "vote", targetId: null })} />
+      </>
+    );
+  }
   return (
     <>
       {step.second && <p className="font-semibold text-moon">{t.second}</p>}
@@ -724,10 +820,10 @@ function VoteStep({ game, step, act }: Props<"vote">) {
             <Button
               type="button"
               variant="outline"
-              className="h-12 px-3 sm:px-5"
+              className="h-auto min-h-12 px-3 whitespace-normal sm:px-5"
               onClick={() => act({ type: "vote", targetId: null, tie: true })}
             >
-              {step.scapegoatId ? t.tieScapegoat : t.tie}
+              {step.scapegoatId ? t.tieScapegoat : step.mayorId ? t.tieMayor : t.tie}
             </Button>
             <Button type="button" variant="outline" className="h-12 px-3 sm:px-5" onClick={() => act({ type: "vote", targetId: null })}>
               {t.nobody}
@@ -739,13 +835,30 @@ function VoteStep({ game, step, act }: Props<"vote">) {
   );
 }
 
+/** A tied vote with a Mayor: the Mayor names who goes, among the tied players when the phones counted. */
+function TieBreakStep({ game, step, act }: Props<"tie-break">) {
+  const { dict } = useI18n();
+  const t = dict.game.steps["tie-break"];
+  const tied = step.tiedIds.length ? living(game).filter((p) => step.tiedIds.includes(p.id)) : living(game);
+  return (
+    <>
+      <Say>{format(t.say, { name: nameOf(game, step.playerId) })}</Say>
+      {step.tiedIds.length > 0 && <Do>{format(t.tied, { names: names(game, step.tiedIds) })}</Do>}
+      <Do>{t.do}</Do>
+      <PickPlayers game={game} count={1} players={tied} onConfirm={(ids) => act(pickAction(ids))} skip={dict.game.steps.vote.nobody} />
+    </>
+  );
+}
+
 /** A turn nobody can play: the narrator calls it anyway, word for word. */
 function BluffStep({ game, step, act }: Props<"bluff">) {
   const { dict } = useI18n();
   const turns = dict.game.steps as Record<string, { say?: string }>;
   const siblings = dict.game.steps.siblings as Record<string, string>;
   const piper = game.setup.settings.piperCharms;
-  const say = format(turns[step.turn]?.say ?? siblings[step.turn] ?? "", { count: piper === "choice" ? 2 : piper });
+  // Turns named after their role, whose lines sit under their step's name.
+  const turn = step.turn === "pied-piper" ? "piper" : step.turn === "accursed-wolf-father" ? "infect" : step.turn;
+  const say = format(turns[turn]?.say ?? siblings[turn] ?? "", { count: piper === "choice" ? 2 : piper });
   return (
     <>
       <Say>{say}</Say>
@@ -812,6 +925,7 @@ function WildChildStep({ game, step, act }: Props<"wild-child">) {
         count={1}
         isDisabled={(p) => p.id === step.playerId}
         onConfirm={(ids) => act(pickAction(ids))}
+        skip={dict.game.skipTurn}
       />
     </>
   );
@@ -855,7 +969,7 @@ function FoxStep({ game, step, act }: Props<"fox">) {
     <>
       <Say>{t.say}</Say>
       <Do>{format(t.do, { name: nameOf(game, step.playerId) })}</Do>
-      <PickPlayers game={game} count={1} onConfirm={(ids) => act(pickAction(ids))} />
+      <PickPlayers game={game} count={1} onConfirm={(ids) => act(pickAction(ids))} skip={dict.game.skipTurn} />
     </>
   );
 }
@@ -946,6 +1060,7 @@ function PiperStep({ game, step, act }: Props<"piper">) {
         min={step.min}
         isDisabled={(p) => p.id === step.playerId || !!p.flags.charmed}
         onConfirm={(ids) => act(pickAction(ids))}
+        skip={dict.game.skipTurn}
       />
     </>
   );

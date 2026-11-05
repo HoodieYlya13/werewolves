@@ -156,6 +156,10 @@ function backToSleep(done: Step, next: Step): GameState["backToSleep"] {
       return done.kind;
     case "piper":
       return "pied-piper";
+    // Skipped: no result screen follows to put them back to sleep.
+    case "seer":
+    case "fox":
+      return next.kind === `${done.kind}-result` ? null : done.kind;
     // The Wolf-Father answers while the pack is still awake.
     case "wolves":
       return next.kind === "infect" ? null : "wolves";
@@ -278,6 +282,7 @@ function resolve(state: GameState, step: Step, action: Action) {
 
     case "cupid": {
       const { lovers } = expect("cupid");
+      if (lovers === null) return;
       const [a, b] = lovers.map((id) => getAlive(state, id));
       if (a.id === b.id) throw new EngineError("invalid-target", "Pick two different players");
       state.lovers = [a.id, b.id];
@@ -286,7 +291,9 @@ function resolve(state: GameState, step: Step, action: Action) {
     }
 
     case "wild-child": {
-      const [model] = picked(1, 1);
+      // Nobody: the Wild Child didn't choose, and never turns.
+      const [model] = picked(0, 1);
+      if (!model) return;
       if (model.id === step.playerId) throw new EngineError("invalid-target", "Pick someone else");
       getPlayer(state, step.playerId).memo.model = model.id;
       log(state, { type: "model", playerId: step.playerId, modelId: model.id });
@@ -432,24 +439,31 @@ function resolve(state: GameState, step: Step, action: Action) {
     }
 
     case "vote": {
-      const { targetId, tie } = expect("vote");
+      const { targetId, tie, tiedIds } = expect("vote");
       state.votedToday = true;
       if (tie) {
-        log(state, { type: "vote", targetId: null });
-        if (step.scapegoatId) kill(state, [{ playerId: step.scapegoatId, cause: "scapegoat" }], "vote");
+        if (step.scapegoatId) {
+          // The Scapegoat dies instead of the tied players: the Mayor has nothing to settle.
+          log(state, { type: "vote", targetId: null });
+          kill(state, [{ playerId: step.scapegoatId, cause: "scapegoat" }], "vote");
+        } else if (state.mayorId) {
+          state.pending.unshift({ kind: "tie-break", playerId: state.mayorId, tiedIds: (tiedIds ?? []).filter((id) => getPlayer(state, id).alive) });
+        } else {
+          log(state, { type: "vote", targetId: null });
+        }
         return;
       }
-      log(state, { type: "vote", targetId });
-      if (targetId === null) return;
-      const target = getAlive(state, targetId);
-      // The Village Idiot survives his first vote, but loses his own vote.
-      if (target.role === "village-idiot" && !target.flags["idiot-revealed"] && hasPower(state, target)) {
-        target.flags["idiot-revealed"] = true;
-        state.pending.unshift({ kind: "idiot", playerId: target.id });
-        log(state, { type: "idiot-revealed", playerId: target.id });
-        return;
+      eliminate(state, targetId);
+      return;
+    }
+
+    case "tie-break": {
+      // Nobody: the Mayor didn't choose in time (no game master).
+      const [target] = picked(0, 1);
+      if (target && step.tiedIds.length > 0 && !step.tiedIds.includes(target.id)) {
+        throw new EngineError("invalid-target", "Pick one of the tied players");
       }
-      kill(state, [{ playerId: target.id, cause: "vote" }], "vote");
+      eliminate(state, target?.id ?? null);
       return;
     }
 
@@ -486,6 +500,21 @@ function resolve(state: GameState, step: Step, action: Action) {
     case "game-over":
       throw new EngineError("game-over", "The game is over");
   }
+}
+
+/** The village's vote lands on `targetId` (null: nobody goes). */
+function eliminate(state: GameState, targetId: string | null) {
+  log(state, { type: "vote", targetId });
+  if (targetId === null) return;
+  const target = getAlive(state, targetId);
+  // The Village Idiot survives his first vote, but loses his own vote.
+  if (target.role === "village-idiot" && !target.flags["idiot-revealed"] && hasPower(state, target)) {
+    target.flags["idiot-revealed"] = true;
+    state.pending.unshift({ kind: "idiot", playerId: target.id });
+    log(state, { type: "idiot-revealed", playerId: target.id });
+    return;
+  }
+  kill(state, [{ playerId: target.id, cause: "vote" }], "vote");
 }
 
 // --- flow ---

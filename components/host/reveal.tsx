@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
@@ -10,15 +10,36 @@ import { Button } from "@/components/ui/button";
 /**
  * A button that opens a full-screen panel to hand the device to one player.
  * The panel covers everything else (players, roles, timeline), so the player
- * only sees what they are allowed to see.
+ * only sees what they are allowed to see. `defaultOpen` opens it straight
+ * away; `closeLabel` and `onClose` turn "Hide" into the step's way on.
  */
-export function Reveal({ to, children }: { to: string; children: React.ReactNode }) {
+export function Reveal({
+  to,
+  children,
+  defaultOpen = false,
+  closeLabel,
+  onClose,
+}: {
+  to: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+  closeLabel?: string;
+  onClose?: () => void;
+}) {
   const { dict } = useI18n();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
+  const close = () => {
+    setOpen(false);
+    onClose?.();
+  };
+  const closeRef = useRef(close);
+  useEffect(() => {
+    closeRef.current = close;
+  });
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeRef.current();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
@@ -37,9 +58,9 @@ export function Reveal({ to, children }: { to: string; children: React.ReactNode
             className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-8 overflow-y-auto bg-bg p-6 pt-[max(1.5rem,env(safe-area-inset-top))] text-center"
           >
             <div className="flex w-full max-w-xl flex-col items-center gap-6">{children}</div>
-            <Button type="button" variant="outline" className="h-12 px-6" onClick={() => setOpen(false)}>
-              <EyeOff aria-hidden className="size-5" />
-              {dict.game.hide}
+            <Button type="button" variant="outline" className="h-12 px-6" onClick={close}>
+              {!closeLabel && <EyeOff aria-hidden className="size-5" />}
+              {closeLabel ?? dict.game.hide}
             </Button>
           </div>,
           document.body,

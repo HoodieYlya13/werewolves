@@ -1,4 +1,4 @@
-import { applyAction, isWolf, roles, type Action, type DeckStyle, type GameState, type RoleId, type Step } from "./engine";
+import { applyAction, elderCostsPowers, isWolf, roles, type Action, type DeckStyle, type GameState, type RoleId, type Step } from "./engine";
 import { tallyBallot, type Ballot, type Timer } from "./ballot";
 import { format } from "./i18n/config";
 import type { Dictionary } from "./i18n/dictionaries/en";
@@ -166,6 +166,7 @@ export function actorsOf(step: Step): string[] {
     case "scapegoat":
     case "servant":
     case "judge":
+    case "tie-break":
       return [step.playerId];
     default:
       return [];
@@ -182,6 +183,7 @@ function turnRole(step: Step): RoleId | "wolves" | "mayor" {
     case "infect":
       return "accursed-wolf-father";
     case "mayor-succession":
+    case "tie-break":
       return "mayor";
     case "servant":
       return "devoted-servant";
@@ -256,6 +258,7 @@ function deathLines(dict: Dictionary, game: GameState, step: Extract<Step, { kin
     const role = game.players.find((p) => p.id === d.playerId)!.role;
     if (game.setup.settings.revealRoleOnDeath) lines.push(format(dict.auto.wasRole, { name, role: dict.roles[role].name }));
   });
+  if (!dawn && elderCostsPowers(game, step.deaths)) lines.push(t.powersLost);
   return lines;
 }
 
@@ -348,6 +351,11 @@ export function beatsOf(room: AutoRoom, dict: Dictionary): Beat[] {
     case "scapegoat":
       beats.push(input([format(t.scapegoat, { name: nameOf(game, step.playerId) })]));
       break;
+    case "tie-break": {
+      const tied = step.tiedIds.map((id) => nameOf(game, id)).join(", ");
+      beats.push(input([format(t.tieBreak, { name: nameOf(game, step.playerId), names: tied })]));
+      break;
+    }
     case "servant":
       beats.push(input([format(t.servant, { name: nameOf(game, step.victimId) })], true));
       break;
@@ -359,13 +367,16 @@ export function beatsOf(room: AutoRoom, dict: Dictionary): Beat[] {
       beats.push({ say: [t.mayorStand], show: "candidacy", wait: { kind: "hold", ms: TIMING.candidacy } });
       beats.push({ say: [t.mayorVote], wait: { kind: "ballot" } });
       break;
-    case "vote":
+    case "vote": {
+      // The Scapegoat let nobody vote: the village still talks, and the empty ballot eliminates nobody.
+      const noVoters = game.players.every((p) => !p.alive || step.cannotVote.includes(p.id));
       beats.push({
-        say: [step.second ? dict.game.steps.vote.second : "", format(t.discussion, { minutes: debateMinutes(room, step.second) })].filter(Boolean),
+        say: [step.second ? dict.game.steps.vote.second : "", noVoters ? dict.game.steps.vote.noVoters : "", format(t.discussion, { minutes: debateMinutes(room, step.second) })].filter(Boolean),
         wait: { kind: "debate" },
       });
-      beats.push({ say: [t.vote], wait: { kind: "ballot" } });
+      beats.push({ say: noVoters ? [] : [t.vote], wait: { kind: "ballot" } });
       break;
+    }
     case "game-over": {
       const team = step.winner.team;
       const wins = dict.game.steps["game-over"];
@@ -602,12 +613,8 @@ export function timeoutAction(game: GameState, random: () => number): Action {
       return { type: "choose", value: null };
     case "wolf-hound":
       return { type: "choose", value: "village" };
-    case "cupid": {
-      const a = any();
-      return { type: "cupid", lovers: [a, any([a])] };
-    }
-    case "wild-child":
-      return { type: "pick", targetIds: [any([step.playerId])] };
+    case "cupid":
+      return { type: "cupid", lovers: null };
     case "seer":
       return { type: "seer", targetId: null };
     case "wolves":
@@ -664,12 +671,12 @@ function ballotOver(room: AutoRoom, ctx: AutoContext, late: boolean): Action | u
   if (tally.nobody) counted.push(format(t.tallyEntry, { name: ctx.dict.ballot.noOne, count: tally.nobody }));
   const lines = counted.length ? [format(t.tally, { list: counted.join(", ") })] : [];
   const outcome = tally.outcome;
-  if (outcome.kind === "tie") lines.push(step.scapegoatId ? t.tieScapegoat : t.tie);
+  if (outcome.kind === "tie") lines.push(step.scapegoatId ? t.tieScapegoat : step.mayorId ? t.tieMayor : t.tie);
   if (outcome.kind === "nobody") lines.push(t.nobody);
   auto.lead = lines;
   auto.leadAt = room.log.length + 1;
   if (outcome.kind === "eliminate") return { type: "vote", targetId: outcome.targetId };
-  return outcome.kind === "tie" ? { type: "vote", targetId: null, tie: true } : { type: "vote", targetId: null };
+  return outcome.kind === "tie" ? { type: "vote", targetId: null, tie: true, tiedIds: outcome.targetIds } : { type: "vote", targetId: null };
 }
 
 /** Stops the clock: every wait picks up where it was on `resume`. */
@@ -774,7 +781,7 @@ export function cueDone(room: AutoRoom, id: number, ctx: AutoContext) {
 export type PhoneTurn =
   | {
       kind: "pick";
-      step: "cupid" | "wild-child" | "defender" | "seer" | "fox" | "big-bad-wolf" | "white-werewolf" | "piper" | "raven" | "hunter" | "mayor-succession" | "scapegoat";
+      step: "cupid" | "wild-child" | "defender" | "seer" | "fox" | "big-bad-wolf" | "white-werewolf" | "piper" | "raven" | "hunter" | "mayor-succession" | "scapegoat" | "tie-break";
       min: number;
       max: number;
       targets: string[];
@@ -882,6 +889,8 @@ export function turnFor(game: GameState, playerId: string, show: Show | undefine
       return { kind: "pick", step: "mayor-succession", min: 1, max: 1, targets: ids(), skip: false };
     case "scapegoat":
       return { kind: "pick", step: "scapegoat", min: 1, max: living.length, targets: ids(), skip: false };
+    case "tie-break":
+      return { kind: "pick", step: "tie-break", min: 1, max: 1, targets: step.tiedIds.length ? ids((p) => step.tiedIds.includes(p.id)) : ids(), skip: false };
     default:
       return null;
   }

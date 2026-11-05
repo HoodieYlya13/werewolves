@@ -1,4 +1,4 @@
-import { isWolf } from "./helpers";
+import { baseTeam, isWolf } from "./helpers";
 import { teamOf } from "./win";
 import type { GameState, PhaseRef, RoleId, Team, Winner } from "./types";
 
@@ -19,13 +19,18 @@ export type PlayerInfo = {
 export function playerInfo(state: GameState, playerId: string): PlayerInfo | null {
   const player = state.players.find((p) => p.id === playerId);
   if (!player) return null;
+  // Not before their call: while Cupid or the Piper is being put back to sleep,
+  // a phone lighting up with the news would be out of step with the narrator.
+  const step = state.step;
+  const newlyCharmed = step.kind === "charmed" && step.newIds.includes(playerId);
+  const team = teamOf(state, player);
   return {
     role: player.role,
     alive: player.alive,
-    team: teamOf(state, player),
+    team: step.kind === "lovers" && team === "lovers" ? baseTeam(player) : team,
     wakesWithWolves: isWolf(player),
-    loverId: state.lovers?.includes(playerId) ? (state.lovers.find((id) => id !== playerId) ?? null) : null,
-    charmed: !!player.flags.charmed,
+    loverId: step.kind !== "lovers" && state.lovers?.includes(playerId) ? (state.lovers.find((id) => id !== playerId) ?? null) : null,
+    charmed: !!player.flags.charmed && !newlyCharmed,
     isMayor: state.mayorId === playerId,
   };
 }

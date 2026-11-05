@@ -355,6 +355,8 @@ function PlayerScreen({ code }: { code: string }) {
           </label>
           <Input
             id="name"
+            autoCorrect="off"
+            spellCheck={false}
             className="text-lg"
             autoComplete="nickname"
             maxLength={MAX_NAME_LENGTH}
@@ -815,6 +817,8 @@ function NameEditor({ name, error, onSave }: { name: string; error: ErrorCode | 
       </label>
       <Input
         id="new-name"
+        autoCorrect="off"
+        spellCheck={false}
         className="text-lg"
         autoComplete="nickname"
         autoFocus
@@ -941,6 +945,8 @@ function RejoinCard({
           </label>
           <Input
             id="rejoin-name"
+            autoCorrect="off"
+            spellCheck={false}
             className="text-lg"
             autoComplete="nickname"
             maxLength={MAX_NAME_LENGTH}
