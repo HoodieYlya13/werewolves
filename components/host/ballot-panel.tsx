@@ -168,7 +168,7 @@ export function BallotPanel({
                 ? t.validateTieScapegoat
                 : vote.mayorId
                   ? t.validateTieMayor
-                  : format(t.validateTie, { names: outcome.targetIds.map(nameOf).join(", ") })
+                  : format(vote.runoff ? t.validateTieAgain : t.validateTie, { names: outcome.targetIds.map(nameOf).join(", ") })
               : t.validateNobody}
         </Button>
       )}

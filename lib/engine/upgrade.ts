@@ -9,8 +9,9 @@ import type { Action, GameSetup, GameState, Step } from "./types";
  * 3: the bear's morning line read on after the Bear Tamer is gone, while
  * roles stay hidden.
  * 4: a tie with a living Mayor (and no Scapegoat) is the Mayor's to break.
+ * 5: a tie with neither goes to a second vote between the tied players.
  */
-export const ENGINE_VERSION = 4;
+export const ENGINE_VERSION = 5;
 
 /** The answer to a step older engines skipped, when it has a neutral one. */
 function filler(step: Step): Action | null {
@@ -25,6 +26,8 @@ function filler(step: Step): Action | null {
     // Older ties eliminated nobody.
     case "tie-break":
       return { type: "pick", targetIds: [] };
+    case "vote":
+      return step.runoff ? { type: "vote", targetId: null, tie: true } : null;
     default:
       return null;
   }

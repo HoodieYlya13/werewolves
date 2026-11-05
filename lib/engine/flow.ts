@@ -59,7 +59,7 @@ const daySequence: SequenceEntry[] = [
   phaseEnd,
 ];
 
-function voteStep(state: GameState, second: boolean): Step {
+function voteStep(state: GameState, second: boolean, runoff: string[] | null = null): Step {
   const living = alive(state);
   const restricted = state.votersOnly?.day === state.phase.number ? state.votersOnly.ids : null;
   const cannotVote = living
@@ -72,6 +72,7 @@ function voteStep(state: GameState, second: boolean): Step {
     cannotVote,
     scapegoatId: holders(state, "scapegoat")[0]?.id ?? null,
     second,
+    runoff: runoff && runoff.filter((id) => getPlayer(state, id).alive),
   };
 }
 
@@ -184,14 +185,14 @@ function suddenDeath(state: GameState, playerId: string): GameState {
   const victim = getAlive(state, playerId);
   const step = state.step;
   let resumed: Step | null = step;
-  if (step.kind === "vote") resumed = voteStep(state, step.second);
+  if (step.kind === "vote") resumed = voteStep(state, step.second, step.runoff);
   else if (step.kind === "wolves") resumed = { ...step, playerIds: step.playerIds.filter((id) => id !== victim.id) };
   if ("playerId" in step && step.playerId === victim.id && step.kind !== "mayor-succession") resumed = null;
   if (step.kind === "wolves" && resumed?.kind === "wolves" && resumed.playerIds.length === 0) resumed = null;
   const before = state.pending.length;
   kill(state, [{ playerId: victim.id, cause: "sudden" }], "sudden");
   // The vote's lists were made before the death: rebuilt now that it happened.
-  if (resumed?.kind === "vote") resumed = voteStep(state, resumed.second);
+  if (resumed?.kind === "vote") resumed = voteStep(state, resumed.second, resumed.runoff);
   // Announced first (with its triggers), then the step that was on, then what was already queued.
   if (resumed && !getWinner(state)) state.pending.splice(state.pending.length - before, 0, resumed);
   advance(state);
@@ -448,10 +449,16 @@ function resolve(state: GameState, step: Step, action: Action) {
           kill(state, [{ playerId: step.scapegoatId, cause: "scapegoat" }], "vote");
         } else if (state.mayorId) {
           state.pending.unshift({ kind: "tie-break", playerId: state.mayorId, tiedIds: (tiedIds ?? []).filter((id) => getPlayer(state, id).alive) });
+        } else if (!step.runoff) {
+          // A second vote, only against the tied players.
+          state.pending.unshift(voteStep(state, step.second, tiedIds ?? []));
         } else {
           log(state, { type: "vote", targetId: null });
         }
         return;
+      }
+      if (targetId && step.runoff?.length && !step.runoff.includes(targetId)) {
+        throw new EngineError("invalid-target", "Pick one of the tied players");
       }
       eliminate(state, targetId);
       return;

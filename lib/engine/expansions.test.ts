@@ -85,10 +85,11 @@ describe("Nouvelle Lune", () => {
     expect(state.step).toMatchObject({ kind: "vote", cannotVote: ["p0"] });
   });
 
-  it("a tie without a Scapegoat eliminates nobody", () => {
+  it("a tie without a Scapegoat goes to a second vote, and a second tie eliminates nobody", () => {
     const state = play(setup(["werewolf", "villager", "villager", "villager"]), [
       wolves("p1"),
       go,
+      { type: "vote", targetId: null, tie: true },
       { type: "vote", targetId: null, tie: true },
     ]);
     expect(state.phase).toEqual({ kind: "night", number: 2 });

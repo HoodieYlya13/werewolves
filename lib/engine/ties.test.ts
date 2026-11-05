@@ -50,6 +50,28 @@ describe("ties", () => {
     expect(s.players.filter((p) => !p.alive).map((p) => p.id)).toEqual(["p2"]);
   });
 
+  it("without a Mayor or Scapegoat, votes again between the tied players only", () => {
+    let s = createGame(setup(["werewolf", "villager", "villager", "villager", "villager"], { mayor: false }));
+    s = applyAction(until(s, "wolves"), { type: "wolves", targetId: null });
+    s = until(s, "vote");
+    s = applyAction(s, { type: "vote", targetId: null, tie: true, tiedIds: ["p2", "p3"] });
+    expect(s.step).toMatchObject({ kind: "vote", runoff: ["p2", "p3"] });
+    expect(() => applyAction(s, { type: "vote", targetId: "p4" })).toThrow();
+    const out = applyAction(s, { type: "vote", targetId: "p3" });
+    expect(out.players.find((p) => p.id === "p3")!.alive).toBe(false);
+    // Another tie: nobody is eliminated.
+    s = applyAction(s, { type: "vote", targetId: null, tie: true });
+    expect(s.step.kind).not.toBe("vote");
+    expect(s.players.every((p) => p.alive)).toBe(true);
+  });
+
+  it("replays an older log, where a tie without a Mayor eliminated nobody", () => {
+    const game = setup(["werewolf", "villager", "villager", "villager", "villager"], { mayor: false });
+    const log = upgradeLog(game, [{ type: "wolves", targetId: null }, { type: "continue" }, { type: "vote", targetId: null, tie: true }, { type: "wolves", targetId: null }]);
+    expect(log?.filter((a) => a.type === "vote")).toHaveLength(2);
+    expect(log?.at(-1)).toEqual({ type: "wolves", targetId: null });
+  });
+
   it("replays an older log, where a tie with a Mayor eliminated nobody", () => {
     const game = setup(["werewolf", "villager", "villager", "villager", "villager"]);
     const log = upgradeLog(game, [{ type: "wolves", targetId: null }, { type: "continue" }, { type: "mayor", targetId: "p1" }, { type: "vote", targetId: null, tie: true }, { type: "wolves", targetId: null }]);

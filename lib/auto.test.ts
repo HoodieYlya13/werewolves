@@ -146,6 +146,24 @@ describe("games without a game master", () => {
     expect(g.r.game.winner?.team).toBe("village");
   });
 
+  it("votes again between the tied players, then eliminates nobody on a second tie", () => {
+    const g = room(["werewolf", "villager", "villager", "villager", "villager"]);
+    g.turn("wolves");
+    auto.wolfPick(g.r, "p0", "p4", g.ctx());
+    g.run(() => g.step() === "vote" && auto.currentBeat(g.r, en)?.wait.kind === "debate");
+    for (const id of ["p0", "p1", "p2", "p3"]) auto.setReady(g.r, id, true, g.ctx());
+    g.run(() => !!g.r.ballot && g.r.auto.phase === "wait");
+    Object.assign(g.r.ballot!.votes, { p0: "p1", p1: "p0", p2: "p1", p3: "p0" });
+    auto.tick(g.r, g.ctx());
+    expect(g.r.game.step).toMatchObject({ kind: "vote" });
+    g.run(() => !!g.r.ballot && g.r.auto.phase === "wait");
+    expect([...g.r.ballot!.candidateIds].sort()).toEqual(["p0", "p1"]);
+    Object.assign(g.r.ballot!.votes, { p0: "p1", p1: "p0", p2: "p1", p3: "p0" });
+    auto.tick(g.r, g.ctx());
+    expect(g.r.log.at(-1)).toMatchObject({ type: "vote", tie: true });
+    expect(g.r.game.players.filter((p) => p.alive)).toHaveLength(4);
+  });
+
   it("elects a Mayor among the candidates", () => {
     const g = room(["werewolf", "villager", "villager", "villager", "villager"], { mayor: true });
     g.turn("wolves");

@@ -180,6 +180,12 @@ export type Step =
       scapegoatId: string | null;
       /** The Stuttering Judge's extra vote. */
       second: boolean;
+      /**
+       * A second vote after a tie (no Mayor, no Scapegoat), only against the
+       * tied players: another tie eliminates nobody. Empty: the game master
+       * didn't say who tied.
+       */
+      runoff: string[] | null;
     }
   /** A tie with a living Mayor (and no Scapegoat): the Mayor picks who goes. Empty `tiedIds`: anyone. */
   | { kind: "tie-break"; playerId: string; tiedIds: string[] }

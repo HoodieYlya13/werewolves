@@ -370,6 +370,12 @@ export function beatsOf(room: AutoRoom, dict: Dictionary): Beat[] {
     case "vote": {
       // The Scapegoat let nobody vote: the village still talks, and the empty ballot eliminates nobody.
       const noVoters = game.players.every((p) => !p.alive || step.cannotVote.includes(p.id));
+      // The second vote after a tie follows straight on, without a new debate.
+      if (step.runoff) {
+        const runoff = dict.game.steps.vote;
+        beats.push({ say: [step.runoff.length ? format(runoff.runoff, { names: step.runoff.map((id) => nameOf(game, id)).join(", ") }) : runoff.runoffAll, t.vote], wait: { kind: "ballot" } });
+        break;
+      }
       beats.push({
         say: [step.second ? dict.game.steps.vote.second : "", noVoters ? dict.game.steps.vote.noVoters : "", format(t.discussion, { minutes: debateMinutes(room, step.second) })].filter(Boolean),
         wait: { kind: "debate" },
@@ -459,7 +465,8 @@ function openBallot(room: AutoRoom, ctx: AutoContext) {
     room.ballot = { kind: "mayor", voterIds: living, candidateIds: candidates.length ? candidates : living, votes: {} };
   } else if (game.step.kind === "vote") {
     const cannot = game.step.cannotVote;
-    room.ballot = { kind: "vote", voterIds: living.filter((id) => !cannot.includes(id)), candidateIds: living, votes: {} };
+    const runoff = game.step.runoff;
+    room.ballot = { kind: "vote", voterIds: living.filter((id) => !cannot.includes(id)), candidateIds: runoff?.length ? runoff : living, votes: {} };
   }
   room.timer = { endsAt: ctx.now + TIMING.ballot, remainingMs: TIMING.ballot, durationMs: TIMING.ballot };
 }
@@ -671,7 +678,7 @@ function ballotOver(room: AutoRoom, ctx: AutoContext, late: boolean): Action | u
   if (tally.nobody) counted.push(format(t.tallyEntry, { name: ctx.dict.ballot.noOne, count: tally.nobody }));
   const lines = counted.length ? [format(t.tally, { list: counted.join(", ") })] : [];
   const outcome = tally.outcome;
-  if (outcome.kind === "tie") lines.push(step.scapegoatId ? t.tieScapegoat : step.mayorId ? t.tieMayor : t.tie);
+  if (outcome.kind === "tie") lines.push(step.scapegoatId ? t.tieScapegoat : step.mayorId ? t.tieMayor : step.runoff ? t.tie : t.tieRunoff);
   if (outcome.kind === "nobody") lines.push(t.nobody);
   auto.lead = lines;
   auto.leadAt = room.log.length + 1;

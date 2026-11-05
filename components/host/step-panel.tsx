@@ -797,6 +797,9 @@ function VoteStep({ game, step, act }: Props<"vote">) {
   return (
     <>
       {step.second && <p className="font-semibold text-moon">{t.second}</p>}
+      {step.runoff && (
+        <p className="font-semibold text-moon">{step.runoff.length ? format(t.runoff, { names: names(game, step.runoff) }) : t.runoffAll}</p>
+      )}
       <Say>{t.say}</Say>
       <Do>
         {t.do}
@@ -813,6 +816,7 @@ function VoteStep({ game, step, act }: Props<"vote">) {
       <PickPlayers
         game={game}
         count={1}
+        players={step.runoff?.length ? living(game).filter((p) => step.runoff!.includes(p.id)) : undefined}
         onConfirm={([targetId]) => act({ type: "vote", targetId })}
         extra={
           <>
@@ -823,7 +827,7 @@ function VoteStep({ game, step, act }: Props<"vote">) {
               className="h-auto min-h-12 px-3 whitespace-normal sm:px-5"
               onClick={() => act({ type: "vote", targetId: null, tie: true })}
             >
-              {step.scapegoatId ? t.tieScapegoat : step.mayorId ? t.tieMayor : t.tie}
+              {step.scapegoatId ? t.tieScapegoat : step.mayorId ? t.tieMayor : step.runoff ? t.tie : t.tieRunoff}
             </Button>
             <Button type="button" variant="outline" className="h-12 px-3 sm:px-5" onClick={() => act({ type: "vote", targetId: null })}>
               {t.nobody}

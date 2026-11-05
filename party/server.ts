@@ -930,7 +930,7 @@ export class RoomServer extends Server<Env> {
         this.state.ballot = {
           kind: "vote",
           voterIds: living.filter((id) => !step.cannotVote.includes(id)),
-          candidateIds: living,
+          candidateIds: step.runoff?.length ? step.runoff : living,
           votes: {},
         };
         break;
