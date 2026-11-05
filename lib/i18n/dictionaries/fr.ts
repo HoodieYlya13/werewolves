@@ -868,6 +868,8 @@ const fr: Dictionary = {
         ],
         do: "Lisez l'histoire à voix haute, puis lancez la partie quand la table est prête.",
       },
+      villagerVillager: "{name} est le Villageois-Villageois : sa carte montre un villageois des deux côtés, tout le monde sait donc que c'est un simple villageois.",
+      groups: "L'Abominable Sectaire se cache dans l'un de deux groupes. D'un côté : {a}. De l'autre : {b}. S'il ne reste que son groupe, il gagne seul.",
       start: { night: "Commencer la nuit {n}", day: "Commencer le jour {n}" },
       nightEnds: [
         "La nuit touche à sa fin…",

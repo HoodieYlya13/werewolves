@@ -12,8 +12,8 @@ import { RoleName } from "@/components/host/role-chip";
 import { useRoomContext } from "@/components/room-context";
 import { TimerControls } from "@/components/vote-timer";
 import { format } from "@/lib/i18n/config";
-import { actorCall, actorTurn } from "@/lib/auto";
-import { elderCostsPowers, isWolf, nightFalls, silentDay, type Action, type Death, type GameState, type PhaseRef, type Player, type Step } from "@/lib/engine";
+import { actorCall, actorTurn, tableLines } from "@/lib/auto";
+import { elderCostsPowers, isWolf, nightFalls, shownCard, silentDay, type Action, type Death, type GameState, type PhaseRef, type Player, type Step } from "@/lib/engine";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/lib/session";
 
@@ -415,7 +415,7 @@ function PrologueStep({ game, act }: Props<"prologue">) {
     <>
       <PhonelessIntro game={game} />
       <Say>
-        {t.say.map((paragraph, i) => (
+        {[...t.say, ...tableLines(dict, game)].map((paragraph, i) => (
           <span key={i} className="block not-first:mt-3">
             {paragraph}
           </span>
@@ -774,7 +774,7 @@ function DeathsStep({ game, step, act }: Props<"deaths">) {
                   {reveal ? (
                     <>
                       {t.reveal}{" "}
-                      <RoleName role={player.role} className="font-semibold" />
+                      <RoleName role={shownCard(player)} className="font-semibold" />
                     </>
                   ) : (
                     t.hidden

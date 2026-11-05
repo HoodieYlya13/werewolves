@@ -1,4 +1,4 @@
-import { baseTeam, isWolf } from "./helpers";
+import { baseTeam, isWolf, shownCard } from "./helpers";
 import { teamOf } from "./win";
 import type { GameState, PhaseRef, RoleId, Team, Winner } from "./types";
 
@@ -46,6 +46,10 @@ export type PublicGame = {
   winner: Winner | null;
   /** Everyone's card, once the game is over. */
   roles: Record<string, RoleId> | null;
+  /** Cards everyone knows anyway: the Villager-Villager's is a villager on both sides. */
+  known: Record<string, RoleId>;
+  /** The Abominable Sectarian's two groups, announced to the whole village. */
+  groups: Record<string, "a" | "b"> | null;
   theme: string;
 };
 
@@ -55,9 +59,14 @@ export function publicGame(state: GameState): PublicGame {
     phase: state.phase,
     prologue: state.step.kind === "prologue",
     mayorId: state.mayorId,
-    dead: state.players.filter((p) => !p.alive).map((p) => ({ playerId: p.id, role: reveal ? p.role : null })),
+    // Not while the Devoted Servant may still take the card: it's shown once she has chosen.
+    dead: state.players
+      .filter((p) => !p.alive)
+      .map((p) => ({ playerId: p.id, role: reveal && !(state.step.kind === "servant" && state.step.victimId === p.id) ? shownCard(p) : null })),
     winner: state.winner,
     roles: state.winner ? Object.fromEntries(state.players.map((p) => [p.id, p.role])) : null,
+    known: Object.fromEntries(state.players.filter((p) => p.role === "villager-villager").map((p) => [p.id, p.role])),
+    groups: state.setup.groups ?? null,
     theme: state.setup.settings.theme ?? "werewolves",
   };
 }

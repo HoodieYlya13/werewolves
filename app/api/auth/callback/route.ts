@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     code,
     redirect_uri: callbackUrl(request),
     code_verifier: flow.verifier,
-  });
+  }).catch(() => null);
   const account = await verifyIdToken(tokens?.id_token, { ...config, nonce: flow.nonce });
   if (!tokens || !account) return back();
 

@@ -10,6 +10,7 @@ import {
   type SetupOptions,
   type Settings,
   silentDay,
+  publicGame,
 } from ".";
 import { applyAction, createGame, replay } from "./testing";
 
@@ -245,10 +246,21 @@ describe("Personnages", () => {
         { playerId: "p3", cause: "wolves" },
       ],
     });
-    // Still called after a wolf died (so the village can't tell), but no second victim.
-    const night2 = play(s, [wolves("p2"), pick("p3"), go, vote("p1"), go, wolves("p4")]);
+    // Cards hidden: still called after a wolf died (so the village can't tell), but no second victim.
+    const hidden = setup(["big-bad-wolf", "werewolf", "villager", "villager", "villager", "villager"], { settings: { revealRoleOnDeath: false } });
+    const night2 = play(hidden, [wolves("p2"), pick("p3"), go, vote("p1"), go, wolves("p4")]);
     expect(night2.step).toEqual({ kind: "bluff", turn: "big-bad-wolf", role: "big-bad-wolf" });
     expect(applyAction(night2, go).step).toMatchObject({ kind: "deaths", deaths: [{ playerId: "p4" }] });
+    // Cards shown: everyone saw the wolf's card, so the call stops.
+    const shown = play(setup(["big-bad-wolf", "werewolf", "villager", "villager", "villager", "villager"], { settings: { revealRoleOnDeath: true } }), [
+      wolves("p2"),
+      pick("p3"),
+      go,
+      vote("p1"),
+      go,
+      wolves("p4"),
+    ]);
+    expect(shown.step).toMatchObject({ kind: "deaths", deaths: [{ playerId: "p4" }] });
   });
 
   it("Accursed Wolf-Father infects instead of killing; the Witch sees no victim", () => {
@@ -323,15 +335,35 @@ describe("Personnages", () => {
 
   it("Devoted Servant can take the voted-out player's card, and its death power", () => {
     const s = setup(["devoted-servant", "hunter", "werewolf", "villager", "villager"]);
-    const offer = play(s, [wolves("p3"), go, vote("p1"), go]);
+    // Asked before the card is shown.
+    const offer = play(s, [wolves("p3"), go, vote("p1")]);
     expect(offer.step).toMatchObject({ kind: "servant", playerId: "p0", victimId: "p1" });
+    expect(publicGame(offer).dead).toContainEqual({ playerId: "p1", role: null });
 
     const taken = applyAction(offer, choose(true));
     expect(taken.players[0].role).toBe("hunter");
-    expect(taken.step.kind).toBe("wolves");
+    expect(taken.step).toMatchObject({ kind: "deaths", deaths: [{ playerId: "p1" }] });
+    // The card left face up is hers: the Hunter's stays secret.
+    expect(publicGame(taken).dead).toContainEqual({ playerId: "p1", role: "devoted-servant" });
+    expect(applyAction(taken, go).step.kind).toBe("wolves");
 
     const declined = applyAction(offer, choose(false));
-    expect(declined.step).toEqual({ kind: "hunter", playerId: "p1" });
+    expect(declined.step.kind).toBe("deaths");
+    expect(applyAction(declined, go).step).toEqual({ kind: "hunter", playerId: "p1" });
+  });
+
+  it("The Angel voted out on day 1 wins at once: the Devoted Servant isn't asked", () => {
+    const s = setup(["angel", "devoted-servant", "werewolf", "villager", "villager"]);
+    const state = play(s, [wolves("p3"), go, vote("p0")]);
+    expect(state.step.kind).toBe("deaths");
+    expect(applyAction(state, go).winner).toMatchObject({ team: "angel" });
+  });
+
+  it("A Devoted Servant taking a Fox's card gets the power back", () => {
+    const s = setup(["fox", "devoted-servant", "werewolf", "villager", "villager", "villager"]);
+    // The Fox points at p4 (p3, p4, p5: no wolf) and loses the power, then is voted out.
+    const state = play(s, [pick("p4"), go, wolves("p3"), go, vote("p0"), choose(true), go]);
+    expect(state.step).toMatchObject({ kind: "fox", playerId: "p1" });
   });
 
   it("Abominable Sectarian wins once the other group is dead", () => {

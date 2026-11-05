@@ -483,8 +483,13 @@ export function TurnPanel({ view, turn, send }: { view: PlayerView; turn: PhoneT
       const f = dict.game.steps["fox-result"];
       body = (
         <div className="flex flex-col items-center gap-2 py-4 text-center">
-          <p className={`font-display text-3xl font-bold ${turn.hasWolf ? "text-primary" : "text-ok"}`}>{turn.hasWolf ? f.yes : f.no}</p>
-          <p className="text-xl">{turn.playerIds.map(name).join(", ")}</p>
+          {/* Laid out like the Seer's: the sentence, then the answer in the card's big type. */}
+          <p className="text-2xl">{turn.hasWolf ? f.yes : f.no}</p>
+          <ul className={`flex flex-col gap-1 font-display text-4xl font-bold wrap-anywhere ${turn.hasWolf ? "text-primary" : "text-ok"}`}>
+            {turn.playerIds.map((id) => (
+              <li key={id}>{name(id)}</li>
+            ))}
+          </ul>
         </div>
       );
       break;

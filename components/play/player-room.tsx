@@ -648,7 +648,13 @@ export function InGame({
         </p>
       )}
 
-      <RoleCard info={info} loverName={info.loverId ? nameOf(info.loverId) : null} alwaysShown={!!game.winner} />
+      <RoleCard
+        info={info}
+        loverName={info.loverId ? nameOf(info.loverId) : null}
+        alwaysShown={!!game.winner}
+        // Everyone knows it already: a villager on both sides, or turned face up at death.
+        faceUp={info.role === "villager-villager" || !!dead.get(me.id)}
+      />
 
       <DeckCard view={view} />
       {view.spectate && !game.winner && <Spectator view={view} />}
@@ -658,7 +664,8 @@ export function InGame({
         <ul className="flex flex-col gap-1">
           {view.players.map((p) => {
             const isDead = dead.has(p.id);
-            const role = game.roles?.[p.id] ?? dead.get(p.id) ?? null;
+            const role = game.roles?.[p.id] ?? dead.get(p.id) ?? game.known?.[p.id] ?? null;
+            const group = game.groups?.[p.id];
             return (
               <li
                 key={p.id}
@@ -678,6 +685,11 @@ export function InGame({
                 )}
                 {game.mayorId === p.id && <Crown aria-label={dict.game.mayor} className="size-4 text-moon" />}
                 {isDead && <Skull aria-label={dict.game.dead} className="size-4" />}
+                {group && (
+                  <span aria-label={dict.setup.groups} className="rounded-full bg-surface-2 px-2 text-xs font-semibold text-muted-foreground">
+                    {group === "a" ? dict.setup.groupA : dict.setup.groupB}
+                  </span>
+                )}
                 {role && <RoleName role={role} className="text-sm" />}
                 {game.winner && send && p.account && p.id !== me.id && (
                   <AddFriendButton name={p.name} playerId={p.id} send={send} className="-my-1 size-7" />

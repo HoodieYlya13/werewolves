@@ -100,6 +100,11 @@ export function elderCostsPowers(state: GameState, deaths: { playerId: string; c
   return state.villagePowersLost && deaths.some((d) => (d.cause === "vote" || d.cause === "hunter") && getPlayer(state, d.playerId).role === "elder");
 }
 
+/** The card the village sees for a dead player: the Devoted Servant's, if she took theirs. */
+export function shownCard(player: Player): RoleId {
+  return (player.memo.card as RoleId | undefined) ?? player.role;
+}
+
 /** Living holders of a role who can still use it, in seating order. */
 export function holders(state: GameState, role: RoleId) {
   return state.players.filter((p) => p.alive && p.role === role && hasPower(state, p) && !sickTonight(state, p.id));

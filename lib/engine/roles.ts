@@ -1,4 +1,4 @@
-import { alive, firstWolfToLeft, hasPower, holders, isWolf, log, sickTonight } from "./helpers";
+import { alive, firstWolfToLeft, hasPower, holders, isWolf, log, shownCard, sickTonight } from "./helpers";
 import type { DeathCause, GameState, Player, RoleId, Step, Team, UseKey } from "./types";
 
 /** A role's night turn, played by each living holder who still has the power. */
@@ -306,6 +306,9 @@ export function callsAnyway(state: GameState, role: RoleId): boolean {
   return state.extraCards.includes(role);
 }
 
+const wolfCardShown = (state: GameState) =>
+  state.setup.settings.revealRoleOnDeath && state.players.some((p) => !p.alive && (roles[shownCard(p)].team === "wolves" || shownCard(p) === "white-werewolf"));
+
 const bluff = (state: GameState, turn: string, role: RoleId): Step | null =>
   callsAnyway(state, role) ? { kind: "bluff", turn, role } : null;
 
@@ -320,6 +323,8 @@ const roleTurns: SequenceEntry[] = roleIds.flatMap((id) => {
     build: (state) => {
       const holder = holders(state, id)[0];
       const step = holder ? night.act(state, holder) : null;
+      // The village saw a wolf's card on a dead player: it knows the second victim is gone, nothing to hide.
+      if (!step && id === "big-bad-wolf" && wolfCardShown(state)) return null;
       return step ?? bluff(state, id, id);
     },
   };

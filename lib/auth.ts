@@ -114,7 +114,14 @@ export async function currentAccount(request: NextRequest, config: AuthConfig, {
   }
 
   const refreshToken = request.cookies.get(COOKIES.refresh)?.value;
-  const tokens = refreshToken ? await requestTokens(config, { grant_type: "refresh_token", refresh_token: refreshToken }) : null;
+  // The auth server down or unreachable says nothing about the sign-in: kept for the next request.
+  let unreachable = false;
+  const tokens = refreshToken
+    ? await requestTokens(config, { grant_type: "refresh_token", refresh_token: refreshToken }).catch(() => {
+        unreachable = true;
+        return null;
+      })
+    : null;
   const account = await verifyIdToken(tokens?.id_token, config);
   if (!tokens || !account) {
     return {
@@ -122,7 +129,7 @@ export async function currentAccount(request: NextRequest, config: AuthConfig, {
       noPasskey: false,
       sessionId: null,
       finish: (response: NextResponse) => {
-        if (refreshToken || idToken) clearTokens(request, response);
+        if ((refreshToken || idToken) && !unreachable) clearTokens(request, response);
         return response;
       },
     };
@@ -148,6 +155,8 @@ export async function requestTokens(config: AuthConfig, params: Record<string, s
   const credentials = `${encodeURIComponent(config.clientId)}:${encodeURIComponent(config.clientSecret)}`;
   headers.Authorization = `Basic ${Buffer.from(credentials).toString("base64")}`;
   const res = await fetch(token_endpoint, { method: "POST", headers, body, cache: "no-store" });
+  // Only a refusal (4xx) is an answer; a server error is thrown, like a network one.
+  if (res.status >= 500) throw new Error(`Token endpoint error ${res.status}`);
   return res.ok ? ((await res.json()) as TokenResponse) : null;
 }
 

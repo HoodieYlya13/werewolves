@@ -10,8 +10,11 @@ import type { Action, GameSetup, GameState, Step } from "./types";
  * roles stay hidden.
  * 4: a tie with a living Mayor (and no Scapegoat) is the Mayor's to break.
  * 5: a tie with neither goes to a second vote between the tied players.
+ * 6: the Devoted Servant chooses before the card is shown, and the Big Bad
+ * Wolf's call stops once a dead wolf's card was shown (a game caught in
+ * either moment goes back to the lobby).
  */
-export const ENGINE_VERSION = 5;
+export const ENGINE_VERSION = 6;
 
 /** The answer to a step older engines skipped, when it has a neutral one. */
 function filler(step: Step): Action | null {

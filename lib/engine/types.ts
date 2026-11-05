@@ -117,7 +117,8 @@ export type FlagKey =
   | "fox-powerless";
 
 /** Player ids a role remembers (Wild Child's model, Defender's last pick). */
-export type MemoKey = "model" | "last-protected";
+/** `card`: the card left face up where a player died, when it isn't theirs (the Devoted Servant took it). */
+export type MemoKey = "model" | "last-protected" | "card";
 
 export type Player = SetupPlayer & {
   role: RoleId;

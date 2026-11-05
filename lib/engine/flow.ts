@@ -478,15 +478,19 @@ function resolve(state: GameState, step: Step, action: Action) {
     }
 
     case "servant": {
+      // Left alone, the card is announced (the deaths step, next), then its own triggers.
       if (choice() !== true) {
-        state.pending.unshift(...step.roleTriggers);
+        state.pending.splice(state.pending[0]?.kind === "deaths" ? 1 : 0, 0, ...step.roleTriggers);
         return;
       }
-      // She takes the card: the dead player's own death power is hers now, not theirs.
+      // She takes the card unseen, with its powers as new (a Fox who missed, used potions…):
+      // the dead player's own death power is hers now, and her own card is the one shown.
       const servant = getPlayer(state, step.playerId);
-      const role = getPlayer(state, step.victimId).role;
+      const victim = getPlayer(state, step.victimId);
+      const role = victim.role;
       servant.role = role;
       servant.uses = { ...roles[role].uses };
+      victim.memo.card = "devoted-servant";
       log(state, { type: "servant", playerId: servant.id, role });
       return;
     }
@@ -649,9 +653,11 @@ function kill(state: GameState, victims: Death[], context: "dawn" | "vote" | "hu
     }
   }
 
-  // The Devoted Servant may take the voted-out player's card before it acts.
+  // The Devoted Servant may take the voted-out player's card before it's shown, and before it acts.
+  // Not an Angel's who wins by this vote: the game ends there.
   const voted = context === "vote" ? deaths.find((d) => d.cause === "vote") : undefined;
-  const servant = voted && holders(state, "devoted-servant").find((p) => p.id !== voted.playerId);
+  const servant =
+    voted && getWinner(state)?.team !== "angel" ? holders(state, "devoted-servant").find((p) => p.id !== voted.playerId) : undefined;
 
   const roleTriggers = new Map<string, Step[]>();
   const mayorTriggers: Step[] = [];
@@ -665,13 +671,11 @@ function kill(state: GameState, victims: Death[], context: "dawn" | "vote" | "hu
   }
 
   const queued: Step[] = [];
+  // Her choice comes first; the card's own triggers follow the announcement only if she leaves it.
+  if (servant && voted) queued.push({ kind: "servant", playerId: servant.id, victimId: voted.playerId, roleTriggers: roleTriggers.get(voted.playerId)! });
   if (deaths.length > 0 || context === "dawn") queued.push({ kind: "deaths", context, deaths });
   for (const { playerId } of deaths) {
-    if (servant && voted && playerId === voted.playerId) {
-      queued.push({ kind: "servant", playerId: servant.id, victimId: playerId, roleTriggers: roleTriggers.get(playerId)! });
-    } else {
-      queued.push(...roleTriggers.get(playerId)!);
-    }
+    if (!(servant && voted && playerId === voted.playerId)) queued.push(...roleTriggers.get(playerId)!);
   }
   queued.push(...mayorTriggers);
   state.pending.unshift(...queued);

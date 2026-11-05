@@ -16,18 +16,22 @@ export function RoleCard({
   info,
   loverName,
   alwaysShown = false,
+  faceUp = false,
   onShow,
 }: {
   info: PlayerInfo;
   loverName: string | null;
   /** Once the game is over there's nothing left to hide. */
   alwaysShown?: boolean;
+  /** The card itself is public: its name shows without holding, the rest (team, notes) still only while held. */
+  faceUp?: boolean;
   /** Called when the card turns face up. */
   onShow?: () => void;
 }) {
   const { dict } = useI18n();
   const [held, setHeld] = useState(false);
   const shown = held || alwaysShown;
+  const face = shown || faceUp;
 
   useEffect(() => {
     const hide = () => setHeld(false);
@@ -78,16 +82,19 @@ export function RoleCard({
         onBlur={() => setHeld(false)}
         onContextMenu={(e) => e.preventDefault()}
       >
-        {shown ? (
+        {face ? (
           <span className="card absolute inset-0 flex flex-col items-center justify-center gap-4 border-2 p-6 text-center">
             <span className={`font-display text-3xl leading-tight font-bold text-balance ${teamColor[roles[info.role].team]}`}>
               {dict.roles[info.role].name}
             </span>
             <span className="text-sm text-balance text-muted-foreground">{dict.roles[info.role].power}</span>
-            <span className={`text-sm font-semibold ${teamColor[info.team]}`}>
-              {format(t.team, { team: dict.teams[info.team] })}
-            </span>
-            {notes.length > 0 && (
+            {/* Face up but not held: the team and notes can still have changed in secret (infected, in love). */}
+            {shown && (
+              <span className={`text-sm font-semibold ${teamColor[info.team]}`}>
+                {format(t.team, { team: dict.teams[info.team] })}
+              </span>
+            )}
+            {shown && notes.length > 0 && (
               <span className="flex flex-col gap-1.5 text-left text-sm">
                 {notes.map((n, i) => (
                   <span key={i} className="flex items-start gap-2">

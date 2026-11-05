@@ -264,7 +264,12 @@ function PlayersPanel({ game }: { game: GameState }) {
               <PawPrint aria-hidden className="secret-role size-3.5 text-primary" />
             )}
             {!p.alive && <Skull aria-label={dict.game.dead} className="size-3.5" />}
-            <RoleName role={p.role} className="text-xs" secret />
+            {/* Public anyway: a villager on both sides, or a card turned face up at death. */}
+            <RoleName
+              role={p.role}
+              className="text-xs"
+              secret={p.role !== "villager-villager" && !(!p.alive && game.setup.settings.revealRoleOnDeath && !p.memo.card)}
+            />
           </li>
         ))}
       </ol>

@@ -1,4 +1,4 @@
-import { applyAction, elderCostsPowers, isWolf, roles, sickTonight, silentDay, type Action, type DeckStyle, type GameState, type RoleId, type Step } from "./engine";
+import { applyAction, elderCostsPowers, isWolf, roles, shownCard, sickTonight, silentDay, type Action, type DeckStyle, type GameState, type RoleId, type Step } from "./engine";
 import { tallyBallot, type Ballot, type Timer } from "./ballot";
 import { format } from "./i18n/config";
 import type { Dictionary } from "./i18n/dictionaries/en";
@@ -215,6 +215,23 @@ function hash(seed: string) {
 /** One of a few lines, the same one for the same moment. */
 const pick = (lines: string[], seed: string, offset = 0) => lines[(hash(seed) + offset) % lines.length];
 
+/**
+ * What the whole table must know from the start, read after the opening story:
+ * who the Villager-Villager is, and the Abominable Sectarian's two groups.
+ */
+export function tableLines(dict: Dictionary, game: GameState): string[] {
+  const t = dict.game.story;
+  const lines = game.players
+    .filter((p) => p.role === "villager-villager")
+    .map((p) => format(t.villagerVillager, { name: p.name }));
+  const groups = game.setup.groups;
+  if (groups && game.players.some((p) => p.role === "abominable-sectarian")) {
+    const side = (g: "a" | "b") => game.players.filter((p) => groups[p.id] === g).map((p) => p.name).join(", ");
+    lines.push(format(t.groups, { a: side("a"), b: side("b") }));
+  }
+  return lines;
+}
+
 /** The night's wake-up lines, by the turn they call (bluffs included). */
 function wakeLine(dict: Dictionary, game: GameState, turn: string) {
   const piper = game.setup.settings.piperCharms;
@@ -273,7 +290,7 @@ function deathLines(dict: Dictionary, game: GameState, step: Extract<Step, { kin
     lines.push(
       d.cause === "grief" ? format(t.grief, { name }) : dawn ? format(pick(t.found, seed, i), { name }) : format(t.died, { name, cause: dict.game.causes[d.cause] }),
     );
-    const role = game.players.find((p) => p.id === d.playerId)!.role;
+    const role = shownCard(game.players.find((p) => p.id === d.playerId)!);
     if (game.setup.settings.revealRoleOnDeath) lines.push(format(dict.auto.wasRole, { name, role: dict.roles[role].name }));
   });
   if (!dawn && elderCostsPowers(game, step.deaths)) lines.push(t.powersLost);
@@ -304,7 +321,7 @@ export function beatsOf(room: AutoRoom, dict: Dictionary): Beat[] {
   switch (step.kind) {
     case "prologue":
       beats.push({ say: [t.lookAtCard], show: "card", wait: { kind: "hold", ms: TIMING.card } });
-      beats.push({ say: dict.game.story.prologue.say, wait: { kind: "hold", ms: 1_000 } });
+      beats.push({ say: [...dict.game.story.prologue.say, ...tableLines(dict, game)], wait: { kind: "hold", ms: 1_000 } });
       break;
     case "phase-end": {
       const story = dict.game.story;

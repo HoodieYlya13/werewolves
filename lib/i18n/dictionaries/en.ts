@@ -867,6 +867,8 @@ const en = {
         ],
         do: "Read the story aloud, then start when the table is ready.",
       },
+      villagerVillager: "{name} is the Villager-Villager: their card shows a villager on both sides, so everyone knows they're a simple villager.",
+      groups: "The Abominable Sectarian hides in one of two groups. On one side: {a}. On the other: {b}. If only their own group is left, they win alone.",
       start: { night: "Start night {n}", day: "Start day {n}" },
       nightEnds: [
         "The night draws to an end…",
