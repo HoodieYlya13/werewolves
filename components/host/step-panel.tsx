@@ -12,7 +12,8 @@ import { RoleName } from "@/components/host/role-chip";
 import { useRoomContext } from "@/components/room-context";
 import { TimerControls } from "@/components/vote-timer";
 import { format } from "@/lib/i18n/config";
-import { elderCostsPowers, isWolf, nightFalls, type Action, type Death, type GameState, type PhaseRef, type Player, type Step } from "@/lib/engine";
+import { actorCall, actorTurn } from "@/lib/auto";
+import { elderCostsPowers, isWolf, nightFalls, silentDay, type Action, type Death, type GameState, type PhaseRef, type Player, type Step } from "@/lib/engine";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/lib/session";
 
@@ -85,15 +86,24 @@ export function StepPanel({
       }}
     >
       <Restarted.Provider value={restarted}>
-        <StepContent game={game} act={act} />
+        <Caller.Provider value={(line) => actorCall(dict, game, line)}>
+          <StepContent game={game} act={act} />
+        </Caller.Provider>
       </Restarted.Provider>
     </div>
   );
 }
 
 function StepContent({ game, act }: { game: GameState; act: (action: Action) => void }) {
+  const { dict } = useI18n();
+  const borrowed = actorTurn(game);
   return (
     <>
+      {borrowed && (
+        <p className="rounded-xl bg-surface-2 px-4 py-2 text-sm">
+          {format(dict.game.steps.actor.borrowed, { name: nameOf(game, (game.step as { playerId: string }).playerId), role: dict.roles[borrowed].name })}
+        </p>
+      )}
       <PhonePlays game={game} act={act} />
       <StepBody game={game} act={act} />
     </>
@@ -255,8 +265,13 @@ function StepBody({ game, act }: { game: GameState; act: (action: Action) => voi
 // --- building blocks ---
 
 /** The narrator's words, set apart like a script: read them out as they are. */
+/** Rewrites a line that calls a role, when the Actor plays it (see `actorCall`). */
+const Caller = createContext<(line: string) => string>((line) => line);
+
 function Say({ children }: { children: React.ReactNode }) {
   const { dict } = useI18n();
+  const call = useContext(Caller);
+  if (typeof children === "string") children = call(children);
   return (
     <figure className="relative overflow-hidden rounded-3xl bg-linear-to-br from-moon/15 via-surface-2/80 to-surface-2/80 px-6 pt-4 pb-5 ring-1 ring-moon/20 sm:px-7">
       {/* A big quotation mark behind the text, barely there. */}
@@ -421,7 +436,7 @@ function PhaseEndStep({ game, step, act }: Props<"phase-end">) {
   const wolfDown =
     game.setup.settings.revealRoleOnDeath &&
     game.players.some((p) => p.death && p.death.phase.kind === game.phase.kind && p.death.phase.number === game.phase.number && isWolf(p));
-  const lines = toDay ? t.nightEnds : wolfDown ? t.dayEndsWolfDown : t.dayEnds;
+  const lines = toDay ? t.nightEnds : wolfDown ? t.dayEndsWolfDown : silentDay(game) ? t.dayEndsNoVote : t.dayEnds;
   return (
     <>
       <Say>{line(lines, `${game.phase.kind}${game.phase.number}`)}</Say>
@@ -582,6 +597,9 @@ function WolvesStep({ game, step, act }: Props<"wolves">) {
     <>
       <Say>{t.say}</Say>
       <Do>{t.do}</Do>
+      {game.rustTargetId && game.players.some((p) => p.id === game.rustTargetId && p.alive) && (
+        <p className="rounded-xl bg-surface-2 px-4 py-2 text-sm">{format(t.sick, { name: nameOf(game, game.rustTargetId) })}</p>
+      )}
       {step.littleGirlIds.map((id) => (
         <p key={id} className="rounded-xl bg-surface-2 px-4 py-2 text-sm">
           {format(t.littleGirl, { name: nameOf(game, id) })}
@@ -1044,19 +1062,27 @@ function FoxStep({ game, step, act }: Props<"fox">) {
   );
 }
 
+/** Like the Seer's: opens on the answer straight away; Continue closes it, then the Fox goes back to sleep. */
 function FoxResultStep({ game, step, act }: Props<"fox-result">) {
   const { dict } = useI18n();
   const t = dict.game.steps["fox-result"];
   const fox = game.players.find((p) => p.id === step.playerId);
+  const restarted = useContext(Restarted);
+  const [seen, setSeen] = useState(restarted);
+  const reveal = (
+    <Reveal to={nameOf(game, step.playerId)} defaultOpen={!restarted} closeLabel={dict.game.continue} onClose={() => setSeen(true)}>
+      <p className="text-2xl">{step.hasWolf ? t.yes : t.no}</p>
+      <ul className={`flex flex-col gap-2 font-display text-4xl font-bold wrap-anywhere sm:text-6xl ${step.hasWolf ? "text-primary" : "text-ok"}`}>
+        {step.playerIds.map((id) => (
+          <li key={id}>{nameOf(game, id)}</li>
+        ))}
+      </ul>
+    </Reveal>
+  );
+  if (!seen) return reveal;
   return (
     <>
-      <Do>{format(t.do, { name: nameOf(game, step.playerId) })}</Do>
-      <Reveal to={nameOf(game, step.playerId)}>
-        <p className={`font-display text-4xl font-bold ${step.hasWolf ? "text-primary" : "text-ok"}`}>
-          {step.hasWolf ? t.yes : t.no}
-        </p>
-        <p className="text-2xl">{names(game, step.playerIds)}</p>
-      </Reveal>
+      {restarted && reveal}
       {!step.hasWolf && fox?.role === "fox" && <Do>{t.lost}</Do>}
       <Say>{t.say}</Say>
       <ContinueButton act={act} />

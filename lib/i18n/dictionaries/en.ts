@@ -742,6 +742,7 @@ const en = {
       lover: "You're in love with {name}. If one of you dies, the other dies of grief. Now you win together.",
       charmed: "The Pied Piper has charmed you.",
       nothing: "Nothing for you. Close your eyes.",
+      sick: "The Knight's rusty sword got you: you die tonight. Keep your eyes closed, and stay silent until the end.",
     },
     group: {
       lovers: "The lovers",
@@ -882,6 +883,12 @@ const en = {
         "Darkness returns. Take your time, I have all of eternity.",
       ],
       /** The same ghost, cheered up: the village killed one of the wolves today. */
+      /** A day the Scapegoat let nobody vote: no arguing over a vote to mock. */
+      dayEndsNoVote: [
+        "The sun sets on a day without a single vote. The Scapegoat's last laugh, I suppose.",
+        "Evening falls. Not one vote today… my killers must be delighted.",
+        "Darkness returns. A whole day of talking and no verdict: you'd almost think the Scapegoat was on their side.",
+      ],
       dayEndsWolfDown: [
         "The sun sets, and one of my killers will never see it rise again. Well done… but don't celebrate too soon.",
         "Evening falls. For the first time in a while, my ghost smiles: one less murderer among you.",
@@ -973,6 +980,7 @@ const en = {
       wolves: {
         say: "Werewolves, wake up and agree on a victim.",
         do: "Tap the victim the wolves point at.",
+        sick: "{name} caught the rust from the Knight's sword: they no longer wake up and will be found dead at dawn. Let them know quietly before calling the pack.",
         littleGirl: "{name} (Little Girl) may peek. If the wolves catch the Little Girl, pick {name} as the victim.",
       },
       witch: {
@@ -1056,6 +1064,7 @@ const en = {
         say: "Actor, wake up. Which power do you borrow tonight?",
         do: "Tap the card {name} points at.",
         none: "No power tonight",
+        borrowed: "This turn is the Actor's: {name} plays the borrowed {role} power. The real {role}'s turn came just before.",
       },
       "wolf-hound": {
         say: "Wolf-Hound, wake up. Will you be a villager or a werewolf?",

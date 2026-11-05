@@ -832,6 +832,9 @@ export class RoomServer extends Server<Env> {
           this.state.game = { setup, log: [], id: crypto.randomUUID(), startedAt: Date.now(), engine: ENGINE_VERSION, auto: config };
           this.state.endedGame = null;
           this.state.handover = null;
+          this.state.leadReadAt = null;
+          this.state.masterStage = null;
+          this.state.phonePlays = null;
           this.state.locked = true;
           this.state.candidates = [];
           this.state.auto = config ? auto.startAuto(config, { random: secureRandom, now: Date.now() }) : null;
@@ -883,6 +886,11 @@ export class RoomServer extends Server<Env> {
         if (!this.state.game || this.state.game.log.length === 0) return;
         this.state.game.log.pop();
         this.game = replay(this.state.game.setup, this.state.game.log);
+        // Kept by log length, which comes back after an Undo: the turn played again starts clean,
+        // or a phone would light up during the next "go back to sleep" (or show a stale answer).
+        this.state.leadReadAt = null;
+        this.state.masterStage = null;
+        this.state.phonePlays = null;
         break;
       }
       case "end-game": {
@@ -1899,7 +1907,7 @@ export class RoomServer extends Server<Env> {
   /** The Witch's question the game master is on, if they said (older screens don't). */
   private witchAsk(): WitchAsk | null {
     const s = this.state!;
-    return this.game?.step.kind === "witch" && s.masterStage?.at === s.game?.log.length ? s.masterStage.stage : null;
+    return this.game?.step.kind === "witch" && s.masterStage && s.masterStage.at === s.game?.log.length ? s.masterStage.stage : null;
   }
 
   /** Every socket gets its own filtered view, so secrets never reach the wrong phone. */

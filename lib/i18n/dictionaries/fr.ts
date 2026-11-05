@@ -743,6 +743,7 @@ const fr: Dictionary = {
       lover: "Tu es amoureux de {name}. Si l'un de vous meurt, l'autre meurt de chagrin. Vous gagnez désormais ensemble.",
       charmed: "Le Joueur de Flûte t'a charmé.",
       nothing: "Rien pour toi. Ferme les yeux.",
+      sick: "L'épée rouillée du Chevalier t'a contaminé : tu meurs cette nuit. Garde les yeux fermés, et reste silencieux jusqu'à la fin.",
     },
     group: {
       lovers: "Les amoureux",
@@ -882,6 +883,11 @@ const fr: Dictionary = {
         "Encore une journée de disputes, et les coupables dorment sur leurs deux oreilles. J'ai vu des esprits plus vifs dans un poulailler.",
         "L'obscurité revient. Prenez votre temps, j'ai toute l'éternité.",
       ],
+      dayEndsNoVote: [
+        "Le soleil se couche sur une journée sans le moindre vote. Le dernier rire du Bouc Émissaire, j'imagine.",
+        "Le soir tombe. Pas un seul vote aujourd'hui… mes assassins doivent être ravis.",
+        "L'obscurité revient. Toute une journée de palabres et pas de verdict : on croirait presque le Bouc Émissaire de leur côté.",
+      ],
       dayEndsWolfDown: [
         "Le soleil se couche, et l'un de mes assassins ne le verra plus jamais se lever. Bravo… mais ne vous réjouissez pas trop vite.",
         "Le soir tombe. Pour la première fois depuis longtemps, mon fantôme sourit : un meurtrier de moins parmi vous.",
@@ -973,6 +979,7 @@ const fr: Dictionary = {
       wolves: {
         say: "Loups-Garous, réveillez-vous et mettez-vous d'accord sur une victime.",
         do: "Touchez la victime désignée par les loups.",
+        sick: "{name} a attrapé la rouille de l'épée du Chevalier : il ne se réveille plus et sera retrouvé mort à l'aube. Prévenez-le discrètement avant d'appeler la meute.",
         littleGirl: "{name} (Petite Fille) peut espionner. Si les loups surprennent la Petite Fille, choisissez {name} comme victime.",
       },
       witch: {
@@ -1056,6 +1063,7 @@ const fr: Dictionary = {
         say: "Comédien, réveille-toi. Quel pouvoir empruntes-tu cette nuit ?",
         do: "Touchez la carte désignée par {name}.",
         none: "Aucun pouvoir cette nuit",
+        borrowed: "Ce tour est celui du Comédien : {name} joue le pouvoir emprunté ({role}). Le tour du vrai rôle est passé juste avant.",
       },
       "wolf-hound": {
         say: "Chien-Loup, réveille-toi. Seras-tu villageois ou loup-garou ?",

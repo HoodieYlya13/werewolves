@@ -1,4 +1,4 @@
-import { alive, firstWolfToLeft, hasPower, holders, isWolf, log } from "./helpers";
+import { alive, firstWolfToLeft, hasPower, holders, isWolf, log, sickTonight } from "./helpers";
 import type { DeathCause, GameState, Player, RoleId, Step, Team, UseKey } from "./types";
 
 /** A role's night turn, played by each living holder who still has the power. */
@@ -171,7 +171,7 @@ export const roles: Record<RoleId, RoleDefinition> = {
     id: "knight",
     team: "village",
     max: 1,
-    // Eaten by the wolves: the first wolf to his left dies of rust next dawn.
+    // Eaten by the wolves: the first wolf to his left sleeps through the next night and is found dead at dawn.
     onDeath: (state, knight, cause) => {
       if (cause === "wolves" && hasPower(state, knight)) {
         state.rustTargetId = firstWolfToLeft(state, knight)?.id ?? null;
@@ -363,7 +363,7 @@ const groupTurns: SequenceEntry[] = [
     id: "wolves",
     order: 50,
     build: (state) => {
-      const wolves = alive(state).filter(isWolf);
+      const wolves = alive(state).filter((p) => isWolf(p) && !sickTonight(state, p.id));
       // The pack is always called, roles revealed or not: the village must never
       // learn how many wolves are left, and a Wild Child turning wolf mustn't
       // make the call come back out of nowhere.

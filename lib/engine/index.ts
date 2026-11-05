@@ -3,7 +3,7 @@ export { roles, roleIds, actorRoles, nightSequence } from "./roles";
 export { createGame, applyAction, replay } from "./flow";
 export { ENGINE_VERSION, upgradeLog } from "./upgrade";
 export { getWinner, remainingTeams, teamOf } from "./win";
-export { isWolf, baseTeam, hasPower, livingNeighbours, wildChildOf, daysBy, killersOf, elderCostsPowers, hasLeadLine, nightFalls } from "./helpers";
+export { isWolf, baseTeam, hasPower, livingNeighbours, wildChildOf, daysBy, killersOf, elderCostsPowers, hasLeadLine, nightFalls, sickTonight, silentDay } from "./helpers";
 export {
   dealRoles,
   assignRoles,

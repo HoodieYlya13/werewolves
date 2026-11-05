@@ -9,6 +9,7 @@ import {
   type RoleId,
   type SetupOptions,
   type Settings,
+  silentDay,
 } from ".";
 import { applyAction, createGame, replay } from "./testing";
 
@@ -83,6 +84,14 @@ describe("Nouvelle Lune", () => {
     expect(state.step).toEqual({ kind: "scapegoat", playerId: "p1" });
     state = play(s, [wolves("p2"), go, { type: "vote", targetId: null, tie: true }, go, pick("p3"), wolves("p4"), go]);
     expect(state.step).toMatchObject({ kind: "vote", cannotVote: ["p0"] });
+    expect(silentDay(state)).toBe(false);
+  });
+
+  it("a day the Scapegoat let nobody vote is a silent day", () => {
+    const s = setup(["werewolf", "scapegoat", "villager", "villager", "villager"]);
+    const state = play(s, [wolves("p2"), go, { type: "vote", targetId: null, tie: true }, go, pick(), wolves("p4"), go]);
+    expect(state.step).toMatchObject({ kind: "vote", cannotVote: ["p0", "p3"] });
+    expect(silentDay(state)).toBe(true);
   });
 
   it("a tie without a Scapegoat goes to a second vote, and a second tie eliminates nobody", () => {
@@ -183,6 +192,15 @@ describe("Personnages", () => {
     });
   });
 
+  it("The wolf the rusty sword caught no longer wakes with the pack", () => {
+    const s = setup(["knight", "villager", "werewolf", "villager", "werewolf"]);
+    const state = play(s, [wolves("p0"), go, vote(null)]);
+    expect(state.step).toMatchObject({ kind: "wolves", playerIds: ["p4"] });
+    // Alone in the pack: the call is still made, with nobody in it.
+    const alone = play(setup(["knight", "werewolf", "villager", "villager", "villager"]), [wolves("p0"), go, vote(null)]);
+    expect(alone.step).toEqual({ kind: "bluff", turn: "wolves", role: "werewolf" });
+  });
+
   it("Wolf-Hound who picks the wolves wakes with them", () => {
     const state = play(setup(["wolf-hound", "werewolf", "villager", "villager"]), [choose("wolves")]);
     expect(state.step).toMatchObject({ kind: "wolves", playerIds: ["p0", "p1"] });
@@ -195,6 +213,15 @@ describe("Personnages", () => {
     state = applyAction(state, choose(0));
     expect(state.step).toEqual({ kind: "seer", playerId: "p0" });
     expect(state.actorCards).toEqual(["defender", "fox"]);
+  });
+
+  it("The Actor goes back to sleep after a borrowed turn, not the real holder", () => {
+    const s = setup(["actor", "werewolf", "defender", "villager"], { actorCards: ["seer", "defender", "fox"] });
+    let state = play(s, [choose(1), pick("p3")]);
+    expect(state.step).toEqual(expect.objectContaining({ kind: "defender", playerId: "p0" }));
+    expect(state.backToSleep).toBe("defender");
+    state = applyAction(state, pick("p2"));
+    expect(state.backToSleep).toBe("actor");
   });
 
   it("Two Sisters wake together on night 1", () => {

@@ -1,4 +1,4 @@
-import { applyAction, elderCostsPowers, isWolf, roles, type Action, type DeckStyle, type GameState, type RoleId, type Step } from "./engine";
+import { applyAction, elderCostsPowers, isWolf, roles, sickTonight, silentDay, type Action, type DeckStyle, type GameState, type RoleId, type Step } from "./engine";
 import { tallyBallot, type Ballot, type Timer } from "./ballot";
 import { format } from "./i18n/config";
 import type { Dictionary } from "./i18n/dictionaries/en";
@@ -220,7 +220,25 @@ function wakeLine(dict: Dictionary, game: GameState, turn: string) {
   const piper = game.setup.settings.piperCharms;
   const lines = dict.auto.wake as Record<string, string>;
   const fallback = (dict.game.steps as Record<string, { say?: string }>)[turn]?.say ?? "";
-  return format(lines[turn] ?? fallback, { count: piper === "choice" ? dict.auto.oneOrTwo : piper });
+  return actorCall(dict, game, format(lines[turn] ?? fallback, { count: piper === "choice" ? dict.auto.oneOrTwo : piper }));
+}
+
+/**
+ * The Actor playing a borrowed power on this step, if they are: the role's
+ * real holder has their own turn just before, so the call must say who it is.
+ */
+export function actorTurn(game: GameState): RoleId | null {
+  const step = game.step;
+  const role = game.night.actorRole;
+  if (!role || game.phase.kind !== "night" || step.kind === "actor" || !("playerId" in step)) return null;
+  return game.players.find((p) => p.id === step.playerId)?.role === "actor" ? role : null;
+}
+
+/** A line calling the borrowed role by name ("Seer, wake up…") calls the Actor instead. */
+export function actorCall(dict: Dictionary, game: GameState, line: string) {
+  const role = actorTurn(game);
+  const called = role && `${dict.roles[role].name},`;
+  return called && line.startsWith(called) ? `${dict.roles.actor.name},${line.slice(called.length)}` : line;
 }
 
 const turnOf = (step: Step) => (step.kind === "piper" ? "pied-piper" : step.kind === "infect" ? "accursed-wolf-father" : step.kind);
@@ -294,7 +312,7 @@ export function beatsOf(room: AutoRoom, dict: Dictionary): Beat[] {
       const wolfDown =
         game.setup.settings.revealRoleOnDeath &&
         game.players.some((p) => p.death && p.death.phase.kind === game.phase.kind && p.death.phase.number === game.phase.number && isWolf(p));
-      const lines = step.next.kind === "day" ? story.nightEnds : wolfDown ? story.dayEndsWolfDown : story.dayEnds;
+      const lines = step.next.kind === "day" ? story.nightEnds : wolfDown ? story.dayEndsWolfDown : silentDay(game) ? story.dayEndsNoVote : story.dayEnds;
       beats.push({ say: [pick(lines, `${game.phase.kind}${game.phase.number}`)], wait: { kind: "hold", ms: 2_000 } });
       break;
     }
@@ -318,7 +336,7 @@ export function beatsOf(room: AutoRoom, dict: Dictionary): Beat[] {
     case "seer-result":
     case "fox-result":
       beats.push({ say: [], show: "result", wait: { kind: "hold", ms: TIMING.look } });
-      beats.push({ say: [dict.game.steps[step.kind].say], wait: { kind: "hold", ms: TIMING.sleep } });
+      beats.push({ say: [actorCall(dict, game, dict.game.steps[step.kind].say)], wait: { kind: "hold", ms: TIMING.sleep } });
       break;
     case "bluff": {
       // Exactly like the real turn, with nobody playing it.
@@ -817,7 +835,7 @@ export type PhoneTurn =
   | { kind: "choice"; step: "wolf-hound" | "infect" | "servant" | "judge"; victimId?: string }
   | { kind: "seer-result"; targetId: string; role: RoleId }
   | { kind: "fox-result"; playerIds: string[]; hasWolf: boolean }
-  | { kind: "check"; message: "lover" | "charmed" | "nothing"; partnerId?: string }
+  | { kind: "check"; message: "lover" | "charmed" | "nothing" | "sick"; partnerId?: string }
   | { kind: "group"; group: Group; ids: string[] };
 
 /** The choice or the message on one phone right now, if any. */
@@ -868,6 +886,8 @@ export function turnFor(game: GameState, playerId: string, show: Show | undefine
     if (step.kind === "fox-result" && step.playerId === playerId) return { kind: "fox-result", playerIds: step.playerIds, hasWolf: step.hasWolf };
     return null;
   }
+  // Caught by the rusty sword, he wakes with the pack out of habit: his phone sends him back to sleep.
+  if (beat.show === "turn" && step.kind === "wolves" && sickTonight(game, playerId)) return { kind: "check", message: "sick" };
   if (beat.show !== "turn" || answered || !actorsOf(step).includes(playerId)) return null;
 
   switch (step.kind) {

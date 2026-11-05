@@ -102,7 +102,21 @@ export function elderCostsPowers(state: GameState, deaths: { playerId: string; c
 
 /** Living holders of a role who can still use it, in seating order. */
 export function holders(state: GameState, role: RoleId) {
-  return state.players.filter((p) => p.alive && p.role === role && hasPower(state, p));
+  return state.players.filter((p) => p.alive && p.role === role && hasPower(state, p) && !sickTonight(state, p.id));
+}
+
+/**
+ * The wolf the Knight's rusty sword caught dies as the next night begins (the
+ * village hears it at dawn): he no longer wakes up, with the pack or alone.
+ */
+export function sickTonight(state: GameState, playerId: string) {
+  return state.phase.kind === "night" && state.rustTargetId === playerId;
+}
+
+/** The Scapegoat let nobody (still able to) vote today: the day ended without a vote. */
+export function silentDay(state: GameState) {
+  const only = state.votersOnly?.day === state.phase.number && state.phase.kind === "day" ? state.votersOnly.ids : null;
+  return !!only && !state.players.some((p) => p.alive && only.includes(p.id) && !p.flags["idiot-revealed"]);
 }
 
 /**

@@ -768,17 +768,30 @@ function WitchTurn({ turn, onConfirm }: { turn: Extract<PhoneTurn, { kind: "witc
   const healed = led ? (turn.healed ?? false) : heal;
   const stage = !led ? mine : turn.ask === "poison" ? (mine === "target" ? "target" : "poison") : turn.ask === "heal" && turn.healed != null ? "answered" : turn.ask;
   const victim = turn.victimId ? name(turn.victimId) : null;
+  // Each answer is picked, then confirmed: a slip of the thumb doesn't waste a potion.
+  const [choice, setChoice] = useState<{ stage: string; yes: boolean } | null>(null);
+  const asking = `${stage}`;
+  const picked = choice && choice.stage === asking ? choice.yes : null;
   const answer = (onYes: () => void, onNo: () => void) => (
-    <div className="grid grid-cols-2 gap-2">
-      <Button type="button" className="h-12 text-base" onClick={onYes}>
-        <ThumbsUp aria-hidden className="size-5" />
-        {dict.auto.yes}
-      </Button>
-      <Button type="button" variant="outline" className="h-12 text-base" onClick={onNo}>
-        <ThumbsDown aria-hidden className="size-5" />
-        {dict.auto.no}
-      </Button>
-    </div>
+    <>
+      <div className="grid grid-cols-2 gap-2">
+        <OptionButton on={picked === true} onClick={() => setChoice({ stage: asking, yes: true })}>
+          <ThumbsUp aria-hidden className="size-5" />
+          {dict.auto.yes}
+        </OptionButton>
+        <OptionButton on={picked === false} onClick={() => setChoice({ stage: asking, yes: false })}>
+          <ThumbsDown aria-hidden className="size-5" />
+          {dict.auto.no}
+        </OptionButton>
+      </div>
+      <PlayButton
+        ready={picked !== null}
+        onClick={() => {
+          setChoice(null);
+          (picked ? onYes : onNo)();
+        }}
+      />
+    </>
   );
   const back = (to: "heal" | "poison") =>
     (!led || to === "poison") && (

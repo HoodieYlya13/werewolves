@@ -135,7 +135,10 @@ export function applyAction(prev: GameState, action: Action): GameState {
   const done = state.step;
   resolve(state, state.step, action);
   advance(state);
-  state.backToSleep = backToSleep(done, state.step);
+  const sleeper = backToSleep(done, state.step);
+  // A borrowed power's turn is the Actor's: the Actor goes back to sleep, not the real holder.
+  const player = "playerId" in done && done.kind !== "actor" ? state.players.find((p) => p.id === done.playerId) : undefined;
+  state.backToSleep = sleeper && player?.role === "actor" ? "actor" : sleeper;
   return state;
 }
 
