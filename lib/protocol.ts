@@ -1,4 +1,4 @@
-import type { AutoConfig, AutoPublic, Cue, PhoneTurn } from "./auto";
+import type { AutoConfig, AutoPublic, Cue, PhoneTurn, WitchAsk } from "./auto";
 import type { Ballot, Timer } from "./ballot";
 import type { ProfilePeek } from "./friends";
 import type { Action, GameState, PlayerInfo, PublicGame, RoleId, SetupOptions, Settings } from "./engine";
@@ -75,7 +75,8 @@ export type HostView = BaseView & {
   seatId: string | null;
   seat: PlayerView | null;
   /** With a game master: what players chose on their phones for the current step, to validate. */
-  phonePlays: { actions: Record<string, Action>; wolfPicks: Record<string, string> } | null;
+  /** `asked`: which of the Witch's questions her phone's answer was for. */
+  phonePlays: { actions: Record<string, Action>; wolfPicks: Record<string, string>; asked: Record<string, WitchAsk> } | null;
   /** Without a game master: the game is paused (this device may resume it). */
   paused: boolean;
   /** Without a game master: the leader whose device went silent, until this one (leading now) settles it. */
@@ -304,6 +305,8 @@ export type ClientMessage =
   | ({ type: "start-game" } & StartGame)
   | { type: "game-action"; action: Action }
   | { type: "undo" }
+  /** The Witch's question the game master is on: her phone asks the same. */
+  | { type: "master-stage"; stage: WitchAsk }
   /** The game master read the lines before the step at log length `at`: its phone turns open. */
   | { type: "lead-read"; at: number }
   /** Back to the lobby with the same players. The game is kept until the lineup changes. */

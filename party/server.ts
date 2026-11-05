@@ -26,6 +26,7 @@ import { deleteResult, hashClaimCode, saveResult, type GameResult } from "../lib
 import { friendsAmong, profilePeek, recordInvites, requestFriend, saveAccount } from "../lib/friends";
 import { sendPushes } from "./push";
 import * as auto from "../lib/auto";
+import { WITCH_ASKS, type WitchAsk } from "../lib/auto";
 import { sceneFor } from "../lib/soundtrack";
 import { themeDictionary } from "../lib/themes";
 import en from "../lib/i18n/dictionaries/en";
@@ -172,7 +173,9 @@ type RoomState = {
   /** With a game master: the dead player who took the game over, whose seat goes once it ends. */
   masterSeatId?: string | null;
   /** With a game master: what phones chose for the step at `at` (players may play on their phones). */
-  phonePlays?: { at: number; actions: Record<string, Action>; wolfPicks: Record<string, string> } | null;
+  phonePlays?: { at: number; actions: Record<string, Action>; wolfPicks: Record<string, string>; asked?: Record<string, WitchAsk> } | null;
+  /** With a game master: the Witch's question the game master is on, for the step at `at` (her phone follows). */
+  masterStage?: { at: number; stage: WitchAsk } | null;
   /** With a game master: the log length whose lead lines ("go back to sleep"…) the game master has read. */
   leadReadAt?: number | null;
 };
@@ -761,6 +764,8 @@ export class RoomServer extends Server<Env> {
             return this.send(sender, { type: "error", code: "invalid-action" });
           }
           plays.actions[id] = msg.action;
+          // The Witch answers one question at a time: which one this answer was for.
+          if (game.step.kind === "witch") (plays.asked ??= {})[id] = this.witchAsk() ?? "poison";
           break;
         }
       // falls through: without a game master, the room plays it.
@@ -853,6 +858,18 @@ export class RoomServer extends Server<Env> {
           this.state.game.log.push(msg.action);
         } catch (e) {
           return this.sendEngineError(sender, e, "invalid-action");
+        }
+        break;
+      }
+      case "master-stage": {
+        if (!isHost || !this.game || this.game.step.kind !== "witch" || !WITCH_ASKS.includes(msg.stage)) return;
+        const at = this.state.game!.log.length;
+        this.state.masterStage = { at, stage: msg.stage };
+        // Started over (Undo): her phone answers again too.
+        const plays = this.state.phonePlays;
+        if (msg.stage === "show" && plays?.at === at) {
+          delete plays.actions[this.game.step.playerId];
+          delete plays.asked?.[this.game.step.playerId];
         }
         break;
       }
@@ -1780,7 +1797,10 @@ export class RoomServer extends Server<Env> {
         actionCount: s.game?.log.length ?? 0,
         canResume: !!s.endedGame,
         ballot: playing ? null : (s.ballot ?? null),
-        phonePlays: !s.auto && s.phonePlays && s.phonePlays.at === s.game?.log.length ? { actions: s.phonePlays.actions, wolfPicks: s.phonePlays.wolfPicks } : null,
+        phonePlays:
+          !s.auto && s.phonePlays && s.phonePlays.at === s.game?.log.length
+            ? { actions: s.phonePlays.actions, wolfPicks: s.phonePlays.wolfPicks, asked: s.phonePlays.asked ?? {} }
+            : null,
         paused: !!s.paused,
         lostLeader: s.lostLeader && !s.lostLeader.settled ? { name: s.lostLeader.name } : null,
         requests: (s.requests ?? []).map(({ id, name, kind, account }) => ({ id, name, kind: kind ?? "rejoin", account: !!account })),
@@ -1864,7 +1884,22 @@ export class RoomServer extends Server<Env> {
     // Not while the game master still reads the last turn's "go back to sleep": that phone would light up too soon.
     if (hasLeadLine(game) && s.leadReadAt !== s.game?.log.length) return null;
     const plays = s.phonePlays?.at === s.game?.log.length ? s.phonePlays : null;
-    return auto.turnFor(game, playerId, auto.masterShow(game.step), !!plays?.actions[playerId], plays?.wolfPicks ?? {});
+    const action = plays?.actions[playerId];
+    const ask = this.witchAsk();
+    if (game.step.kind === "witch" && ask) {
+      // The Witch's phone asks what the game master asks, when they ask it.
+      const asked = plays?.asked?.[playerId];
+      const turn = auto.turnFor(game, playerId, "turn", asked === "poison", {});
+      if (turn?.kind !== "witch") return turn;
+      return { ...turn, ask, healed: asked && action?.type === "witch" ? action.heal : null };
+    }
+    return auto.turnFor(game, playerId, auto.masterShow(game.step), !!action, plays?.wolfPicks ?? {});
+  }
+
+  /** The Witch's question the game master is on, if they said (older screens don't). */
+  private witchAsk(): WitchAsk | null {
+    const s = this.state!;
+    return this.game?.step.kind === "witch" && s.masterStage?.at === s.game?.log.length ? s.masterStage.stage : null;
   }
 
   /** Every socket gets its own filtered view, so secrets never reach the wrong phone. */

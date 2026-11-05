@@ -995,6 +995,9 @@ const en = {
         pickPoison: "Tap the player {name} poisons, then confirm.",
         cantHeal: "Your healing potion is used: you can't save anyone anymore.",
         cantPoison: "Your poison is used.",
+        fromPhone: "{name}'s phone: {answer}",
+        wait: "Wait for the game master's question.",
+        answered: "Your answer: {answer}. Wait for the next question.",
       },
       deaths: {
         dawn: "The sun rises. Everyone wakes up!",

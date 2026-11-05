@@ -785,6 +785,10 @@ export function cueDone(room: AutoRoom, id: number, ctx: AutoContext) {
 
 // --- what phones see ---
 
+/** The Witch's questions, one at a time: the victim shown, then the healing potion, then the poison. */
+export type WitchAsk = "show" | "heal" | "poison";
+export const WITCH_ASKS: WitchAsk[] = ["show", "heal", "poison"];
+
 export type PhoneTurn =
   | {
       kind: "pick";
@@ -798,7 +802,17 @@ export type PhoneTurn =
       lastId?: string | null;
     }
   | { kind: "wolves"; targets: string[]; wolves: string[]; picks: Record<string, string> }
-  | { kind: "witch"; victimId: string | null; canHeal: boolean; canPoison: boolean; targets: string[] }
+  | {
+      kind: "witch";
+      victimId: string | null;
+      canHeal: boolean;
+      canPoison: boolean;
+      targets: string[];
+      /** With a game master: the question they're on, which the phone asks too. Without: the phone asks both. */
+      ask?: WitchAsk;
+      /** Her answer to the healing question, once given (with a game master). */
+      healed?: boolean | null;
+    }
   | { kind: "cards"; step: "thief" | "actor"; cards: RoleId[]; canKeep: boolean }
   | { kind: "choice"; step: "wolf-hound" | "infect" | "servant" | "judge"; victimId?: string }
   | { kind: "seer-result"; targetId: string; role: RoleId }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { Check, FlaskConical, LogIn, Megaphone, Moon, Quote, Skull, Smartphone, Sun, ThumbsDown, ThumbsUp, Trophy } from "lucide-react";
 import { AuthButton } from "@/components/account-button";
 import { useI18n } from "@/components/i18n-provider";
@@ -22,6 +22,9 @@ type Props<K extends Step["kind"]> = {
   act: (action: Action) => void;
 };
 
+/** The step was started over (Undo) or came back by Undo: what it shows by itself, it shows on a tap instead. */
+const Restarted = createContext(false);
+
 /**
  * Lines that close the last turn or open the night, read on their own before
  * the step, one Continue each, so every turn starts by itself. Only on this
@@ -40,7 +43,8 @@ export function leadLines(game: GameState, dict: ReturnType<typeof useI18n>["dic
  * What the game master reads and taps for the current step. The parent keys it
  * by action count, so any local selection resets on each new step, and keeps
  * how many lead lines were read (the soundtrack waits for them). `onTouched`:
- * the step itself was tapped, so Undo first starts it over.
+ * the step itself was tapped, so Undo first starts it over. `restarted`: see
+ * `Restarted`.
  */
 export function StepPanel({
   game,
@@ -48,12 +52,14 @@ export function StepPanel({
   read,
   onRead,
   onTouched,
+  restarted,
 }: {
   game: GameState;
   act: (action: Action) => void;
   read: number;
   onRead: (read: number) => void;
   onTouched: () => void;
+  restarted: boolean;
 }) {
   const { dict } = useI18n();
   const lead = leadLines(game, dict);
@@ -78,7 +84,9 @@ export function StepPanel({
         if ((e.target as HTMLElement).closest("button, input, label, select, a")) onTouched();
       }}
     >
-      <StepContent game={game} act={act} />
+      <Restarted.Provider value={restarted}>
+        <StepContent game={game} act={act} />
+      </Restarted.Provider>
     </div>
   );
 }
@@ -99,8 +107,9 @@ function StepContent({ game, act }: { game: GameState; act: (action: Action) => 
 function PhonePlays({ game, act }: { game: GameState; act: (action: Action) => void }) {
   const { dict } = useI18n();
   const { phonePlays } = useRoomContext();
-  if (!phonePlays) return null;
   const step = game.step;
+  // The Witch's answers come one question at a time, on her own step.
+  if (!phonePlays || step.kind === "witch") return null;
   const rows: { key: string; label: string; action: Action }[] = [];
   if (step.kind === "wolves") {
     const votes = new Map<string, number>();
@@ -545,21 +554,25 @@ function SeerStep({ game, step, act }: Props<"seer">) {
 function SeerResultStep({ game, step, act }: Props<"seer-result">) {
   const { dict } = useI18n();
   const t = dict.game.steps["seer-result"];
-  const [seen, setSeen] = useState(false);
+  // Started over by Undo, the card was already seen: shown again only on a tap.
+  const restarted = useContext(Restarted);
+  const [seen, setSeen] = useState(restarted);
+  const reveal = (
+    <Reveal to={nameOf(game, step.playerId)} defaultOpen={!restarted} closeLabel={dict.game.continue} onClose={() => setSeen(true)}>
+      <p className="text-2xl">{format(t.reveal, { target: nameOf(game, step.targetId) })}</p>
+      <RoleName role={step.role} className="font-display text-5xl font-bold sm:text-7xl" />
+    </Reveal>
+  );
   if (seen) {
     return (
       <>
+        {restarted && reveal}
         <Say>{t.say}</Say>
         <ContinueButton act={act} />
       </>
     );
   }
-  return (
-    <Reveal to={nameOf(game, step.playerId)} defaultOpen closeLabel={dict.game.continue} onClose={() => setSeen(true)}>
-      <p className="text-2xl">{format(t.reveal, { target: nameOf(game, step.targetId) })}</p>
-      <RoleName role={step.role} className="font-display text-5xl font-bold sm:text-7xl" />
-    </Reveal>
-  );
+  return reveal;
 }
 
 function WolvesStep({ game, step, act }: Props<"wolves">) {
@@ -595,6 +608,23 @@ function WitchStep({ game, step, act }: Props<"witch">) {
   const t = dict.game.steps.witch;
   const [stage, setStage] = useState<"show" | "heal" | "poison" | "target">("show");
   const [heal, setHeal] = useState(false);
+  // Her phone asks each question when it's asked here, not before.
+  const { send, phonePlays } = useRoomContext();
+  const ask = stage === "target" ? "poison" : stage;
+  useEffect(() => send?.({ type: "master-stage", stage: ask }), [send, ask]);
+  const phone = phonePlays?.actions[step.playerId];
+  const asked = phonePlays?.asked[step.playerId];
+  const fromPhone = (label: string, onValidate: () => void) => (
+    <section className="flex flex-wrap items-center gap-3 rounded-2xl border border-moon/40 bg-moon/10 p-4">
+      <p className="flex min-w-0 flex-1 items-center gap-2 font-semibold text-moon">
+        <Smartphone aria-hidden className="size-4 shrink-0" />
+        {format(t.fromPhone, { name: witch, answer: label })}
+      </p>
+      <Button type="button" className="h-10 px-4" onClick={onValidate}>
+        {dict.lead.validate}
+      </Button>
+    </section>
+  );
   const victim = step.victimId ? nameOf(game, step.victimId) : null;
   const witch = nameOf(game, step.playerId);
   const potion = (on: boolean, Icon: typeof FlaskConical, available: string, used: string, color: string) => (
@@ -634,6 +664,12 @@ function WitchStep({ game, step, act }: Props<"witch">) {
   if (stage === "heal") {
     return (
       <>
+        {phone?.type === "witch" &&
+          asked &&
+          fromPhone(phone.heal ? dict.auto.yes : dict.auto.no, () => {
+            setHeal(phone.heal);
+            setStage("poison");
+          })}
         <Say>{t.askHeal}</Say>
         <Do>{step.canHeal ? format(t.thumbs, { name: witch }) : t.used}</Do>
         {answer(
@@ -656,6 +692,9 @@ function WitchStep({ game, step, act }: Props<"witch">) {
   if (stage === "poison") {
     return (
       <>
+        {phone?.type === "witch" &&
+          asked === "poison" &&
+          fromPhone(phone.poisonId ? nameOf(game, phone.poisonId) : dict.auto.no, () => act({ type: "witch", heal, poisonId: phone.poisonId }))}
         <Say>{t.askPoison}</Say>
         <Do>{step.canPoison ? format(t.thumbs, { name: witch }) : t.used}</Do>
         {answer({ label: dict.auto.yes, disabled: !step.canPoison, onClick: () => setStage("target") }, () =>

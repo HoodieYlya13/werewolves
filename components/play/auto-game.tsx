@@ -759,44 +759,73 @@ function WitchTurn({ turn, onConfirm }: { turn: Extract<PhoneTurn, { kind: "witc
   const { dict } = useI18n();
   const name = useName();
   const t = dict.game.steps.witch;
-  // One question at a time, as the narrator asks them: the healing potion, then the poison.
-  const [stage, setStage] = useState<"heal" | "poison" | "target">("heal");
+  // One question at a time: the healing potion, then the poison. With a game master,
+  // each when they ask it (`turn.ask`); without, one after the other.
+  const [mine, setMine] = useState<"heal" | "poison" | "target">("heal");
   const [heal, setHeal] = useState(false);
   const [poison, setPoison] = useState<string[]>([]);
+  const led = turn.ask !== undefined;
+  const healed = led ? (turn.healed ?? false) : heal;
+  const stage = !led ? mine : turn.ask === "poison" ? (mine === "target" ? "target" : "poison") : turn.ask === "heal" && turn.healed != null ? "answered" : turn.ask;
   const victim = turn.victimId ? name(turn.victimId) : null;
-  const answer = (yes: string, onYes: () => void, onNo: () => void) => (
+  const answer = (onYes: () => void, onNo: () => void) => (
     <div className="grid grid-cols-2 gap-2">
-      <Button type="button" className="h-auto min-h-12 text-base whitespace-normal" onClick={onYes}>
+      <Button type="button" className="h-12 text-base" onClick={onYes}>
         <ThumbsUp aria-hidden className="size-5" />
-        {yes}
+        {dict.auto.yes}
       </Button>
-      <Button type="button" variant="outline" className="h-auto min-h-12 text-base" onClick={onNo}>
+      <Button type="button" variant="outline" className="h-12 text-base" onClick={onNo}>
         <ThumbsDown aria-hidden className="size-5" />
         {dict.auto.no}
       </Button>
     </div>
   );
+  const back = (to: "heal" | "poison") =>
+    (!led || to === "poison") && (
+      <Button type="button" variant="ghost" className="h-10" onClick={() => setMine(to)}>
+        {dict.ballot.back}
+      </Button>
+    );
+  const shown = <p className="text-2xl font-semibold wrap-anywhere">{victim ? format(t.victim, { name: victim }) : t.noVictim}</p>;
 
+  if (stage === "show") {
+    return (
+      <>
+        {shown}
+        <p className="text-muted-foreground">{t.wait}</p>
+      </>
+    );
+  }
+  if (stage === "answered") {
+    return (
+      <>
+        {shown}
+        <p className="text-muted-foreground">{format(t.answered, { answer: turn.healed ? dict.auto.yes : dict.auto.no })}</p>
+      </>
+    );
+  }
   if (stage === "heal") {
-    const toPoison = (healed: boolean) => {
-      setHeal(healed);
-      setStage("poison");
+    // With a game master, the answer goes to them now; without, it waits for the poison's.
+    const answerHeal = (yes: boolean) => {
+      if (led) return onConfirm(yes, null);
+      setHeal(yes);
+      setMine("poison");
     };
     return (
       <>
-        <p className="text-2xl font-semibold wrap-anywhere">{victim ? format(t.victim, { name: victim }) : t.noVictim}</p>
+        {shown}
         {victim && turn.canHeal ? (
           <>
             <p className="flex items-center gap-2 font-medium">
-              <FlaskConical aria-hidden className="size-5 text-ok" />
+              <FlaskConical aria-hidden className="size-5 shrink-0 text-ok" />
               {t.askHeal}
             </p>
-            {answer(format(t.heal, { name: victim }), () => toPoison(true), () => toPoison(false))}
+            {answer(() => answerHeal(true), () => answerHeal(false))}
           </>
         ) : (
           <>
-            {!turn.canHeal && <p className="text-muted-foreground">{t.cantHeal}</p>}
-            <PlayButton ready label={dict.game.continue} onClick={() => toPoison(false)} />
+            <p className="text-muted-foreground">{turn.canHeal ? t.noVictim : t.cantHeal}</p>
+            <PlayButton ready label={dict.game.continue} onClick={() => answerHeal(false)} />
           </>
         )}
       </>
@@ -805,38 +834,34 @@ function WitchTurn({ turn, onConfirm }: { turn: Extract<PhoneTurn, { kind: "witc
   if (stage === "poison") {
     return (
       <>
-        {heal && victim && <p className="font-medium text-ok wrap-anywhere">{format(t.heal, { name: victim })}</p>}
+        {healed && victim && <p className="font-medium text-ok wrap-anywhere">{format(t.heal, { name: victim })}</p>}
         {turn.canPoison ? (
           <>
             <p className="flex items-center gap-2 font-medium">
-              <Skull aria-hidden className="size-5 text-primary" />
+              <Skull aria-hidden className="size-5 shrink-0 text-primary" />
               {t.askPoison}
             </p>
-            {answer(dict.auto.yes, () => setStage("target"), () => onConfirm(heal, null))}
+            {answer(() => setMine("target"), () => onConfirm(healed, null))}
           </>
         ) : (
           <>
             <p className="text-muted-foreground">{t.cantPoison}</p>
-            <PlayButton ready onClick={() => onConfirm(heal, null)} />
+            <PlayButton ready onClick={() => onConfirm(healed, null)} />
           </>
         )}
-        <Button type="button" variant="ghost" className="h-10" onClick={() => setStage("heal")}>
-          {dict.ballot.back}
-        </Button>
+        {back("heal")}
       </>
     );
   }
   return (
     <>
       <p className="flex items-center gap-2 font-medium">
-        <Skull aria-hidden className="size-5 text-primary" />
+        <Skull aria-hidden className="size-5 shrink-0 text-primary" />
         {t.poison}
       </p>
       <PickList targets={turn.targets} selected={poison} onToggle={(id) => setPoison((s) => toggle(s, id, 1))} />
-      <PlayButton ready={poison.length > 0} onClick={() => onConfirm(heal, poison[0])} />
-      <Button type="button" variant="ghost" className="h-10" onClick={() => setStage("poison")}>
-        {dict.ballot.back}
-      </Button>
+      <PlayButton ready={poison.length > 0} onClick={() => onConfirm(healed, poison[0])} />
+      {back("poison")}
     </>
   );
 }

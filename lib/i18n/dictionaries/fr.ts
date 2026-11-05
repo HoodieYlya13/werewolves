@@ -995,6 +995,9 @@ const fr: Dictionary = {
         pickPoison: "Touchez le joueur que {name} empoisonne, puis validez.",
         cantHeal: "Ta potion de vie est utilisée : tu ne peux plus sauver personne.",
         cantPoison: "Ta potion de mort est utilisée.",
+        fromPhone: "Téléphone de {name} : {answer}",
+        wait: "Attends la question du meneur.",
+        answered: "Ta réponse : {answer}. Attends la question suivante.",
       },
       deaths: {
         dawn: "Le jour se lève. Tout le monde se réveille !",

@@ -48,10 +48,11 @@ export function GameScreen({
   const isNight = game.phase.kind === "night" && !prologue;
   useGameTheme(isNight);
   // The step panel's own state, kept here: the lead lines read, and whether the step was tapped.
-  const [panel, setPanel] = useState({ at: view.actionCount, read: 0, touched: false, reset: 0 });
+  const [panel, setPanel] = useState({ at: view.actionCount, read: 0, touched: false, reset: 0, restarted: false });
   if (panel.at !== view.actionCount) {
     // Undone: the step comes back as it starts, without the last turn's closing lines again.
-    setPanel({ at: view.actionCount, read: view.actionCount < panel.at ? Infinity : 0, touched: false, reset: panel.reset });
+    const undone = view.actionCount < panel.at;
+    setPanel({ at: view.actionCount, read: undone ? Infinity : 0, touched: false, reset: panel.reset, restarted: undone });
   }
   const lead = leadLines(game, dict);
   const reading = panel.at === view.actionCount && panel.read < lead.length;
@@ -146,7 +147,7 @@ export function GameScreen({
               title={dict.game.undo}
               disabled={view.actionCount === 0 && !panel.touched}
               // A step already under way starts over first: Undo only then goes back to the last turn.
-              onClick={() => (panel.touched ? setPanel({ ...panel, touched: false, reset: panel.reset + 1 }) : send({ type: "undo" }))}
+              onClick={() => (panel.touched ? setPanel({ ...panel, touched: false, reset: panel.reset + 1, restarted: true }) : send({ type: "undo" }))}
             >
               <Undo2 aria-hidden className="size-4" />
               <span className="sr-only">{dict.game.undo}</span>
@@ -186,6 +187,7 @@ export function GameScreen({
             read={panel.at === view.actionCount ? panel.read : 0}
             onRead={(read) => setPanel({ ...panel, read })}
             onTouched={() => !panel.touched && setPanel({ ...panel, touched: true })}
+            restarted={panel.restarted}
           />
         </section>
       </div>
