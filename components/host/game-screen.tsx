@@ -264,6 +264,12 @@ function PlayersPanel({ game }: { game: GameState }) {
               <PawPrint aria-hidden className="secret-role size-3.5 text-primary" />
             )}
             {!p.alive && <Skull aria-label={dict.game.dead} className="size-3.5" />}
+            {/* The Sectarian's groups were announced to everyone: never hidden. */}
+            {game.setup.groups?.[p.id] && (
+              <span aria-label={dict.setup.groups} className="rounded-full bg-surface-2 px-1.5 text-xs font-semibold text-muted-foreground">
+                {game.setup.groups[p.id] === "a" ? dict.setup.groupA : dict.setup.groupB}
+              </span>
+            )}
             {/* Public anyway: a villager on both sides, or a card turned face up at death. */}
             <RoleName
               role={p.role}
