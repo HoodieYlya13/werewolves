@@ -136,7 +136,23 @@ export function SetupScreen({
   const [mode, setMode] = useState<"random" | "manual">("random");
   const [assignment, setAssignment] = useState<Record<string, RoleId>>({});
   const [actorCards, setActorCards] = useState<RoleId[]>(initial.actorCards);
-  const [groups, setGroups] = useState<Record<string, "a" | "b">>({});
+  // Split at random from the start, folded: the game master opens it only to change it.
+  const [groups, setGroups] = useState(() => splitAtRandom(players.map((p) => p.id)));
+  const [groupsOpen, setGroupsOpen] = useState(false);
+  const [groupsEdited, setGroupsEdited] = useState(false);
+  // Players joined or left: newcomers go to the smaller group, so a split someone made stays.
+  const groupKey = players.map((p) => p.id).join();
+  const [groupsFor, setGroupsFor] = useState(groupKey);
+  if (groupKey !== groupsFor) {
+    setGroupsFor(groupKey);
+    const next = Object.fromEntries(players.filter((p) => groups[p.id]).map((p) => [p.id, groups[p.id]]));
+    for (const p of players) {
+      if (next[p.id]) continue;
+      const a = Object.values(next).filter((g) => g === "a").length;
+      next[p.id] = a <= Object.keys(next).length - a ? "a" : "b";
+    }
+    setGroups(next);
+  }
 
   const deck = toDeck(counts);
   const needed = deckSize(players.length, deck);
@@ -685,11 +701,48 @@ export function SetupScreen({
           )}
 
           {!hidden && needs.groups && (
-            <section className="card flex flex-col gap-3 p-5">
-              <div>
-                <h2 className="font-semibold">{dict.setup.groups}</h2>
-                <p className="text-sm text-muted-foreground">{dict.setup.groupsHint}</p>
+            <section className="card flex flex-col p-5">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  aria-expanded={groupsOpen}
+                  aria-controls="group-list"
+                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                  onClick={() => setGroupsOpen((open) => !open)}
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-semibold">{dict.setup.groups}</span>
+                    <span className="block text-sm text-muted-foreground">
+                      {format(groupsEdited ? dict.setup.groupsEdited : dict.setup.groupsSummary, {
+                        a: groupSides.filter((g) => g === "a").length,
+                        b: groupSides.filter((g) => g === "b").length,
+                      })}
+                    </span>
+                  </span>
+                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-surface-2">
+                    <ChevronDown aria-hidden className={`size-5 transition-transform ${groupsOpen ? "rotate-180" : ""}`} />
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  aria-label={dict.setup.groupsShuffle}
+                  title={dict.setup.groupsShuffle}
+                  className="grid size-10 shrink-0 place-items-center rounded-lg border border-line text-muted-foreground hover:text-fg"
+                  onClick={() => {
+                    setGroups(splitAtRandom(players.map((p) => p.id)));
+                    setGroupsEdited(false);
+                  }}
+                >
+                  <Shuffle aria-hidden className="size-5" />
+                </button>
               </div>
+              <div
+                id="group-list"
+                inert={!groupsOpen}
+                className={`grid transition-[grid-template-rows,margin] duration-300 ease-out motion-reduce:transition-none ${groupsOpen ? "mt-3 grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+              >
+              <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
+              <p className="text-sm text-muted-foreground">{dict.setup.groupsHint}</p>
               <ol className="flex flex-col gap-2">
                 {players.map((p) => (
                   <li key={p.id} className="flex items-center gap-3">
@@ -700,7 +753,10 @@ export function SetupScreen({
                           key={g}
                           type="button"
                           aria-current={groups[p.id] === g}
-                          onClick={() => setGroups((all) => ({ ...all, [p.id]: g }))}
+                          onClick={() => {
+                            setGroups((all) => ({ ...all, [p.id]: g }));
+                            setGroupsEdited(true);
+                          }}
                         >
                           {g === "a" ? dict.setup.groupA : dict.setup.groupB}
                         </button>
@@ -709,7 +765,9 @@ export function SetupScreen({
                   </li>
                 ))}
               </ol>
-              {!groupsReady && <p className="text-sm text-primary">{dict.setup.groupsNeeded}</p>}
+              </div>
+              </div>
+              {!groupsReady && <p className="mt-3 text-sm text-primary">{dict.setup.groupsNeeded}</p>}
             </section>
           )}
 
@@ -863,4 +921,14 @@ function DeckChips({ counts }: { counts: Counts }) {
         ))}
     </ul>
   );
+}
+
+/** Two groups as even as the table allows, at random. */
+function splitAtRandom(ids: string[]): Record<string, "a" | "b"> {
+  const shuffled = [...ids];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return Object.fromEntries(shuffled.map((id, i) => [id, i < Math.ceil(shuffled.length / 2) ? "a" : "b"]));
 }
