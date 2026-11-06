@@ -53,6 +53,8 @@ export function AutoDay({ view, send }: { view: PlayerView; send: Send }) {
   return (
     <>
       {view.turn && <TurnPanel view={view} turn={view.turn} send={send} />}
+      {/* Deciding whether to run for Mayor: OK when done (the card's OK sits under the card). */}
+      {!view.turn && view.auto?.look?.show !== "card" && <LookButton view={view} send={send} />}
       {view.auto?.waiting && (
         <p role="status" className="flex items-center justify-center gap-2 rounded-xl bg-surface-2 px-4 py-3 text-muted-foreground">
           <Clock aria-hidden className="size-4" />
@@ -473,7 +475,7 @@ export function TurnPanel({ view, turn, send }: { view: PlayerView; turn: PhoneT
       break;
     case "seer-result":
       body = (
-        <div className="flex flex-col items-center gap-2 py-4 text-center">
+        <div className="flex flex-col items-center gap-2 text-center">
           <p className="text-2xl">{format(dict.game.steps["seer-result"].reveal, { target: name(turn.targetId) })}</p>
           <RoleName role={turn.role} className="font-display text-5xl font-bold" />
         </div>
@@ -482,7 +484,7 @@ export function TurnPanel({ view, turn, send }: { view: PlayerView; turn: PhoneT
     case "fox-result": {
       const f = dict.game.steps["fox-result"];
       body = (
-        <div className="flex flex-col items-center gap-2 py-4 text-center">
+        <div className="flex flex-col items-center gap-2 text-center">
           {/* Laid out like the Seer's: the sentence, then the answer in the card's big type. */}
           <p className="text-2xl">{turn.hasWolf ? f.yes : f.no}</p>
           <ul className={`flex flex-col gap-1 font-display text-4xl font-bold wrap-anywhere ${turn.hasWolf ? "text-primary" : "text-ok"}`}>
@@ -496,14 +498,14 @@ export function TurnPanel({ view, turn, send }: { view: PlayerView; turn: PhoneT
     }
     case "check":
       body = (
-        <p className="py-6 text-center text-2xl font-semibold text-balance">
+        <p className="text-center text-2xl font-semibold text-balance">
           {turn.message === "lover" ? format(t.check.lover, { name: name(turn.partnerId!) }) : t.check[turn.message]}
         </p>
       );
       break;
     case "group":
       body = (
-        <div className="flex flex-col items-center gap-4 py-4">
+        <div className="flex flex-col items-center gap-4">
           <p className="text-xl font-semibold">{t.group[turn.group]}</p>
           <ul className="flex flex-wrap justify-center gap-3">
             {turn.ids.map((id) => (
@@ -518,13 +520,104 @@ export function TurnPanel({ view, turn, send }: { view: PlayerView; turn: PhoneT
       break;
   }
   const title = turn.kind === "pick" ? t.turn[turn.step] : turn.kind === "wolves" ? dict.auto.wolvesName : turn.kind === "witch" ? dict.roles.witch.name : null;
+  // News for this player alone, read with others' eyes possibly open: only while held, and the same face-down panel for everyone.
+  const secret = turn.kind === "check" || turn.kind === "group" || turn.kind === "seer-result" || turn.kind === "fox-result";
   return (
     <section className="card flex flex-col gap-4 p-4 ring-2 ring-moon/50">
       <p className="text-xs font-semibold tracking-[0.2em] text-moon uppercase">{t.yourTurn}</p>
       {title && <h2 className="-mt-2 text-xl font-semibold">{title}</h2>}
-      {body}
-      <TurnClock view={view} send={send} />
+      {secret ? <HoldToSee>{body}</HoldToSee> : body}
+      {secret ? <LookButton view={view} send={send} /> : <TurnClock view={view} send={send} />}
     </section>
+  );
+}
+
+/**
+ * Face down until held, like the role card: whatever it hides (news, a result,
+ * nothing at all) looks the same to anyone glancing at the phone.
+ */
+function HoldToSee({ children }: { children: React.ReactNode }) {
+  const { dict } = useI18n();
+  const [held, setHeld] = useState(false);
+  useEffect(() => {
+    const hide = () => setHeld(false);
+    window.addEventListener("blur", hide);
+    document.addEventListener("visibilitychange", hide);
+    return () => {
+      window.removeEventListener("blur", hide);
+      document.removeEventListener("visibilitychange", hide);
+    };
+  }, []);
+  return (
+    <button
+      type="button"
+      aria-label={dict.auto.holdToSee}
+      className="relative grid min-h-48 w-full touch-none place-items-center rounded-2xl select-none [-webkit-touch-callout:none]"
+      onPointerDown={(e) => {
+        setHeld(true);
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {}
+      }}
+      onPointerUp={() => setHeld(false)}
+      onPointerCancel={() => setHeld(false)}
+      onLostPointerCapture={() => setHeld(false)}
+      onKeyDown={(e) => {
+        if (e.key === " " || e.key === "Enter") {
+          e.preventDefault();
+          setHeld(true);
+        }
+      }}
+      onKeyUp={() => setHeld(false)}
+      onBlur={() => setHeld(false)}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      {held ? (
+        <span className="flex w-full flex-col items-center p-4">{children}</span>
+      ) : (
+        <span className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-line bg-[repeating-linear-gradient(45deg,var(--surface)_0_12px,var(--surface-2)_12px_24px)] p-4">
+          <span className="grid size-14 place-items-center rounded-full border-2 border-moon/60 bg-bg">
+            <Eye aria-hidden className="size-6 text-moon" />
+          </span>
+          <span className="rounded-full bg-bg px-4 py-1.5 font-medium">{dict.auto.holdToSee}</span>
+        </span>
+      )}
+    </button>
+  );
+}
+
+/**
+ * OK, with the time left inside it: done looking (at a card, a message, a
+ * result…). Once everyone concerned is, the game moves on; at zero it moves on anyway.
+ */
+export function LookButton({ view, send }: { view: PlayerView; send: Send }) {
+  const { dict } = useI18n();
+  const { clockOffset } = useRoomContext();
+  const look = view.auto?.look;
+  const [now, setNow] = useState(() => Date.now());
+  const ticking = !!look && !look.done;
+  useEffect(() => {
+    if (!ticking) return;
+    const id = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(id);
+  }, [ticking]);
+  if (!look) return null;
+  const t = dict.auto.look;
+  if (look.done) {
+    return (
+      <p role="status" className="flex items-center justify-center gap-2 rounded-xl bg-surface-2 px-4 py-3 text-center text-muted-foreground">
+        <Check aria-hidden className="size-4 shrink-0" />
+        {view.game?.phase.kind === "night" && !view.game.prologue ? t.doneNight : t.doneDay}
+      </p>
+    );
+  }
+  const left = Math.max(0, look.endsAt - (now + clockOffset));
+  return (
+    <Button type="button" className="h-12 text-base" onClick={() => send({ type: "ack" })}>
+      <Check aria-hidden className="size-5" />
+      {look.show === "card" ? t.card : look.show === "candidacy" ? t.candidacy : t.ok}
+      <span className="ml-1 rounded-full bg-primary-foreground/20 px-2 py-0.5 text-sm tabular-nums">{formatDuration(left)}</span>
+    </Button>
   );
 }
 

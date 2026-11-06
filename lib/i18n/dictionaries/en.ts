@@ -680,6 +680,14 @@ const en = {
     oneOrTwo: "1 or 2",
     wolvesName: "Werewolves",
     infectedCheck: "Everyone, open your eyes and look at your phone: it tells you if the Accursed Wolf-Father infected you.",
+    holdToSee: "Hold to see",
+    look: {
+      ok: "OK",
+      card: "I've seen my card",
+      candidacy: "I'm done",
+      doneNight: "Done. Close your eyes.",
+      doneDay: "Done. Waiting for the others…",
+    },
     everyoneCheck: "Everyone, open your eyes and look at your phone.",
     everyoneSleep: "Everyone, close your eyes.",
     groupWake: {

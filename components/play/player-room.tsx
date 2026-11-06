@@ -39,7 +39,7 @@ import { ThemedI18n } from "@/components/themed-i18n";
 import { ConnectionBanner, FatalError } from "@/components/room-status";
 import { useGameTheme } from "@/hooks/use-game-theme";
 import { useNarrator, useWakeLock } from "@/hooks/use-narrator";
-import { AutoDay, AutoNight, DeckCard, MasterGoneCard, MayorRace, NarratorCard, PauseBanner, Spectator, TurnPanel } from "@/components/play/auto-game";
+import { AutoDay, AutoNight, DeckCard, LookButton, MasterGoneCard, MayorRace, NarratorCard, PauseBanner, Spectator, TurnPanel } from "@/components/play/auto-game";
 import { PhoneSkeleton, Skeleton } from "@/components/skeletons";
 import { useRoom } from "@/hooks/use-room";
 import { format } from "@/lib/i18n/config";
@@ -655,6 +655,7 @@ export function InGame({
         // Everyone knows it already: a villager on both sides, or turned face up at death.
         faceUp={info.role === "villager-villager" || !!dead.get(me.id)}
       />
+      {view.auto?.look?.show === "card" && <LookButton view={view} send={act} />}
 
       <DeckCard view={view} />
       {view.spectate && !game.winner && <Spectator view={view} />}

@@ -681,6 +681,14 @@ const fr: Dictionary = {
     oneOrTwo: "1 ou 2",
     wolvesName: "Loups-Garous",
     infectedCheck: "Tout le monde, ouvrez les yeux et regardez votre téléphone : il vous dit si l'Infect Père des Loups vous a infecté.",
+    holdToSee: "Maintenez pour voir",
+    look: {
+      ok: "OK",
+      card: "J'ai vu ma carte",
+      candidacy: "J'ai fini",
+      doneNight: "C'est noté. Fermez les yeux.",
+      doneDay: "C'est noté. On attend les autres…",
+    },
     everyoneCheck: "Tout le monde, ouvrez les yeux et regardez votre téléphone.",
     everyoneSleep: "Tout le monde, fermez les yeux.",
     groupWake: {

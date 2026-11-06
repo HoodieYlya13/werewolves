@@ -127,6 +127,33 @@ describe("games without a game master", () => {
     expect(auto.phoneTurn(g.r, "p4", en)).toBeNull();
   });
 
+  it("moves on from a look once everyone concerned tapped OK, and not before", () => {
+    const g = room(["cupid", "werewolf", "villager", "villager", "villager"]);
+    g.turn("cupid");
+    auto.answer(g.r, "p0", { type: "cupid", lovers: ["p2", "p3"] }, g.ctx());
+    auto.tick(g.r, g.ctx());
+    g.run(() => g.r.auto.cue?.lines[0] === en.auto.everyoneCheck && g.r.auto.phase === "wait");
+    // Everyone alive looks: the countdown is on every phone.
+    const beat = g.r.auto.beat;
+    expect(auto.autoPublic(g.r, "p4", en).look).toMatchObject({ done: false, show: "check" });
+    for (const id of ["p0", "p1", "p2", "p3"]) expect(auto.ack(g.r, id, g.ctx())).toBe(true);
+    expect(auto.ack(g.r, "p3", g.ctx())).toBe(false);
+    auto.tick(g.r, g.ctx());
+    expect(g.r.auto.beat).toBe(beat);
+    expect(auto.autoPublic(g.r, "p3", en).look?.done).toBe(true);
+    auto.ack(g.r, "p4", g.ctx());
+    auto.tick(g.r, g.ctx());
+    expect(g.r.auto.beat).toBe(beat + 1);
+    // The lovers' look: only the two of them, then on.
+    g.run(() => g.r.auto.cue?.lines[0] === en.auto.groupWake.lovers && g.r.auto.phase === "wait");
+    expect(auto.ack(g.r, "p4", g.ctx())).toBe(false);
+    auto.ack(g.r, "p2", g.ctx());
+    auto.ack(g.r, "p3", g.ctx());
+    const at = g.r.auto.beat;
+    auto.tick(g.r, g.ctx());
+    expect(g.r.auto.beat).toBe(at + 1);
+  });
+
   it("runs the day: debate, early vote when most are ready, then the result", () => {
     const g = room(["werewolf", "villager", "villager", "villager", "villager"]);
     g.turn("wolves");

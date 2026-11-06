@@ -272,6 +272,8 @@ export type ClientMessage =
   | { type: "wolf-pick"; targetId: string | null }
   /** "One more minute", after the last call. */
   | { type: "more-time" }
+  /** Done looking at what the phone shows (card, message, result…): the room may move on sooner. */
+  | { type: "ack" }
   /** Ready to end the debate and vote. */
   | { type: "ready"; value: boolean }
   /** The narrator device finished reading a cue. */

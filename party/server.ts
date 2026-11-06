@@ -770,6 +770,7 @@ export class RoomServer extends Server<Env> {
         }
       // falls through: without a game master, the room plays it.
       case "more-time":
+      case "ack":
       case "ready":
       case "cue-done": {
         const room = this.autoRoom();
@@ -782,6 +783,7 @@ export class RoomServer extends Server<Env> {
         else if (msg.type === "play") done = auto.answer(room, id, msg.action, ctx);
         else if (msg.type === "wolf-pick") done = auto.wolfPick(room, id, msg.targetId, ctx);
         else if (msg.type === "more-time") done = auto.moreTime(room, id, ctx);
+        else if (msg.type === "ack") done = auto.ack(room, id, ctx);
         else done = auto.setReady(room, id, msg.value === true, ctx);
         if (!done) return msg.type === "play" ? this.send(sender, { type: "error", code: "invalid-action" }) : undefined;
         break;

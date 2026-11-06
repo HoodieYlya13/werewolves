@@ -49,13 +49,13 @@ export const TIMING = {
   secretSkip: 20_000,
   /** Between a role going back to sleep and the next call. */
   sleep: 3_000,
-  /** Reading a result or a message on the phone. */
-  look: 7_000,
-  check: 8_000,
+  /** Reading a result or a message on the phone (held to see it, then OK): the beat ends sooner once everyone's OK. */
+  look: 12_000,
+  check: 15_000,
   candidacy: 30_000,
   ballot: 90_000,
   secondDebate: 60_000,
-  card: 10_000,
+  card: 20_000,
 };
 
 /** What the narrator phone reads out. A new id means new lines. */
@@ -82,6 +82,8 @@ export type AutoState = {
   wolfPicks: Record<string, string>;
   /** Players who want to vote now. */
   ready: string[];
+  /** Players done with what the current beat shows them (their card, a message, a result): see `audience`. */
+  acks?: string[];
   /** Lines to read when the step at `leadAt` begins (a vote's result). */
   lead: string[];
   leadAt: number;
@@ -262,7 +264,11 @@ const turnOf = (step: Step) => (step.kind === "piper" ? "pied-piper" : step.kind
 
 type Group = "lovers" | "charmed" | "two-sisters" | "three-brothers";
 
-function groupBeats(dict: Dictionary, group: Group, check: boolean): Beat[] {
+/**
+ * `phantom`: a bluffed group, with nobody to tap OK. Its look lasts a made-up
+ * time, as a real group's would once its members are done.
+ */
+function groupBeats(dict: Dictionary, group: Group, check: boolean, phantom?: string): Beat[] {
   const t = dict.auto;
   return [
     ...(check
@@ -271,7 +277,7 @@ function groupBeats(dict: Dictionary, group: Group, check: boolean): Beat[] {
           { say: [t.everyoneSleep], wait: { kind: "hold", ms: TIMING.sleep } } satisfies Beat,
         ]
       : []),
-    { say: [t.groupWake[group]], show: "group", wait: { kind: "hold", ms: TIMING.look } },
+    { say: [t.groupWake[group]], show: "group", wait: { kind: "hold", ms: phantom ? 3_000 + (hash(phantom) % (TIMING.look - 3_000)) : TIMING.look } },
     { say: [t.groupSleep[group]], wait: { kind: "hold", ms: TIMING.sleep } },
   ];
 }
@@ -368,9 +374,9 @@ export function beatsOf(room: AutoRoom, dict: Dictionary): Beat[] {
       break;
     case "bluff": {
       // Exactly like the real turn, with nobody playing it.
-      if (step.turn === "lovers" || step.turn === "charmed") beats.push(...groupBeats(dict, step.turn, true));
+      if (step.turn === "lovers" || step.turn === "charmed") beats.push(...groupBeats(dict, step.turn, true, seed));
       else if (step.turn === "infected") beats.push(...infectedBeats(dict));
-      else if (step.turn === "two-sisters" || step.turn === "three-brothers") beats.push(...groupBeats(dict, step.turn, false));
+      else if (step.turn === "two-sisters" || step.turn === "three-brothers") beats.push(...groupBeats(dict, step.turn, false, seed));
       else {
         // Some bluffs drag on like a slow player's turn, reminders included.
         const h = hash(seed);
@@ -474,6 +480,7 @@ function startBeat(room: AutoRoom, ctx: AutoContext) {
   auto.reminded = 0;
   auto.extended = false;
   auto.answer = null;
+  auto.acks = [];
   auto.since = ctx.now;
   if (beat && (beat.say.length || beat.sound)) {
     auto.phase = "say";
@@ -604,8 +611,11 @@ function waitOver(room: AutoRoom, beat: Beat, ctx: AutoContext): Action | null |
   switch (wait.kind) {
     case "end":
       return undefined;
-    case "hold":
-      return late ? null : undefined;
+    case "hold": {
+      // Everyone it shows something to is done: no need to wait for the clock.
+      const who = audience(room, beat);
+      return late || (who.length > 0 && who.every((id) => auto.acks?.includes(id))) ? null : undefined;
+    }
     case "debate": {
       const living = game.players.filter((p) => p.alive).length;
       if (!late && auto.ready.length * 2 <= living) return undefined;
@@ -815,6 +825,39 @@ export function moreTime(room: AutoRoom, playerId: string, ctx: AutoContext) {
   return true;
 }
 
+/**
+ * Who must tap OK on what a beat shows (their card, a message, a result, a
+ * group, the candidacy): once they all have, the beat ends early. Everyone
+ * alive, for what everyone looks at together, so nobody can tell who had news.
+ */
+export function audience(room: AutoRoom, beat: Beat | null): string[] {
+  const { game } = room;
+  const step = game.step;
+  if (!beat || beat.wait.kind !== "hold") return [];
+  const living = game.players.filter((p) => p.alive).map((p) => p.id);
+  switch (beat.show) {
+    case "card":
+    case "check":
+    case "candidacy":
+      return living;
+    case "group":
+      return step.kind === "lovers" ? step.lovers.filter((id) => living.includes(id)) : step.kind === "charmed" || step.kind === "siblings" ? step.playerIds : [];
+    case "result":
+      return step.kind === "seer-result" || step.kind === "fox-result" ? [step.playerId] : [];
+    default:
+      return [];
+  }
+}
+
+/** A player is done with what the beat shows them. */
+export function ack(room: AutoRoom, playerId: string, ctx: AutoContext) {
+  const { auto } = room;
+  if (auto.pausedAt || auto.phase !== "wait" || !audience(room, currentBeat(room, ctx.dict)).includes(playerId)) return false;
+  if (auto.acks?.includes(playerId)) return false;
+  auto.acks = [...(auto.acks ?? []), playerId];
+  return true;
+}
+
 export function setReady(room: AutoRoom, playerId: string, value: boolean, ctx: AutoContext) {
   const { auto, game } = room;
   if (currentBeat(room, ctx.dict)?.wait.kind !== "debate" || !game.players.find((p) => p.id === playerId)?.alive) return false;
@@ -996,6 +1039,8 @@ export type AutoPublic = {
   clock: { lastCall: boolean; canExtend: boolean; endsAt: number } | null;
   /** Someone is answering a secret question by day: phones wait. */
   waiting: boolean;
+  /** Something to look at (card, message, result, group, candidacy): until when, and whether this player tapped OK. */
+  look: { endsAt: number; done: boolean; show: Show } | null;
 };
 
 export function autoPublic(room: AutoRoom, playerId: string | null, dict: Dictionary): AutoPublic {
@@ -1009,6 +1054,10 @@ export function autoPublic(room: AutoRoom, playerId: string | null, dict: Dictio
     candidacy: beat?.show === "candidacy" && auto.phase === "wait",
     clock: mine && auto.phase === "wait" ? { lastCall: auto.reminded >= 2, canExtend: auto.reminded >= 2 && !auto.extended, endsAt: auto.deadline } : null,
     waiting: game.phase.kind === "day" && beat?.wait.kind === "input" && auto.phase === "wait" && !mine,
+    look:
+      playerId && auto.phase === "wait" && audience(room, beat).includes(playerId)
+        ? { endsAt: auto.deadline, done: !!auto.acks?.includes(playerId), show: beat!.show! }
+        : null,
   };
 }
 
