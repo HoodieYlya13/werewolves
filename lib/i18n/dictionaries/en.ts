@@ -679,6 +679,7 @@ const en = {
     lastCallPack: "{role}, last call! Play now, or ask for one more minute on your phones.",
     oneOrTwo: "1 or 2",
     wolvesName: "Werewolves",
+    infectedCheck: "Everyone, open your eyes and look at your phone: it tells you if the Accursed Wolf-Father infected you.",
     everyoneCheck: "Everyone, open your eyes and look at your phone.",
     everyoneSleep: "Everyone, close your eyes.",
     groupWake: {
@@ -745,6 +746,7 @@ const en = {
       lover: "You're in love with {name}. If one of you dies, the other dies of grief. Now you win together.",
       charmed: "The Pied Piper has charmed you.",
       nothing: "Nothing for you. Close your eyes.",
+      infected: "The Accursed Wolf-Father infected you: you're a werewolf now. You keep your power, and from the next night you wake up with the pack.",
       sick: "The Knight's rusty sword got you: you die tonight. Keep your eyes closed, and stay silent until the end.",
     },
     group: {
@@ -1126,6 +1128,11 @@ const en = {
       charmed: {
         say: "I'll tap the charmed players on the shoulder. Charmed players, wake up and recognise each other, then go back to sleep.",
         do: "Tap these players on the shoulder: {names}. Newly charmed: {newNames}.",
+      },
+      infected: {
+        say: "Everyone keeps their eyes closed. If the Accursed Wolf-Father infected tonight's victim, I'm touching them on the shoulder: from now on, they are a werewolf and wake up with the pack.",
+        do: "Touch {names} on the shoulder.",
+        nobody: "Nobody was infected tonight. Walk around the table for a moment as if touching someone, then continue.",
       },
       raven: {
         say: "Raven, wake up and point at a player. They'll start tomorrow's vote with 2 votes against them.",

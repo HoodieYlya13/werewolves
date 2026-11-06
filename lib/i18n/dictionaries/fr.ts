@@ -680,6 +680,7 @@ const fr: Dictionary = {
     lastCallPack: "{role}, dernier appel ! Jouez maintenant, ou demandez une minute de plus sur vos téléphones.",
     oneOrTwo: "1 ou 2",
     wolvesName: "Loups-Garous",
+    infectedCheck: "Tout le monde, ouvrez les yeux et regardez votre téléphone : il vous dit si l'Infect Père des Loups vous a infecté.",
     everyoneCheck: "Tout le monde, ouvrez les yeux et regardez votre téléphone.",
     everyoneSleep: "Tout le monde, fermez les yeux.",
     groupWake: {
@@ -746,6 +747,7 @@ const fr: Dictionary = {
       lover: "Tu es amoureux de {name}. Si l'un de vous meurt, l'autre meurt de chagrin. Vous gagnez désormais ensemble.",
       charmed: "Le Joueur de Flûte t'a charmé.",
       nothing: "Rien pour toi. Ferme les yeux.",
+      infected: "L'Infect Père des Loups t'a infecté : tu es maintenant un loup-garou. Tu gardes ton pouvoir, et dès la nuit prochaine tu te réveilles avec la meute.",
       sick: "L'épée rouillée du Chevalier t'a contaminé : tu meurs cette nuit. Garde les yeux fermés, et reste silencieux jusqu'à la fin.",
     },
     group: {
@@ -1125,6 +1127,11 @@ const fr: Dictionary = {
       charmed: {
         say: "Je vais toucher les joueurs charmés sur l'épaule. Charmés, réveillez-vous et reconnaissez-vous, puis rendormez-vous.",
         do: "Touchez ces joueurs sur l'épaule : {names}. Nouveaux charmés : {newNames}.",
+      },
+      infected: {
+        say: "Tout le monde garde les yeux fermés. Si l'Infect Père des Loups a infecté la victime de cette nuit, je lui touche l'épaule : désormais, c'est un loup-garou, et il se réveille avec la meute.",
+        do: "Touchez l'épaule de : {names}.",
+        nobody: "Personne n'a été infecté cette nuit. Faites un tour de table comme si vous touchiez quelqu'un, puis continuez.",
       },
       raven: {
         say: "Corbeau, réveille-toi et désigne un joueur. Il commencera le vote de demain avec 2 voix contre lui.",

@@ -158,6 +158,8 @@ export type Step =
   /** Charm between `min` and `count` players. */
   | { kind: "piper"; playerId: string; count: number; min: number }
   | { kind: "charmed"; playerIds: string[]; newIds: string[] }
+  /** Tonight's newly infected, told with a touch on the shoulder (a bluff when nobody was). */
+  | { kind: "infected"; playerIds: string[] }
   | { kind: "raven"; playerId: string }
   /**
    * A night turn nobody can play (dead, out of power, card left over). The

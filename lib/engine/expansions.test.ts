@@ -268,11 +268,28 @@ describe("Personnages", () => {
     let state = play(s, [wolves("p2")]);
     expect(state.step).toEqual({ kind: "infect", playerId: "p0", victimId: "p2" });
     state = applyAction(state, choose(true));
+    // Once the pack is asleep, the newly infected is told.
+    expect(state.step).toEqual({ kind: "infected", playerIds: ["p2"] });
+    state = applyAction(state, go);
     expect(state.step).toMatchObject({ kind: "witch", victimId: null, canHeal: false });
-    state = play(s, [wolves("p2"), choose(true), { type: "witch", heal: false, poisonId: null }]);
+    state = play(s, [wolves("p2"), choose(true), go, { type: "witch", heal: false, poisonId: null }]);
     expect(state.step).toEqual({ kind: "deaths", context: "dawn", deaths: [] });
-    state = play(s, [wolves("p2"), choose(true), { type: "witch", heal: false, poisonId: null }, go, vote(null)]);
+    state = play(s, [wolves("p2"), choose(true), go, { type: "witch", heal: false, poisonId: null }, go, vote(null)]);
     expect(state.step).toMatchObject({ kind: "wolves", playerIds: ["p0", "p2"] });
+  });
+
+  it("The infected call is read every night, even with nobody infected", () => {
+    const s = setup(["accursed-wolf-father", "villager", "villager", "villager", "villager"]);
+    const state = play(s, [wolves("p2"), choose(false)]);
+    expect(state.step).toEqual({ kind: "bluff", turn: "infected", role: "accursed-wolf-father" });
+  });
+
+  it("A Devoted Servant taking an infected player's card gets the card, not the infection", () => {
+    const s = setup(["accursed-wolf-father", "devoted-servant", "seer", "villager", "villager", "villager"]);
+    const state = play(s, [{ type: "seer", targetId: "p3" }, go, wolves("p2"), choose(true), go, go, vote("p2"), choose(true)]);
+    const servant = state.players[1];
+    expect(servant.role).toBe("seer");
+    expect(servant.flags.infected).toBeUndefined();
   });
 
   it("Stuttering Judge calls one second vote per game", () => {

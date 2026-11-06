@@ -276,6 +276,14 @@ function groupBeats(dict: Dictionary, group: Group, check: boolean): Beat[] {
   ];
 }
 
+/** Everyone reads their phone at once, so nobody can tell who was just infected. */
+function infectedBeats(dict: Dictionary): Beat[] {
+  return [
+    { say: [dict.auto.infectedCheck], show: "check", wait: { kind: "hold", ms: TIMING.check } },
+    { say: [dict.auto.everyoneSleep], wait: { kind: "hold", ms: TIMING.sleep } },
+  ];
+}
+
 /** Every line a death announcement reads, in order. */
 function deathLines(dict: Dictionary, game: GameState, step: Extract<Step, { kind: "deaths" }>) {
   const t = dict.game.steps.deaths;
@@ -347,6 +355,9 @@ export function beatsOf(room: AutoRoom, dict: Dictionary): Beat[] {
     case "charmed":
       beats.push(...groupBeats(dict, "charmed", true));
       break;
+    case "infected":
+      beats.push(...infectedBeats(dict));
+      break;
     case "siblings":
       beats.push(...groupBeats(dict, step.role, false));
       break;
@@ -358,6 +369,7 @@ export function beatsOf(room: AutoRoom, dict: Dictionary): Beat[] {
     case "bluff": {
       // Exactly like the real turn, with nobody playing it.
       if (step.turn === "lovers" || step.turn === "charmed") beats.push(...groupBeats(dict, step.turn, true));
+      else if (step.turn === "infected") beats.push(...infectedBeats(dict));
       else if (step.turn === "two-sisters" || step.turn === "three-brothers") beats.push(...groupBeats(dict, step.turn, false));
       else {
         // Some bluffs drag on like a slow player's turn, reminders included.
@@ -852,7 +864,7 @@ export type PhoneTurn =
   | { kind: "choice"; step: "wolf-hound" | "infect" | "servant" | "judge"; victimId?: string }
   | { kind: "seer-result"; targetId: string; role: RoleId }
   | { kind: "fox-result"; playerIds: string[]; hasWolf: boolean }
-  | { kind: "check"; message: "lover" | "charmed" | "nothing" | "sick"; partnerId?: string }
+  | { kind: "check"; message: "lover" | "charmed" | "infected" | "nothing" | "sick"; partnerId?: string }
   | { kind: "group"; group: Group; ids: string[] };
 
 /** The choice or the message on one phone right now, if any. */
@@ -874,6 +886,8 @@ export function masterShow(step: Step): Show | undefined {
   if (actorsOf(step).length) return "turn";
   if (step.kind === "seer-result" || step.kind === "fox-result") return "result";
   if (step.kind === "lovers" || step.kind === "charmed" || step.kind === "siblings") return "group";
+  // Every phone lights up, the newly infected's says so: like the touch on the shoulder.
+  if (step.kind === "infected" || (step.kind === "bluff" && step.turn === "infected")) return "check";
   return undefined;
 }
 
@@ -891,6 +905,7 @@ export function turnFor(game: GameState, playerId: string, show: Show | undefine
       return { kind: "check", message: "lover", partnerId: step.lovers.find((id) => id !== playerId) };
     }
     if (step.kind === "charmed" && step.newIds.includes(playerId)) return { kind: "check", message: "charmed" };
+    if (step.kind === "infected" && step.playerIds.includes(playerId)) return { kind: "check", message: "infected" };
     return { kind: "check", message: "nothing" };
   }
   if (beat.show === "group") {

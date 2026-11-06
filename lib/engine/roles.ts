@@ -381,6 +381,19 @@ const groupTurns: SequenceEntry[] = [
     },
   },
   {
+    id: "infected",
+    // Once the pack is back asleep: called every night the Wolf-Father may be in play,
+    // so the village never learns when somebody really was infected.
+    order: 52.5,
+    build: (state) => {
+      const ids = state.events
+        .filter((e) => e.type === "infected" && e.phase.kind === "night" && e.phase.number === state.phase.number)
+        .flatMap((e) => (e.type === "infected" ? [e.targetId] : []));
+      if (ids.length === 0) return bluff(state, "infected", "accursed-wolf-father");
+      return { kind: "infected", playerIds: ids };
+    },
+  },
+  {
     id: "charmed",
     order: 72,
     build: (state) => {

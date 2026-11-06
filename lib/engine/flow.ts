@@ -240,6 +240,7 @@ function resolve(state: GameState, step: Step, action: Action) {
     case "seer-result":
     case "fox-result":
     case "charmed":
+    case "infected":
     case "deaths":
     case "bear":
     case "idiot":

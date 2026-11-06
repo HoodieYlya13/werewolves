@@ -13,8 +13,9 @@ import type { Action, GameSetup, GameState, Step } from "./types";
  * 6: the Devoted Servant chooses before the card is shown, and the Big Bad
  * Wolf's call stops once a dead wolf's card was shown (a game caught in
  * either moment goes back to the lobby).
+ * 7: the newly infected are told each night, after the pack goes back to sleep.
  */
-export const ENGINE_VERSION = 6;
+export const ENGINE_VERSION = 7;
 
 /** The answer to a step older engines skipped, when it has a neutral one. */
 function filler(step: Step): Action | null {
@@ -23,6 +24,7 @@ function filler(step: Step): Action | null {
     case "phase-end":
     case "bluff":
     case "bear":
+    case "infected":
       return { type: "continue" };
     case "witch":
       return !step.canHeal && !step.canPoison ? { type: "witch", heal: false, poisonId: null } : null;

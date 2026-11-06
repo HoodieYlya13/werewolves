@@ -218,6 +218,8 @@ function StepBody({ game, act }: { game: GameState; act: (action: Action) => voi
       return <PiperStep game={game} step={step} act={act} />;
     case "charmed":
       return <CharmedStep game={game} step={step} act={act} />;
+    case "infected":
+      return <InfectedStep game={game} step={step} act={act} />;
     case "raven":
       return <RavenStep game={game} step={step} act={act} />;
     case "bear":
@@ -950,7 +952,7 @@ function BluffStep({ game, step, act }: Props<"bluff">) {
   return (
     <>
       <Say>{say}</Say>
-      <Do>{dict.game.steps.bluff.do}</Do>
+      <Do>{step.turn === "infected" ? dict.game.steps.infected.nobody : dict.game.steps.bluff.do}</Do>
       <ContinueButton act={act} />
     </>
   );
@@ -1169,6 +1171,20 @@ function CharmedStep({ game, step, act }: Props<"charmed">) {
     <>
       <Say>{t.say}</Say>
       <Do>{format(t.do, { names: names(game, step.playerIds), newNames: names(game, step.newIds) })}</Do>
+      <ContinueButton act={act} />
+    </>
+  );
+}
+
+function InfectedStep({ game, step, act }: Props<"infected">) {
+  const { dict } = useI18n();
+  const t = dict.game.steps.infected;
+  return (
+    <>
+      <Say>{t.say}</Say>
+      <Do>
+        <span className="secret-role">{format(t.do, { names: names(game, step.playerIds) })}</span>
+      </Do>
       <ContinueButton act={act} />
     </>
   );
