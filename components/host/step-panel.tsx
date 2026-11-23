@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { Check, FlaskConical, LogIn, Megaphone, Moon, Quote, Skull, Smartphone, Sun, ThumbsDown, ThumbsUp, Trophy } from "lucide-react";
+import { Check, FlaskConical, CircleUserRound, Megaphone, Moon, Quote, Skull, Smartphone, Sun, ThumbsDown, ThumbsUp, Trophy } from "lucide-react";
 import { AuthButton } from "@/components/account-button";
 import { useI18n } from "@/components/i18n-provider";
 import { BallotPanel } from "@/components/host/ballot-panel";
@@ -647,6 +647,7 @@ function WitchStep({ game, step, act }: Props<"witch">) {
   );
   const victim = step.victimId ? nameOf(game, step.victimId) : null;
   const witch = nameOf(game, step.playerId);
+  const hasHealingPotion = (game.players.find((p) => p.id === step.playerId)?.uses.heal ?? 0) > 0;
   const potion = (on: boolean, Icon: typeof FlaskConical, available: string, used: string, color: string) => (
     <li className={`flex items-center justify-center gap-3 ${on ? color : "text-muted-foreground line-through"}`}>
       <Icon aria-hidden className="size-8" />
@@ -674,7 +675,7 @@ function WitchStep({ game, step, act }: Props<"witch">) {
         <Reveal to={witch} closeLabel={dict.game.continue} onClose={() => setStage("heal")}>
           <p className="font-display text-5xl font-bold text-balance wrap-anywhere sm:text-7xl">{victim ?? t.noVictim}</p>
           <ul className="flex flex-col gap-3 text-2xl font-semibold sm:text-3xl">
-            {potion(step.canHeal, FlaskConical, t.healAvailable, t.healUsed, "text-ok")}
+            {potion(hasHealingPotion, FlaskConical, t.healAvailable, t.healUsed, "text-ok")}
             {potion(step.canPoison, Skull, t.poisonAvailable, t.poisonUsed, "text-primary")}
           </ul>
         </Reveal>
@@ -691,7 +692,7 @@ function WitchStep({ game, step, act }: Props<"witch">) {
             setStage("poison");
           })}
         <Say>{t.askHeal}</Say>
-        <Do>{step.canHeal ? format(t.thumbs, { name: witch }) : t.used}</Do>
+        <Do>{step.canHeal ? format(t.thumbs, { name: witch }) : hasHealingPotion ? t.nobodyToHeal : t.used}</Do>
         {answer(
           {
             label: victim && step.canHeal ? format(t.heal, { name: victim }) : dict.auto.yes,
@@ -1309,7 +1310,7 @@ function GameOverStep({ game, step }: Props<"game-over">) {
             variant="link"
             className="h-auto p-0 text-sm font-normal whitespace-normal text-muted-foreground underline"
           >
-            <LogIn aria-hidden className="size-4 shrink-0" />
+            <CircleUserRound aria-hidden className="size-4 shrink-0" />
             {dict.account.keepMastered}
           </AuthButton>
         )}

@@ -21,7 +21,8 @@ export function isRoomCode(value: string) {
  * Identities live in localStorage so a refresh, a locked screen or a closed tab
  * puts you back in the same seat. One entry per room.
  */
-type HostIdentity = { token: string };
+/** `isNew`: made by "Create a room" and not opened yet, so the room may be created with it. */
+type HostIdentity = { token: string; isNew?: boolean };
 type PlayerIdentity = { id: string; token: string };
 
 const hostKey = (code: string) => `ww:host:${code}`;

@@ -896,6 +896,7 @@ export type PhoneTurn =
       kind: "witch";
       victimId: string | null;
       canHeal: boolean;
+      hasHealingPotion: boolean;
       canPoison: boolean;
       targets: string[];
       /** With a game master: the question they're on, which the phone asks too. Without: the phone asks both. */
@@ -969,7 +970,14 @@ export function turnFor(game: GameState, playerId: string, show: Show | undefine
     case "wolves":
       return { kind: "wolves", targets: ids((p) => !isWolf(p)), wolves: step.playerIds, picks: wolfPicks };
     case "witch":
-      return { kind: "witch", victimId: step.victimId, canHeal: step.canHeal, canPoison: step.canPoison, targets: ids((p) => p.id !== step.victimId) };
+      return {
+        kind: "witch",
+        victimId: step.victimId,
+        canHeal: step.canHeal,
+        hasHealingPotion: (me.uses.heal ?? 0) > 0,
+        canPoison: step.canPoison,
+        targets: ids((p) => p.id !== step.victimId),
+      };
     case "thief":
       return { kind: "cards", step: "thief", cards: step.cards, canKeep: !step.mustTakeWolf };
     case "actor":

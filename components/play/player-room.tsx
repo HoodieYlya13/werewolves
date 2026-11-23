@@ -3,7 +3,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useParams, useRouter } from "next/navigation";
-import { BadgeCheck, Check, Crown, LogIn, LogOut, Pencil, Skull, Sun, UserPlus, UserRound, Vote } from "lucide-react";
+import { BadgeCheck, Check, Crown, CircleUserRound, LogOut, Pencil, Skull, Sun, UserPlus, UserRound, Vote } from "lucide-react";
 import { AuthButton, goToAuth } from "@/components/account-button";
 import { AccountLinks, AddAccountPhoto } from "@/components/account-page-link";
 import { ConfirmButton } from "@/components/confirm-button";
@@ -298,6 +298,8 @@ function PlayerScreen({ code }: { code: string }) {
         />
       )}
 
+      {ready && view?.masterAway && !me && <TakeBackCard masterAway={view.masterAway} code={code} signedIn={!!account} send={send} />}
+
       {/* A game master who handed the game over watches it. */}
       {ready && view && !me && view.spectate && <Spectator view={view} former />}
 
@@ -379,7 +381,7 @@ function PlayerScreen({ code }: { code: string }) {
           )}
           {session?.enabled && (
             <AuthButton to="in" variant="link" className="h-auto p-0 text-sm font-normal whitespace-normal text-muted-foreground underline">
-              <LogIn aria-hidden className="size-4 shrink-0" />
+              <CircleUserRound aria-hidden className="size-4 shrink-0" />
               {dict.account.orSignIn}
             </AuthButton>
           )}
@@ -408,7 +410,7 @@ function PlayerScreen({ code }: { code: string }) {
               {/* Signing in turns this seat into the account's (see the linking effect above). */}
               {session?.enabled && (
                 <AuthButton to="in" variant="link" className="h-auto p-0 text-sm font-normal whitespace-normal text-muted-foreground underline">
-                  <LogIn aria-hidden className="size-4 shrink-0" />
+                  <CircleUserRound aria-hidden className="size-4 shrink-0" />
                   {dict.account.orSignIn}
                 </AuthButton>
               )}
@@ -622,7 +624,7 @@ export function InGame({
               variant="link"
               className="mt-1 h-auto p-0 text-sm font-normal whitespace-normal text-muted-foreground underline"
             >
-              <LogIn aria-hidden className="size-4 shrink-0" />
+              <CircleUserRound aria-hidden className="size-4 shrink-0" />
               {game.winner.playerIds.includes(me.id) ? dict.account.keepWin : dict.account.keepGame}
             </AuthButton>
           )}
@@ -874,7 +876,7 @@ function LockedSeatCard({
       {/* Signed in with the right account, the seat comes back on its own (see the effect above). */}
       {!signedIn && (
         <AuthButton to="in" className="w-full">
-          <LogIn aria-hidden />
+          <CircleUserRound aria-hidden />
           {t.signIn}
         </AuthButton>
       )}
@@ -969,7 +971,7 @@ function RejoinCard({
         </>
       )}
       <Button type="submit" disabled={!needsSignIn && !name.trim()}>
-        {needsSignIn && <LogIn aria-hidden />}
+        {needsSignIn && <CircleUserRound aria-hidden />}
         {needsSignIn ? t.signInToReturn : rejoin.status === "denied" ? t.askAgain : t.ask}
       </Button>
       {rejoin.account && (
@@ -1000,5 +1002,48 @@ export function UsernameChoice({ username, checked, onChange }: { username: stri
       />
       {format(dict.account.showUsername, { username })}
     </label>
+  );
+}
+
+/** The game master whose screen went away: run the game again, or just watch. */
+function TakeBackCard({
+  masterAway,
+  code,
+  signedIn,
+  send,
+}: {
+  masterAway: NonNullable<PlayerView["masterAway"]>;
+  code: string;
+  signedIn: boolean;
+  send: (msg: ClientMessage) => void;
+}) {
+  const { dict } = useI18n();
+  const t = dict.play.takeBack;
+  const [dismissed, setDismissed] = useState(false);
+  const canTakeBack = masterAway.byDevice || (masterAway.byAccount && signedIn);
+  if (dismissed || !canTakeBack) return null;
+
+  async function takeBack() {
+    if (masterAway.byDevice) return send({ type: "reclaim-master" });
+    const ticket = await getTicket({ room: code });
+    if (ticket) send({ type: "reclaim-master", ticket });
+  }
+
+  return (
+    <section className="card flex flex-col gap-3 p-5">
+      <p className="flex items-center gap-2 font-semibold">
+        <Crown aria-hidden className="size-5 text-moon" />
+        {t.title}
+      </p>
+      <p className="text-sm text-muted-foreground">{format(t.body, { name: masterAway.runner })}</p>
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" className="h-11" onClick={() => void takeBack()}>
+          {t.takeBack}
+        </Button>
+        <Button type="button" variant="outline" className="h-11" onClick={() => setDismissed(true)}>
+          {t.watch}
+        </Button>
+      </div>
+    </section>
   );
 }

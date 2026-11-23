@@ -32,11 +32,17 @@ export function ConnectionBanner({ status }: { status: RoomStatus }) {
 }
 
 /** Full-screen message for errors that end the session (wrong code, kicked…). */
-export function FatalError({ code }: { code: ErrorCode }) {
+/** `room`: the room still runs without this device as its master, which can open it as a phone. */
+export function FatalError({ code, room }: { code: ErrorCode; room?: string }) {
   const { dict, locale } = useI18n();
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-6 px-4 text-center">
       <p className="text-lg">{dict.errors[code]}</p>
+      {room && (
+        <Button asChild>
+          <Link href={`/${locale}/play/${room}`}>{dict.errors.openRoom}</Link>
+        </Button>
+      )}
       <Button asChild variant="outline">
         <Link href={`/${locale}`}>{dict.errors.backHome}</Link>
       </Button>

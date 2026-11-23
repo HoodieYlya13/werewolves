@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useI18n } from "@/components/i18n-provider";
+import { HoldProgressRing } from "@/components/hold-progress-ring";
+import { useHoldToReveal } from "@/hooks/use-hold-to-reveal";
 import { RoleName } from "@/components/host/role-chip";
 import { Timeline } from "@/components/host/game-screen";
 import { Avatar, formatDuration, useRoomContext } from "@/components/room-context";
@@ -538,47 +540,21 @@ export function TurnPanel({ view, turn, send }: { view: PlayerView; turn: PhoneT
  */
 function HoldToSee({ children }: { children: React.ReactNode }) {
   const { dict } = useI18n();
-  const [held, setHeld] = useState(false);
-  useEffect(() => {
-    const hide = () => setHeld(false);
-    window.addEventListener("blur", hide);
-    document.addEventListener("visibilitychange", hide);
-    return () => {
-      window.removeEventListener("blur", hide);
-      document.removeEventListener("visibilitychange", hide);
-    };
-  }, []);
+  const { isHolding, isRevealed, handlers } = useHoldToReveal();
   return (
     <button
       type="button"
       aria-label={dict.auto.holdToSee}
       className="relative grid min-h-48 w-full touch-none place-items-center rounded-2xl select-none [-webkit-touch-callout:none]"
-      onPointerDown={(e) => {
-        setHeld(true);
-        try {
-          e.currentTarget.setPointerCapture(e.pointerId);
-        } catch {}
-      }}
-      onPointerUp={() => setHeld(false)}
-      onPointerCancel={() => setHeld(false)}
-      onLostPointerCapture={() => setHeld(false)}
-      onKeyDown={(e) => {
-        if (e.key === " " || e.key === "Enter") {
-          e.preventDefault();
-          setHeld(true);
-        }
-      }}
-      onKeyUp={() => setHeld(false)}
-      onBlur={() => setHeld(false)}
-      onContextMenu={(e) => e.preventDefault()}
+      {...handlers}
     >
-      {held ? (
+      {isRevealed ? (
         <span className="flex w-full flex-col items-center p-4">{children}</span>
       ) : (
         <span className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-line bg-[repeating-linear-gradient(45deg,var(--surface)_0_12px,var(--surface-2)_12px_24px)] p-4">
-          <span className="grid size-14 place-items-center rounded-full border-2 border-moon/60 bg-bg">
+          <HoldProgressRing isHolding={isHolding} className="size-14">
             <Eye aria-hidden className="size-6 text-moon" />
-          </span>
+          </HoldProgressRing>
           <span className="rounded-full bg-bg px-4 py-1.5 font-medium">{dict.auto.holdToSee}</span>
         </span>
       )}
@@ -935,7 +911,7 @@ function WitchTurn({ turn, onConfirm }: { turn: Extract<PhoneTurn, { kind: "witc
           </>
         ) : (
           <>
-            <p className="text-muted-foreground">{turn.canHeal ? t.noVictim : t.cantHeal}</p>
+            <p className="text-muted-foreground">{!turn.hasHealingPotion ? t.cantHeal : victim ? t.cantHealSelf : t.noVictim}</p>
             <PlayButton ready label={dict.game.continue} onClick={() => answerHeal(false)} />
           </>
         )}

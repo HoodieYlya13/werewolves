@@ -66,7 +66,9 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
         // Came to run this room from here (see SessionGuard): a ticket from the
         // master's account instead of a key (any saved here is an old one).
         if (isTakingHostOver(code)) return { as, ticket: (await getTicket({ room: code })) ?? "" };
-        return { as, token: identity.getHost(code)?.token ?? "", create: "1" };
+        const host = identity.getHost(code);
+        // Only a room just made here is created: a stale key must not open a new, empty room under this code.
+        return { as, token: host?.token ?? "", ...(host?.isNew ? { create: "1" } : {}) };
       }
       // A seat saved for this room, or else this device's id so a player who
       // left is recognised when they come back.
@@ -82,8 +84,9 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
       const msg = JSON.parse(event.data as string) as ServerMessage;
       switch (msg.type) {
         case "view":
-          // Stored identity that the room no longer knows (removed, room reset).
-          if (msg.view.kind === "player" && !msg.view.me && !msg.view.rejoin && !msg.view.lockedSeat) identity.setPlayer(code, null);
+          // Stored identity that the room no longer knows (removed, room reset). A watcher has no seat but keeps theirs.
+          if (msg.view.kind === "player" && !msg.view.me && !msg.view.rejoin && !msg.view.lockedSeat && !msg.view.spectate) identity.setPlayer(code, null);
+          if (msg.view.kind === "host" && identity.getHost(code)?.isNew) identity.setHost(code, { token: identity.getHost(code)!.token });
           setView(msg.view as V);
           setLive(true);
           setClockOffset(offsetFrom(msg.view.serverNow));

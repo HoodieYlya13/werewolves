@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Crown, Heart, Moon, Music, PawPrint, Skull } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
+import { HoldProgressRing } from "@/components/hold-progress-ring";
+import { useHoldToReveal } from "@/hooks/use-hold-to-reveal";
 import { teamColor } from "@/components/host/role-chip";
 import { format } from "@/lib/i18n/config";
 import { roles, type PlayerInfo } from "@/lib/engine";
@@ -29,19 +30,9 @@ export function RoleCard({
   onShow?: () => void;
 }) {
   const { dict } = useI18n();
-  const [held, setHeld] = useState(false);
-  const shown = held || alwaysShown;
+  const { isHolding, isRevealed, handlers } = useHoldToReveal(onShow);
+  const shown = isRevealed || alwaysShown;
   const face = shown || faceUp;
-
-  useEffect(() => {
-    const hide = () => setHeld(false);
-    window.addEventListener("blur", hide);
-    document.addEventListener("visibilitychange", hide);
-    return () => {
-      window.removeEventListener("blur", hide);
-      document.removeEventListener("visibilitychange", hide);
-    };
-  }, []);
 
   const t = dict.play.card;
   const notes: { icon: React.ReactNode; text: string }[] = [];
@@ -60,27 +51,7 @@ export function RoleCard({
         type="button"
         aria-label={shown ? t.release : t.hold}
         className="relative aspect-[5/7] w-full max-w-[18rem] touch-none rounded-3xl select-none [-webkit-touch-callout:none] focus-visible:outline-offset-4"
-        onPointerDown={(e) => {
-          setHeld(true);
-          onShow?.();
-          // Keeps the card shown if the finger slides off it while held.
-          try {
-            e.currentTarget.setPointerCapture(e.pointerId);
-          } catch {}
-        }}
-        onPointerUp={() => setHeld(false)}
-        onPointerCancel={() => setHeld(false)}
-        onLostPointerCapture={() => setHeld(false)}
-        onKeyDown={(e) => {
-          if (e.key === " " || e.key === "Enter") {
-            e.preventDefault();
-            setHeld(true);
-            onShow?.();
-          }
-        }}
-        onKeyUp={() => setHeld(false)}
-        onBlur={() => setHeld(false)}
-        onContextMenu={(e) => e.preventDefault()}
+        {...handlers}
       >
         {face ? (
           <span className="card absolute inset-0 flex flex-col items-center justify-center gap-4 border-2 p-6 text-center">
@@ -107,9 +78,9 @@ export function RoleCard({
           </span>
         ) : (
           <span className="absolute inset-0 flex flex-col items-center justify-center gap-4 rounded-3xl border-2 border-line bg-[repeating-linear-gradient(45deg,var(--surface)_0_12px,var(--surface-2)_12px_24px)] p-6 text-center">
-            <span className="grid size-20 place-items-center rounded-full border-2 border-moon/60 bg-bg">
+            <HoldProgressRing isHolding={isHolding} className="size-20">
               <Moon aria-hidden className="size-9 text-moon" />
-            </span>
+            </HoldProgressRing>
             <span className="rounded-full bg-bg px-4 py-1.5 font-medium">{t.hold}</span>
           </span>
         )}

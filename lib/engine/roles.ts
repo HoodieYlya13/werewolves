@@ -229,6 +229,8 @@ export const roles: Record<RoleId, RoleDefinition> = {
       act: (state, p) => {
         const victimId = state.night.wolvesTargetId;
         if ((p.uses.infect ?? 0) === 0 || !victimId) return null;
+        // The Elder can't be infected.
+        if (state.players.find((player) => player.id === victimId)?.role === "elder") return null;
         return { kind: "infect", playerId: p.id, victimId };
       },
     },

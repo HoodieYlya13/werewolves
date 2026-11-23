@@ -110,7 +110,7 @@ function HostContent({
     const token = identity.getHost(code)!.token;
     identity.setHost(code, null);
     const next = generateRoomCode();
-    identity.setHost(next, { token });
+    identity.setHost(next, { token, isNew: true });
     router.replace(`/${locale}/host/${next}`);
   }, [error, code, locale, router]);
 
@@ -232,7 +232,7 @@ function HostContent({
   useHostToasts(view, screen === "setup" && !view?.game);
 
   if (error === "room-not-found" || error === "not-host" || error === "room-closed" || error === "host-moved" || error === "too-many-rooms")
-    return <FatalError code={error} />;
+    return <FatalError code={error} room={error === "not-host" || error === "host-moved" ? code : undefined} />;
 
   // Nothing about the room is known yet: not even whether it's an empty lobby.
   if (!view) {

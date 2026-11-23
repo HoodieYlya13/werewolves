@@ -172,6 +172,8 @@ type RoomState = {
   masterGone?: boolean;
   /** With a game master: the dead player who took the game over, whose seat goes once it ends. */
   masterSeatId?: string | null;
+  /** The game master whose screen went away when the game was handed over: they may take it back. */
+  awayMaster?: { sub: string | null; face: RoomState["hostFace"] | null; spectatorId: string | null } | null;
   /** With a game master: what phones chose for the step at `at` (players may play on their phones). */
   phonePlays?: { at: number; actions: Record<string, Action>; wolfPicks: Record<string, string>; asked?: Record<string, WitchAsk> } | null;
   /** With a game master: the Witch's question the game master is on, for the step at `at` (her phone follows). */
@@ -700,6 +702,8 @@ export class RoomServer extends Server<Env> {
         this.state.candidates = msg.value ? [...others, id] : others;
         break;
       }
+      case "reclaim-master":
+        return this.reclaimMaster(sender, msg.ticket);
       case "give-lead": {
         if (!isHost) return this.send(sender, { type: "error", code: "not-host" });
         if (!(await this.transferLead(msg.playerId))) return this.send(sender, { type: "error", code: "invalid-action" });
@@ -900,6 +904,7 @@ export class RoomServer extends Server<Env> {
         this.state.endedGame = this.state.game;
         this.state.game = null;
         this.state.handover = null;
+        this.state.awayMaster = null;
         this.state.auto = null;
         this.state.paused = null;
         this.state.spectators = [];
@@ -1821,6 +1826,7 @@ export class RoomServer extends Server<Env> {
     }
     const state = conn.state;
     const view = this.phoneView(base, players, state?.kind === "player" ? state.playerId : null, conn.id === speakerId, state?.kind === "guest" && !!state.spectator);
+    view.masterAway = this.masterAwayFor(state);
     let rejoin: PlayerView["rejoin"] = null;
     if (state?.kind === "returning") {
       const request = s.requests?.find((r) => r.id === state.playerId);
@@ -1879,6 +1885,7 @@ export class RoomServer extends Server<Env> {
       turn: me && game ? (room && dict ? auto.phoneTurn(room, me.id, dict) : this.masterTurn(game, me.id)) : null,
       pause: room && s.paused ? { reason: s.paused, leader: (s.paused === "leader" && s.lostLeader?.name) || (this.hostSeat()?.name ?? ""), next: this.hostSeat()?.name ?? "" } : null,
       masterGone: !room && !!s.masterGone && !!game && !game.winner,
+      masterAway: null,
       auto: room && dict ? auto.autoPublic(room, me?.id ?? null, dict) : null,
       speaker: room && speaking ? { cue: room.auto.cue, scene: game!.winner ? null : sceneFor(game!), locale: s.locale ?? "en", game: s.game?.id ?? "" } : null,
       // The dead see everything, without a game master: there's nobody else to watch the game with.
@@ -2149,10 +2156,64 @@ export class RoomServer extends Server<Env> {
     } else if (s.game) {
       const watcher = { id: crypto.randomUUID(), token: crypto.randomUUID() };
       s.spectators = [...(s.spectators ?? []), watcher];
+      if (s.awayMaster && !s.awayMaster.spectatorId) s.awayMaster.spectatorId = watcher.id;
       this.send(conn, { type: "become", as: "player", id: watcher.id, token: watcher.token });
     } else {
       this.send(conn, { type: "become", as: "guest" });
     }
+    await this.done();
+  }
+
+  /** What a watching device may do to take the game back (see reclaimMaster). */
+  private masterAwayFor(state: ConnState | null | undefined): PlayerView["masterAway"] {
+    const s = this.state!;
+    const away = s.awayMaster;
+    if (!away || !this.game || this.game.winner || state?.kind !== "guest") return null;
+    const byDevice = !!state.spectator && state.deviceId === away.spectatorId;
+    const byAccount = !!away.sub;
+    if (!byDevice && !byAccount) return null;
+    const runner = s.players.find((p) => p.id === s.masterSeatId)?.name ?? "";
+    return { byDevice, byAccount, runner };
+  }
+
+  /**
+   * The game master whose screen went away runs the game again: the dead
+   * player who took over plays their seat again.
+   */
+  private async reclaimMaster(conn: Conn, ticket: string | undefined) {
+    const s = this.state!;
+    const away = s.awayMaster;
+    const state = conn.state;
+    if (!away || !this.game || this.game.winner) return this.send(conn, { type: "error", code: "invalid-action" });
+    const isSameDevice = state?.kind === "guest" && !!state.spectator && state.deviceId === away.spectatorId;
+    if (!isSameDevice) {
+      const account = ticket ? await this.verifyAccount(conn, ticket) : null;
+      if (!account || account.sub !== away.sub) return this.send(conn, { type: "error", code: "not-host" });
+    }
+    const interim = s.players.find((p) => p.id === s.masterSeatId);
+    const interimSub = s.hostSub;
+    for (const c of [...this.getConnections<ConnState>()].filter((c) => c.state?.kind === "host")) {
+      if (!interim) {
+        this.reject(c, "host-moved");
+        continue;
+      }
+      interim.token = crypto.randomUUID();
+      this.send(c, { type: "become", as: "player", id: interim.id, token: interim.token });
+      c.setState({ kind: "player", playerId: interim.id });
+    }
+    s.masterSeatId = null;
+    s.hostToken = crypto.randomUUID();
+    if (away.sub) s.hostSub = away.sub;
+    else delete s.hostSub;
+    if (away.face) s.hostFace = away.face;
+    else delete s.hostFace;
+    s.spectators = s.spectators?.filter((x) => x.id !== away.spectatorId);
+    s.awayMaster = null;
+    s.masterLostAt = null;
+    s.masterGone = false;
+    this.send(conn, { type: "become", as: "host", token: s.hostToken });
+    if (interimSub && interimSub !== s.hostSub) await this.tellAccount(interimSub, true);
+    if (s.hostSub) await this.tellAccount(s.hostSub, true);
     await this.done();
   }
 
@@ -2272,6 +2333,7 @@ export class RoomServer extends Server<Env> {
 
     const oldSub = s.hostSub;
     const oldSeat = this.hostSeat();
+    if (away && game && !autoMode) s.awayMaster = { sub: oldSub ?? null, face: s.hostFace ?? null, spectatorId: null };
     // A device that's gone keeps its key in mind: it gets its part back when it returns (welcomeBack).
     if (away) s.formerHosts = { ...s.formerHosts, [s.hostToken]: autoMode ? (oldSeat?.id ?? null) : null };
     s.hostToken = crypto.randomUUID();

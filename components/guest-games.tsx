@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { LogIn } from "lucide-react";
+import { CircleUserRound } from "lucide-react";
 import { toast } from "sonner";
 import { AuthButton } from "@/components/account-button";
 import { useI18n } from "@/components/i18n-provider";
@@ -61,7 +61,7 @@ export function GuestGamesNudge() {
       variant="link"
       className="mx-auto h-auto p-0 text-sm font-normal whitespace-normal text-muted-foreground underline"
     >
-      <LogIn aria-hidden className="size-4 shrink-0" />
+      <CircleUserRound aria-hidden className="size-4 shrink-0" />
       {count === 1 ? t.guestGame : format(t.guestGames, { count })}
     </AuthButton>
   );

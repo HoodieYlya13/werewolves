@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BadgeCheck, Crown, DoorClosed, Eye, EyeOff, Heart, Moon, Music, PawPrint, Pencil, ScrollText, Skull, Sun, Undo2, Volume2, VolumeX, X } from "lucide-react";
+import { BadgeCheck, Crown, DoorClosed, EllipsisVertical, Eye, EyeOff, Heart, Moon, Music, PawPrint, Pencil, ScrollText, Skull, Sun, Undo2, Volume2, VolumeX, X } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { useCloseRoom } from "@/components/host/close-room-button";
 import { PhonelessPanel } from "@/components/host/phoneless-cards";
@@ -405,8 +405,8 @@ export function QuitMenu({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button type="button" variant="outline" className="size-10 p-0 text-primary" title={dict.game.quit}>
-            <X aria-hidden className="size-5" />
+          <Button type="button" variant="outline" className="size-10 p-0" title={dict.game.quit}>
+            <EllipsisVertical aria-hidden className="size-5" />
             <span className="sr-only">{dict.game.quit}</span>
           </Button>
         </DropdownMenuTrigger>

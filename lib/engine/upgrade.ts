@@ -14,8 +14,9 @@ import type { Action, GameSetup, GameState, Step } from "./types";
  * Wolf's call stops once a dead wolf's card was shown (a game caught in
  * either moment goes back to the lobby).
  * 7: the newly infected are told each night, after the pack goes back to sleep.
+ * 8: the Elder can't be infected.
  */
-export const ENGINE_VERSION = 7;
+export const ENGINE_VERSION = 8;
 
 /** The answer to a step older engines skipped, when it has a neutral one. */
 function filler(step: Step): Action | null {

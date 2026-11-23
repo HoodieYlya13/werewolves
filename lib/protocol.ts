@@ -147,6 +147,8 @@ export type PlayerView = BaseView & {
   pause: { reason: "manual" | "leader"; leader: string; next: string } | null;
   /** With a game master: their screen is gone and nobody dead can take over. */
   masterGone: boolean;
+  /** The game was handed over while the game master's screen was away: they may take it back from this device, or by signing in. */
+  masterAway: { byDevice: boolean; byAccount: boolean; runner: string } | null;
   /** The cards in play, when everyone may see them (no game master, open deck). */
   deck: RoleId[] | null;
   /** May run for Mayor now (alive, and no Mayor elected yet). */
@@ -292,6 +294,8 @@ export type ClientMessage =
    * without one. This device becomes a player again, or a spectator.
    */
   | { type: "give-lead"; playerId: string }
+  /** The game master whose screen went away takes the game back (from that device, or with their account's ticket). */
+  | { type: "reclaim-master"; ticket?: string }
   /** Without a game master, by day: the leader pauses or resumes the game. */
   | { type: "pause"; value: boolean }
   /** Without a game master: the leader declares a player out for good (dead phone, gone). */

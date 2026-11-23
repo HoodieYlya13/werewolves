@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChartColumn, LogIn, LogOut, UserCog, Users } from "lucide-react";
+import { ChartColumn, CircleUserRound, LogOut, UserCog, Users } from "lucide-react";
 import { forgetPasskeyReminder } from "@/components/passkey-reminder";
 import { forgetPushPrompt } from "@/components/friends/push-reminder";
 import { useI18n } from "@/components/i18n-provider";
@@ -72,7 +72,7 @@ export function AccountButton({ accounts }: { accounts: boolean }) {
     return (
       // Icon only on phones; the label stays for screen readers.
       <AuthButton to="in" variant="outline" size="sm" className="rounded-full max-sm:size-9 max-sm:px-0" title={dict.account.signIn}>
-        <LogIn aria-hidden />
+        <CircleUserRound aria-hidden />
         <span className="max-sm:sr-only">{dict.account.signIn}</span>
       </AuthButton>
     );

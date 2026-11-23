@@ -267,6 +267,8 @@ describe("Personnages", () => {
     const s = setup(["accursed-wolf-father", "witch", "villager", "villager", "villager"]);
     let state = play(s, [wolves("p2")]);
     expect(state.step).toEqual({ kind: "infect", playerId: "p0", victimId: "p2" });
+    // The pack is back asleep before he answers.
+    expect(state.backToSleep).toBe("wolves");
     state = applyAction(state, choose(true));
     // Once the pack is asleep, the newly infected is told.
     expect(state.step).toEqual({ kind: "infected", playerIds: ["p2"] });
@@ -276,6 +278,11 @@ describe("Personnages", () => {
     expect(state.step).toEqual({ kind: "deaths", context: "dawn", deaths: [] });
     state = play(s, [wolves("p2"), choose(true), go, { type: "witch", heal: false, poisonId: null }, go, vote(null)]);
     expect(state.step).toMatchObject({ kind: "wolves", playerIds: ["p0", "p2"] });
+  });
+
+  it("The Elder can't be infected", () => {
+    const state = play(setup(["accursed-wolf-father", "elder", "villager", "villager", "villager"]), [wolves("p1")]);
+    expect(state.step).toEqual({ kind: "bluff", turn: "accursed-wolf-father", role: "accursed-wolf-father" });
   });
 
   it("The infected call is read every night, even with nobody infected", () => {

@@ -164,11 +164,11 @@ function backToSleep(done: Step, next: Step): GameState["backToSleep"] {
     case "seer":
     case "fox":
       return next.kind === `${done.kind}-result` ? null : done.kind;
-    // The Wolf-Father answers while the pack is still awake.
+    // The pack sleeps before the Wolf-Father answers: it never learns which wolf he is.
     case "wolves":
-      return next.kind === "infect" ? null : "wolves";
-    case "infect":
       return "wolves";
+    case "infect":
+      return "accursed-wolf-father";
     case "bluff":
       if (done.turn === "wolves") return "wolves";
       // These calls already end with everyone going back to sleep.

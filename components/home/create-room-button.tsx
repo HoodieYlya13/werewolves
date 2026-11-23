@@ -11,7 +11,7 @@ export function CreateRoomButton() {
 
   function create() {
     const code = generateRoomCode();
-    identity.setHost(code, { token: crypto.randomUUID() });
+    identity.setHost(code, { token: crypto.randomUUID(), isNew: true });
     router.push(`/${locale}/host/${code}`);
   }
 
