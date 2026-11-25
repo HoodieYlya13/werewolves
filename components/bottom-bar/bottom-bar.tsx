@@ -4,13 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import { CircleUserRound, Menu, X } from "lucide-react";
 import { goToAuth } from "@/components/account-button";
 import { AccountPanel } from "@/components/bottom-bar/account-panel";
-import { BarIcon, BarTile } from "@/components/bottom-bar/bar-row";
+import { BarIcon, BarTile, NotificationBadge } from "@/components/bottom-bar/bar-row";
 import { MenuPanel } from "@/components/bottom-bar/menu-panel";
 import { useI18n } from "@/components/i18n-provider";
 import { Face } from "@/components/room-context";
 import { SiteTitle } from "@/components/site-title";
 import { useSignOut } from "@/components/sign-out";
 import { useHideOnScroll } from "@/hooks/use-hide-on-scroll";
+import { useIncomingFriendRequests } from "@/lib/friend-requests";
+import { format } from "@/lib/i18n/config";
 import { useSession, type Session } from "@/lib/session";
 
 type Panel = "menu" | "account";
@@ -31,6 +33,8 @@ export function BottomBar() {
 
   useCloseOnEscapeAndBack(close);
   const accountAction = accountActionFor(session, () => toggle("account"));
+  const incomingFriendRequests = useIncomingFriendRequests(session?.stats ? session.account?.sub : undefined);
+  const pending = pendingCount(accountAction, session, incomingFriendRequests);
 
   function closeOnLinkClick(event: React.MouseEvent) {
     if ((event.target as HTMLElement).closest("a")) close();
@@ -54,7 +58,7 @@ export function BottomBar() {
           <div ref={panelContentRef}>
             {/* Keyed: switching panels replays the rows' entrance while the height follows. */}
             {renderedPanel === "menu" && <MenuPanel key="menu" />}
-            {renderedPanel === "account" && session?.account && <AccountPanel key="account" session={session} onSignOut={signOut} />}
+            {renderedPanel === "account" && session?.account && <AccountPanel key="account" session={session} incomingFriendRequests={incomingFriendRequests} onSignOut={signOut} />}
           </div>
         </div>
 
@@ -64,7 +68,7 @@ export function BottomBar() {
             className={`absolute top-0 left-[2.5%] h-px w-[95%] origin-left bg-fg/20 transition-transform duration-250 ease-in-out ${isOpen ? "scale-x-100 delay-500" : "scale-x-0"}`}
           />
           <span className="flex min-w-0 flex-1 items-center gap-4">
-            <AccountTile action={accountAction} isAccountOpen={openPanel === "account"} />
+            <AccountTile action={accountAction} pending={pending} isAccountOpen={openPanel === "account"} />
             <span className="flex min-w-0 flex-1 flex-col items-start justify-center gap-0.5">
               <SiteTitle className="w-fit font-bold tracking-wide uppercase md:text-lg" />
               <AccountLine action={accountAction} />
@@ -101,17 +105,30 @@ function accountActionFor(session: Session | null, toggleAccountPanel: () => voi
   return { kind: "panel", run: toggleAccountPanel, account: session.account };
 }
 
-/** The account's face, or a sign-in icon. */
-function AccountTile({ action, isAccountOpen }: { action: AccountAction; isAccountOpen: boolean }) {
+/** What waits for the account: signing in when signed out, else its friend requests and a passkey to add. */
+function pendingCount(action: AccountAction, session: Session | null, incomingFriendRequests: number): number {
+  if (action.kind === "sign-in") return 1;
+  if (action.kind !== "panel") return 0;
+  return incomingFriendRequests + (session?.noPasskey ? 1 : 0);
+}
+
+const TILE_BUTTON = "relative rounded-full sm:rounded-lg md:rounded-xl";
+
+/** The account's face, or a sign-in icon, with a count of what waits for it. */
+function AccountTile({ action, pending, isAccountOpen }: { action: AccountAction; pending: number; isAccountOpen: boolean }) {
   const { dict } = useI18n();
   if (action.kind === "unknown" || action.kind === "none") return <BarTile>{null}</BarTile>;
 
+  const withPending = (label: string) => (pending > 0 ? `${label}, ${format(dict.bar.pending, { count: pending })}` : label);
+  const badge = <NotificationBadge count={pending} className="absolute -top-1 -right-1" />;
+
   if (action.kind === "sign-in") {
     return (
-      <button type="button" onClick={action.run} aria-label={dict.account.signIn} className="group rounded-full sm:rounded-lg md:rounded-xl">
+      <button type="button" onClick={action.run} aria-label={withPending(dict.account.signIn)} className={`group ${TILE_BUTTON}`}>
         <BarTile>
           <BarIcon icon={CircleUserRound} />
         </BarTile>
+        {badge}
       </button>
     );
   }
@@ -122,12 +139,13 @@ function AccountTile({ action, isAccountOpen }: { action: AccountAction; isAccou
       type="button"
       onClick={action.run}
       aria-expanded={isAccountOpen}
-      aria-label={isAccountOpen ? dict.bar.closeAccount : dict.bar.openAccount}
-      className="rounded-full sm:rounded-lg md:rounded-xl"
+      aria-label={withPending(isAccountOpen ? dict.bar.closeAccount : dict.bar.openAccount)}
+      className={TILE_BUTTON}
     >
       <BarTile>
         <Face name={account.name} src={account.picture} className="size-full rounded-none text-2xl" />
       </BarTile>
+      {badge}
     </button>
   );
 }

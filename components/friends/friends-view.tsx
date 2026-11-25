@@ -13,6 +13,7 @@ import { StatsSkeleton } from "@/components/skeletons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { FriendsList, Person } from "@/lib/friends";
+import { setIncomingFriendRequests } from "@/lib/friend-requests";
 import { friendsApi } from "@/lib/friends-client";
 import { format } from "@/lib/i18n/config";
 import { useSession } from "@/lib/session";
@@ -30,7 +31,9 @@ export function FriendsView() {
     if (!sub) return;
     let cancelled = false;
     void friendsApi.list().then((value) => {
-      if (!cancelled) setList({ sub, value: value ?? "failed" });
+      if (cancelled) return;
+      setList({ sub, value: value ?? "failed" });
+      if (value) setIncomingFriendRequests(sub, value.incoming.length);
     });
     return () => {
       cancelled = true;
@@ -59,7 +62,15 @@ export function FriendsView() {
       </Message>
     );
   }
-  return <Friends list={list.value} onChange={(value) => setList({ sub: sub!, value })} />;
+  return (
+    <Friends
+      list={list.value}
+      onChange={(value) => {
+        setList({ sub: sub!, value });
+        setIncomingFriendRequests(sub!, value.incoming.length);
+      }}
+    />
+  );
 }
 
 function Friends({ list, onChange }: { list: FriendsList; onChange: (list: FriendsList) => void }) {

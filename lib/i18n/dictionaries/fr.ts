@@ -493,6 +493,7 @@ const fr: Dictionary = {
     openAccount: "Ouvrir votre compte",
     closeAccount: "Fermer votre compte",
     signInInvite: "Connectez-vous pour garder votre nom, votre photo et vos stats",
+    pending: "{count} à faire",
   },
   settings: {
     theme: "Thème",

@@ -4,7 +4,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BookOpen, CircleHelp, Languages, SunMoon, VenetianMask, type LucideIcon } from "lucide-react";
-import { BarIcon, BarRow, RollingText } from "@/components/bottom-bar/bar-row";
+import { IconRow } from "@/components/bottom-bar/bar-row";
 import { PanelList } from "@/components/bottom-bar/panel-list";
 import { useI18n } from "@/components/i18n-provider";
 import { LocaleSwitcher, pathAfterLocale, pathInLocale, rememberLocale } from "@/components/locale-switcher";
@@ -31,7 +31,7 @@ export function MenuPanel() {
 function PageLink<T extends string>({ href, icon, label }: { href: Route<T>; icon: LucideIcon; label: string }) {
   return (
     <Link href={href} className="block rounded-lg">
-      <RowContent icon={icon} label={label} />
+      <IconRow icon={icon} label={label} />
     </Link>
   );
 }
@@ -44,7 +44,7 @@ function LanguageRow() {
   return (
     <SettingRow control={<LocaleSwitcher />}>
       <Link href={pathInLocale(otherLocale, pathAfterLocale(pathname))} onClick={() => rememberLocale(otherLocale)} className="block rounded-lg">
-        <RowContent icon={Languages} label={dict.settings.language} />
+        <IconRow icon={Languages} label={dict.settings.language} />
       </Link>
     </SettingRow>
   );
@@ -56,17 +56,9 @@ function ThemeRow() {
   return (
     <SettingRow control={<ThemeSwitcher />}>
       <button type="button" onClick={() => setTheme(nextTheme(readTheme()))} className="block w-full rounded-lg text-left">
-        <RowContent icon={SunMoon} label={dict.settings.theme} />
+        <IconRow icon={SunMoon} label={dict.settings.theme} />
       </button>
     </SettingRow>
-  );
-}
-
-function RowContent({ icon, label }: { icon: LucideIcon; label: string }) {
-  return (
-    <BarRow tile={<BarIcon icon={icon} />}>
-      <RollingText text={label} />
-    </BarRow>
   );
 }
 

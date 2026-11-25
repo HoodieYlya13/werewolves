@@ -492,6 +492,7 @@ const en = {
     openAccount: "Open your account",
     closeAccount: "Close your account",
     signInInvite: "Sign in to keep your name, photo and stats",
+    pending: "{count} to do",
   },
   settings: {
     theme: "Theme",

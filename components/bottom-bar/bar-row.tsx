@@ -1,4 +1,8 @@
+"use client";
+
 import type { LucideIcon } from "lucide-react";
+import { useI18n } from "@/components/i18n-provider";
+import { format } from "@/lib/i18n/config";
 
 const EASE_OUT_EXPO = "ease-[cubic-bezier(0.16,1,0.3,1)]";
 
@@ -35,5 +39,31 @@ export function BarRow({ tile, children, className = "" }: { tile: React.ReactNo
       <BarTile>{tile}</BarTile>
       <span className="flex min-w-0 flex-1 flex-col justify-center">{children}</span>
     </span>
+  );
+}
+
+const MAX_SHOWN_COUNT = 9;
+
+/** A red count of things waiting to be done; nothing when there are none. */
+export function NotificationBadge({ count, className = "" }: { count: number; className?: string }) {
+  const { dict } = useI18n();
+  if (count <= 0) return null;
+  return (
+    <span className={`grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1.5 text-xs font-bold text-primary-foreground ${className}`}>
+      <span aria-hidden>{count > MAX_SHOWN_COUNT ? `${MAX_SHOWN_COUNT}+` : count}</span>
+      <span className="sr-only">{format(dict.bar.pending, { count })}</span>
+    </span>
+  );
+}
+
+/** A row with an icon in its tile, a label, and a count of what waits there. */
+export function IconRow({ icon, label, badge = 0 }: { icon: LucideIcon; label: string; badge?: number }) {
+  return (
+    <BarRow tile={<BarIcon icon={icon} />}>
+      <span className="flex items-center justify-between gap-2 pr-2">
+        <RollingText text={label} />
+        <NotificationBadge count={badge} />
+      </span>
+    </BarRow>
   );
 }
