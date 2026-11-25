@@ -3,13 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { CircleUserRound, Menu, X } from "lucide-react";
 import { goToAuth } from "@/components/account-button";
-import { AccountMarquee } from "@/components/bottom-bar/account-marquee";
 import { AccountPanel } from "@/components/bottom-bar/account-panel";
 import { BarIcon, BarTile } from "@/components/bottom-bar/bar-row";
 import { MenuPanel } from "@/components/bottom-bar/menu-panel";
 import { useI18n } from "@/components/i18n-provider";
 import { Face } from "@/components/room-context";
 import { SiteTitle } from "@/components/site-title";
+import { Skeleton } from "@/components/skeletons";
 import { useSignOut } from "@/components/sign-out";
 import { useHideOnScroll } from "@/hooks/use-hide-on-scroll";
 import { useSession, type Session } from "@/lib/session";
@@ -18,9 +18,9 @@ type Panel = "menu" | "account";
 
 /**
  * The app's navigation, floating at the bottom: the account on the left, the
- * app's name with the account's stats scrolling under it, and the menu on the
- * right. Either one opens a panel above the bar; the other one swaps its
- * content without closing it.
+ * app's name with the account's username (or an invitation to sign in) under
+ * it, and the menu on the right. Either one opens a panel above the bar; the
+ * other one swaps its content without closing it.
  */
 export function BottomBar() {
   const { dict } = useI18n();
@@ -31,6 +31,7 @@ export function BottomBar() {
   const isOpen = openPanel !== null;
 
   useCloseOnEscapeAndBack(close);
+  const accountAction = accountActionFor(session, () => toggle("account"));
 
   function closeOnLinkClick(event: React.MouseEvent) {
     if ((event.target as HTMLElement).closest("a")) close();
@@ -42,8 +43,8 @@ export function BottomBar() {
       <div
         data-bar-open={isOpen || undefined}
         onClick={closeOnLinkClick}
-        className={`theme-dark fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 z-40 flex w-[95%] max-w-2xl flex-col overflow-hidden rounded-xl text-fg shadow-lg backdrop-blur-md transition-all duration-500 ease-in-out md:bottom-[calc(1.5rem+env(safe-area-inset-bottom))] md:rounded-2xl ${isOpen ? "bg-bg/70" : "bg-(--bar-veil)"}`}
-        style={{ transform: `translate(-50%, ${isVisibleOnScroll || isOpen ? "0" : "calc(100% + 2rem + env(safe-area-inset-bottom))"})` }}
+        className={`theme-dark fixed bottom-4 left-1/2 z-40 flex w-[95%] max-w-2xl flex-col overflow-hidden rounded-xl text-fg shadow-lg backdrop-blur-md transition-all duration-500 ease-in-out md:bottom-6 md:rounded-2xl ${isOpen ? "bg-bg/70" : "bg-(--bar-veil)"}`}
+        style={{ transform: `translate(-50%, ${isVisibleOnScroll || isOpen ? "0" : "calc(100% + 2rem)"})` }}
       >
         <div
           className="overflow-hidden transition-[height] duration-500 ease-in-out"
@@ -63,10 +64,10 @@ export function BottomBar() {
             className={`absolute top-0 left-[2.5%] h-px w-[95%] origin-left bg-fg/20 transition-transform duration-250 ease-in-out ${isOpen ? "scale-x-100 delay-500" : "scale-x-0"}`}
           />
           <span className="flex min-w-0 flex-1 items-center gap-4">
-            <AccountTile session={session} isAccountOpen={openPanel === "account"} onToggle={() => toggle("account")} />
-            <span className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
+            <AccountTile action={accountAction} isAccountOpen={openPanel === "account"} />
+            <span className="flex min-w-0 flex-1 flex-col items-start justify-center gap-0.5">
               <SiteTitle className="w-fit font-bold tracking-wide uppercase md:text-lg" />
-              <AccountMarquee session={session} />
+              <AccountLine action={accountAction} />
             </span>
           </span>
           <button
@@ -85,14 +86,29 @@ export function BottomBar() {
   );
 }
 
-/** The account's face: opens its panel, or starts signing in. Until the session is known, an empty tile. */
-function AccountTile({ session, isAccountOpen, onToggle }: { session: Session | null; isAccountOpen: boolean; onToggle: () => void }) {
-  const { dict } = useI18n();
-  if (!session || !session.enabled) return <BarTile>{null}</BarTile>;
+type Account = NonNullable<Session["account"]>;
+type AccountAction =
+  | { kind: "unknown" }
+  | { kind: "none" }
+  | { kind: "sign-in"; run: () => void }
+  | { kind: "panel"; run: () => void; account: Account };
 
-  if (!session.account) {
+/** What the account's tile and line do: nothing until the session is known (or without accounts), sign in, or open the account panel. */
+function accountActionFor(session: Session | null, toggleAccountPanel: () => void): AccountAction {
+  if (!session) return { kind: "unknown" };
+  if (!session.enabled) return { kind: "none" };
+  if (!session.account) return { kind: "sign-in", run: () => goToAuth("in") };
+  return { kind: "panel", run: toggleAccountPanel, account: session.account };
+}
+
+/** The account's face, or a sign-in icon. */
+function AccountTile({ action, isAccountOpen }: { action: AccountAction; isAccountOpen: boolean }) {
+  const { dict } = useI18n();
+  if (action.kind === "unknown" || action.kind === "none") return <BarTile>{null}</BarTile>;
+
+  if (action.kind === "sign-in") {
     return (
-      <button type="button" onClick={() => goToAuth("in")} aria-label={dict.account.signIn} className="group rounded-lg md:rounded-xl">
+      <button type="button" onClick={action.run} aria-label={dict.account.signIn} className="group rounded-lg md:rounded-xl">
         <BarTile>
           <BarIcon icon={CircleUserRound} />
         </BarTile>
@@ -100,17 +116,32 @@ function AccountTile({ session, isAccountOpen, onToggle }: { session: Session | 
     );
   }
 
+  const { account } = action;
   return (
     <button
       type="button"
-      onClick={onToggle}
+      onClick={action.run}
       aria-expanded={isAccountOpen}
       aria-label={isAccountOpen ? dict.bar.closeAccount : dict.bar.openAccount}
       className="rounded-lg md:rounded-xl"
     >
       <BarTile>
-        <Face name={session.account.name} src={session.account.picture} className="size-full rounded-none text-2xl" />
+        <Face name={account.name} src={account.picture} className="size-full rounded-none text-2xl" />
       </BarTile>
+    </button>
+  );
+}
+
+/** Under the app's name: the account's username, or an invitation to sign in. Doing the same as the tile. */
+function AccountLine({ action }: { action: AccountAction }) {
+  const { dict } = useI18n();
+  if (action.kind === "unknown") return <Skeleton className="h-4 w-32 md:h-5" />;
+  if (action.kind === "none") return null;
+
+  const text = action.kind === "sign-in" ? dict.bar.signInInvite : (action.account.username ?? action.account.name);
+  return (
+    <button type="button" onClick={action.run} className="w-full truncate text-left text-xs font-medium opacity-70 md:text-sm">
+      {text}
     </button>
   );
 }

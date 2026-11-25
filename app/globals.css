@@ -127,11 +127,6 @@
     -webkit-tap-highlight-color: transparent;
     /* The closed bottom bar: the page's text colour, see-through, so it reads on either theme. */
     --bar-veil: color-mix(in oklab, var(--fg) 40%, transparent);
-    /* The bottom bar's height and its gap to the screen's edge, plus a little air. */
-    --bottom-bar-space: 6.5rem;
-    @media (width >= 48rem) {
-      --bottom-bar-space: 8rem;
-    }
   }
   /* Scrollbars in the app's colours: a thin rounded thumb on a clear track. */
   * {
@@ -277,25 +272,6 @@
 /* Taps go through to the page while it fades. */
 ::view-transition {
   pointer-events: none;
-}
-
-/* The bottom bar's scrolling line: a track holding its content twice, sliding by one copy. */
-.marquee-track {
-  display: inline-flex;
-  animation: marquee 20s linear infinite;
-}
-.marquee-mask {
-  mask-image: linear-gradient(to right, transparent, #000 10% 90%, transparent);
-}
-@keyframes marquee {
-  to {
-    transform: translateX(-50%);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .marquee-track {
-    animation: none;
-  }
 }
 
 /* The page stays put behind an open bottom-bar panel. */

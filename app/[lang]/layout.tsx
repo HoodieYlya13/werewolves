@@ -1,10 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Cinzel, Geist } from "next/font/google";
-import Link from "next/link";
 import { Suspense } from "react";
 import { BottomBar } from "@/components/bottom-bar/bottom-bar";
 import { I18nProvider } from "@/components/i18n-provider";
-import { ThemeSwitcher } from "@/components/theme-switcher";
 import { ResumeRooms } from "@/components/resume-rooms";
 import { SessionGuard } from "@/components/session-guard";
 import { Toaster } from "@/components/ui/sonner";
@@ -62,26 +60,10 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
       </head>
       <body className="font-sans antialiased">
         <I18nProvider locale={locale} dict={dict}>
-          {/* Room at the bottom for the floating bar, so it never covers the end of a page. */}
-          <div className="flex min-h-dvh flex-col pt-[env(safe-area-inset-top)] pb-[calc(var(--bottom-bar-space)+env(safe-area-inset-bottom))]">
+          {/* No header any more: the gap it left at the top, and the bar floats over the end of a page as it hides there. */}
+          <div className="flex min-h-dvh flex-col pt-[calc(env(safe-area-inset-top)+2rem)] pb-[env(safe-area-inset-bottom)]">
             <ResumeRooms />
             {children}
-            {/* Down here, so the header has room for the account on phones. */}
-            <footer className="flex flex-col items-center gap-3 px-4 py-4">
-              {/* Every page links to the guides: people find them, and so do search engines. */}
-              <nav aria-label={dict.nav.label} className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                <Link href={`/${locale}/rules`} className="hover:text-fg">
-                  {dict.nav.rules}
-                </Link>
-                <Link href={`/${locale}/roles`} className="hover:text-fg">
-                  {dict.nav.roles}
-                </Link>
-                <Link href={`/${locale}/faq`} className="hover:text-fg">
-                  {dict.nav.faq}
-                </Link>
-              </nav>
-              <ThemeSwitcher />
-            </footer>
           </div>
           <BottomBar />
           <Toaster position="top-center" />

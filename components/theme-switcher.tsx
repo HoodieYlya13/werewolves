@@ -22,7 +22,7 @@ function subscribe(listener: () => void) {
   };
 }
 
-function setTheme(theme: Theme) {
+export function setTheme(theme: Theme) {
   try {
     if (theme === "game") localStorage.removeItem(THEME_KEY);
     else localStorage.setItem(THEME_KEY, theme);
@@ -37,6 +37,12 @@ const options = [
   { value: "light", icon: Sun, label: "themeLight" },
   { value: "dark", icon: Moon, label: "themeDark" },
 ] as const;
+
+/** The theme after `theme`, in the switcher's order, back to the first after the last. */
+export function nextTheme(theme: Theme): Theme {
+  const index = options.findIndex((option) => option.value === theme);
+  return options[(index + 1) % options.length].value;
+}
 
 export function ThemeSwitcher() {
   const { dict } = useI18n();

@@ -2,12 +2,15 @@
 
 import type { Route } from "next";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { BookOpen, CircleHelp, Languages, SunMoon, VenetianMask, type LucideIcon } from "lucide-react";
 import { BarIcon, BarRow, RollingText } from "@/components/bottom-bar/bar-row";
 import { PanelList } from "@/components/bottom-bar/panel-list";
 import { useI18n } from "@/components/i18n-provider";
-import { LocaleSwitcher } from "@/components/locale-switcher";
-import { ThemeSwitcher } from "@/components/theme-switcher";
+import { LocaleSwitcher, pathAfterLocale, pathInLocale, rememberLocale } from "@/components/locale-switcher";
+import { nextTheme, setTheme, ThemeSwitcher } from "@/components/theme-switcher";
+import { locales } from "@/lib/i18n/config";
+import { readTheme } from "@/lib/theme";
 
 /** The burger menu: the guides, then the language and theme settings. */
 export function MenuPanel() {
@@ -18,12 +21,8 @@ export function MenuPanel() {
         <PageLink href={`/${locale}/rules`} icon={BookOpen} label={dict.nav.rules} />
         <PageLink href={`/${locale}/roles`} icon={VenetianMask} label={dict.nav.roles} />
         <PageLink href={`/${locale}/faq`} icon={CircleHelp} label={dict.nav.faq} />
-        <SettingRow icon={Languages} label={dict.settings.language}>
-          <LocaleSwitcher />
-        </SettingRow>
-        <SettingRow icon={SunMoon} label={dict.settings.theme}>
-          <ThemeSwitcher />
-        </SettingRow>
+        <LanguageRow />
+        <ThemeRow />
       </PanelList>
     </nav>
   );
@@ -32,20 +31,51 @@ export function MenuPanel() {
 function PageLink<T extends string>({ href, icon, label }: { href: Route<T>; icon: LucideIcon; label: string }) {
   return (
     <Link href={href} className="block rounded-lg">
-      <BarRow tile={<BarIcon icon={icon} />}>
-        <RollingText text={label} />
-      </BarRow>
+      <RowContent icon={icon} label={label} />
     </Link>
   );
 }
 
-function SettingRow({ icon, label, children }: { icon: LucideIcon; label: string; children: React.ReactNode }) {
+/** The row switches to the other language; the choices beside it pick one. */
+function LanguageRow() {
+  const { dict, locale } = useI18n();
+  const pathname = usePathname();
+  const otherLocale = locales.find((candidate) => candidate !== locale) ?? locale;
+  return (
+    <SettingRow control={<LocaleSwitcher />}>
+      <Link href={pathInLocale(otherLocale, pathAfterLocale(pathname))} onClick={() => rememberLocale(otherLocale)} className="block rounded-lg">
+        <RowContent icon={Languages} label={dict.settings.language} />
+      </Link>
+    </SettingRow>
+  );
+}
+
+/** The row moves to the next theme; the choices beside it pick one. */
+function ThemeRow() {
+  const { dict } = useI18n();
+  return (
+    <SettingRow control={<ThemeSwitcher />}>
+      <button type="button" onClick={() => setTheme(nextTheme(readTheme()))} className="block w-full rounded-lg text-left">
+        <RowContent icon={SunMoon} label={dict.settings.theme} />
+      </button>
+    </SettingRow>
+  );
+}
+
+function RowContent({ icon, label }: { icon: LucideIcon; label: string }) {
   return (
     <BarRow tile={<BarIcon icon={icon} />}>
-      <span className="flex flex-wrap items-center justify-between gap-2">
-        <RollingText text={label} />
-        {children}
-      </span>
+      <RollingText text={label} />
     </BarRow>
+  );
+}
+
+/** A clickable row with its own control beside it. */
+function SettingRow({ control, children }: { control: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <span className="flex items-center gap-2">
+      <span className="min-w-0 flex-1">{children}</span>
+      {control}
+    </span>
   );
 }
