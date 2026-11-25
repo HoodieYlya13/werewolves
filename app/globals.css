@@ -37,7 +37,9 @@
   }
 }
 
-:root[data-theme="dark"] {
+:root[data-theme="dark"],
+/* Dark tokens for one part of the page, whatever the theme (the bottom bar's open panel). */
+.theme-dark {
   color-scheme: dark;
   --bg: #0d0b13;
   --surface: #17141f;
@@ -123,9 +125,13 @@
   }
   html {
     -webkit-tap-highlight-color: transparent;
-    /* The sticky header runs up under the status bar in the home-screen app. */
-    --header-height: calc(3.875rem + env(safe-area-inset-top));
-    scroll-padding-top: var(--header-height);
+    /* The closed bottom bar: the page's text colour, see-through, so it reads on either theme. */
+    --bar-veil: color-mix(in oklab, var(--fg) 40%, transparent);
+    /* The bottom bar's height and its gap to the screen's edge, plus a little air. */
+    --bottom-bar-space: 6.5rem;
+    @media (width >= 48rem) {
+      --bottom-bar-space: 8rem;
+    }
   }
   /* Scrollbars in the app's colours: a thin rounded thumb on a clear track. */
   * {
@@ -271,4 +277,28 @@
 /* Taps go through to the page while it fades. */
 ::view-transition {
   pointer-events: none;
+}
+
+/* The bottom bar's scrolling line: a track holding its content twice, sliding by one copy. */
+.marquee-track {
+  display: inline-flex;
+  animation: marquee 20s linear infinite;
+}
+.marquee-mask {
+  mask-image: linear-gradient(to right, transparent, #000 10% 90%, transparent);
+}
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+  }
+}
+
+/* The page stays put behind an open bottom-bar panel. */
+html:has([data-bar-open]) {
+  overflow: hidden;
 }

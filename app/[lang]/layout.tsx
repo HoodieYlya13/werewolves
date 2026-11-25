@@ -2,13 +2,11 @@ import type { Metadata, Viewport } from "next";
 import { Cinzel, Geist } from "next/font/google";
 import Link from "next/link";
 import { Suspense } from "react";
-import { AccountButton } from "@/components/account-button";
+import { BottomBar } from "@/components/bottom-bar/bottom-bar";
 import { I18nProvider } from "@/components/i18n-provider";
-import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { ResumeRooms } from "@/components/resume-rooms";
 import { SessionGuard } from "@/components/session-guard";
-import { SiteTitle } from "@/components/site-title";
 import { Toaster } from "@/components/ui/sonner";
 import { PasskeyReminder } from "@/components/passkey-reminder";
 import { ClaimGuestGames } from "@/components/guest-games";
@@ -64,14 +62,8 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
       </head>
       <body className="font-sans antialiased">
         <I18nProvider locale={locale} dict={dict}>
-          <div className="flex min-h-dvh flex-col pb-[env(safe-area-inset-bottom)]">
-            <header className="sticky top-0 z-40 flex h-(--header-height) items-center justify-between gap-3 bg-bg px-4 pt-[env(safe-area-inset-top)] sm:px-6">
-              <SiteTitle />
-              <div className="flex items-center gap-2">
-                <LocaleSwitcher />
-                <AccountButton accounts={!!process.env.AUTH_CLIENT_ID && !!process.env.AUTH_CLIENT_SECRET} />
-              </div>
-            </header>
+          {/* Room at the bottom for the floating bar, so it never covers the end of a page. */}
+          <div className="flex min-h-dvh flex-col pt-[env(safe-area-inset-top)] pb-[calc(var(--bottom-bar-space)+env(safe-area-inset-bottom))]">
             <ResumeRooms />
             {children}
             {/* Down here, so the header has room for the account on phones. */}
@@ -91,6 +83,7 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
               <ThemeSwitcher />
             </footer>
           </div>
+          <BottomBar />
           <Toaster position="top-center" />
           <SessionGuard />
           {/* It reads the URL, which only exists at runtime: kept out of the prerendered shell. */}

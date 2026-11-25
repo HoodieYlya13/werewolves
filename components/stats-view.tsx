@@ -10,7 +10,8 @@ import { StatsSkeleton } from "@/components/skeletons";
 import { Button } from "@/components/ui/button";
 import type { DeathCause, RoleId, Team } from "@/lib/engine";
 import { format } from "@/lib/i18n/config";
-import { loadSession, useSession } from "@/lib/session";
+import { useSession } from "@/lib/session";
+import { fetchAccountStats, type AccountStatsResult } from "@/lib/account-stats";
 import type { Person } from "@/lib/friends";
 import type { AccountStats } from "@/lib/stats";
 
@@ -19,19 +20,15 @@ export function StatsView() {
   const { dict } = useI18n();
   const session = useSession();
   const sub = session?.account?.sub;
-  const [stats, setStats] = useState<{ sub: string; value: AccountStats | "failed" } | null>(null);
+  const [stats, setStats] = useState<{ sub: string; value: AccountStatsResult } | null>(null);
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (!sub) return;
     let cancelled = false;
-    void (async () => {
-      // Through the session first, which refreshes the sign-in if needed (one request at a time).
-      await loadSession();
-      const res = await fetch("/api/auth/stats", { cache: "no-store" }).catch(() => null);
-      const value: AccountStats | "failed" = res?.ok ? await res.json() : "failed";
+    void fetchAccountStats().then((value) => {
       if (!cancelled) setStats({ sub, value });
-    })();
+    });
     return () => {
       cancelled = true;
     };

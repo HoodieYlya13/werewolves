@@ -27,11 +27,11 @@ export function useSiteTheme(theme: string | undefined) {
 }
 
 /** The header's title and link home: the app's name, or the theme of the game on screen. */
-export function SiteTitle() {
+export function SiteTitle({ className = "font-display text-lg font-bold tracking-wide" }: { className?: string }) {
   const { dict, locale } = useI18n();
   const theme = useSyncExternalStore(subscribe, () => current, () => null);
   return (
-    <Link href={`/${locale}`} className="font-display text-lg font-bold tracking-wide">
+    <Link href={`/${locale}`} className={className}>
       {theme && theme !== "werewolves" ? themes[theme].name[locale] : dict.app.name}
     </Link>
   );
