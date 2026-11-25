@@ -30,7 +30,7 @@ const fr: Dictionary = {
     rules: "Règles",
     roles: "Rôles",
     faq: "FAQ",
-    feedback: "Donner votre avis",
+    feedback: "Signaler un bug, une idée",
     start: "Lancer une partie",
   },
   home: {
