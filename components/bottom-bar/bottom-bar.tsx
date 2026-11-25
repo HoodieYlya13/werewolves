@@ -42,7 +42,7 @@ export function BottomBar() {
 
   return (
     <>
-      {isOpen && <div aria-hidden className="fixed inset-0 z-30" onClick={close} />}
+      <MenuBackdrop isOpen={isOpen} onClose={close} />
       <div
         data-bar-open={isOpen || undefined}
         onClick={closeOnLinkClick}
@@ -90,6 +90,17 @@ export function BottomBar() {
   );
 }
 
+/** Behind an open panel: blurs the page, lightened in dark mode so the dark panel stands out, and closes the panel on click. */
+function MenuBackdrop({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  return (
+    <div
+      aria-hidden
+      onClick={onClose}
+      className={`fixed inset-0 z-30 backdrop-blur-sm transition-opacity duration-500 dark:bg-white/10 ${isOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}
+    />
+  );
+}
+
 type Account = NonNullable<Session["account"]>;
 type AccountAction =
   | { kind: "unknown" }
@@ -112,7 +123,7 @@ function pendingCount(action: AccountAction, session: Session | null, incomingFr
   return incomingFriendRequests + (session?.noPasskey ? 1 : 0);
 }
 
-const TILE_BUTTON = "relative rounded-lg md:rounded-xl";
+const TILE_BUTTON = "relative cursor-pointer rounded-lg md:rounded-xl";
 
 /** The account's face, or a sign-in icon, with a count of what waits for it. */
 function AccountTile({
@@ -171,7 +182,7 @@ function AccountLine({ action }: { action: AccountAction }) {
   if (action.kind === "none") return null;
 
   return (
-    <button type="button" onClick={action.run} className={`w-full truncate text-left opacity-70 ${ACCOUNT_LINE_TEXT}`}>
+    <button type="button" onClick={action.run} className={`w-full cursor-pointer truncate text-left opacity-70 ${ACCOUNT_LINE_TEXT}`}>
       {action.kind === "sign-in" ? <SignInInvitation /> : (action.account.username ?? action.account.name)}
     </button>
   );
