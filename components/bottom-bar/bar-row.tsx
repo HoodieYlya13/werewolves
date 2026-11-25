@@ -35,7 +35,7 @@ export function BarIcon({ icon: Icon }: { icon: LucideIcon }) {
 /** A label that rolls up to a copy of itself while its row is hovered. */
 export function RollingText({ text }: { text: string }) {
   return (
-    <span className="relative block h-[1.2em] overflow-hidden text-xl font-medium">
+    <span className="relative block h-[1.4em] overflow-hidden text-xl leading-[1.4] font-medium">
       <span className={`block transition-transform duration-500 group-hover:-translate-y-full ${EASE_OUT_EXPO}`}>{text}</span>
       <span aria-hidden className={`absolute inset-0 block translate-y-full transition-transform duration-500 group-hover:translate-y-0 ${EASE_OUT_EXPO}`}>
         {text}
