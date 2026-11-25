@@ -77,6 +77,8 @@
 }
 
 @theme inline {
+  /* A recent iPhone's screen corner (62pt) less the bottom bar's 10px gap: the bar's corners follow the screen's. */
+  --radius-screen: 3.25rem;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

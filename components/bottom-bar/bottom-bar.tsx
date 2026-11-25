@@ -42,7 +42,7 @@ export function BottomBar() {
       <div
         data-bar-open={isOpen || undefined}
         onClick={closeOnLinkClick}
-        className={`theme-dark fixed bottom-4 left-1/2 z-40 flex w-[95%] max-w-2xl flex-col overflow-hidden rounded-xl text-fg shadow-lg backdrop-blur-md transition-all duration-500 ease-in-out md:bottom-6 md:rounded-2xl ${isOpen ? "bg-bg/70" : "bg-(--bar-veil)"}`}
+        className={`theme-dark fixed bottom-2.5 left-1/2 z-40 flex w-[95%] max-w-2xl flex-col overflow-hidden rounded-screen text-fg shadow-lg backdrop-blur-md transition-all duration-500 ease-in-out sm:bottom-4 sm:rounded-xl md:bottom-6 md:rounded-2xl ${isOpen ? "bg-bg/70" : "bg-(--bar-veil)"}`}
         style={{ transform: `translate(-50%, ${isVisibleOnScroll || isOpen ? "0" : "calc(100% + 2rem)"})` }}
       >
         <div
@@ -107,7 +107,7 @@ function AccountTile({ action, isAccountOpen }: { action: AccountAction; isAccou
 
   if (action.kind === "sign-in") {
     return (
-      <button type="button" onClick={action.run} aria-label={dict.account.signIn} className="group rounded-lg md:rounded-xl">
+      <button type="button" onClick={action.run} aria-label={dict.account.signIn} className="group rounded-full sm:rounded-lg md:rounded-xl">
         <BarTile>
           <BarIcon icon={CircleUserRound} />
         </BarTile>
@@ -122,7 +122,7 @@ function AccountTile({ action, isAccountOpen }: { action: AccountAction; isAccou
       onClick={action.run}
       aria-expanded={isAccountOpen}
       aria-label={isAccountOpen ? dict.bar.closeAccount : dict.bar.openAccount}
-      className="rounded-lg md:rounded-xl"
+      className="rounded-full sm:rounded-lg md:rounded-xl"
     >
       <BarTile>
         <Face name={account.name} src={account.picture} className="size-full rounded-none text-2xl" />

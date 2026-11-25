@@ -2,10 +2,10 @@ import type { LucideIcon } from "lucide-react";
 
 const EASE_OUT_EXPO = "ease-[cubic-bezier(0.16,1,0.3,1)]";
 
-/** The square on the left of every row of the bar: a light tile holding an icon or a face. */
+/** The tile on the left of every row of the bar, holding an icon or a face: round on phones, following the bar's corners. */
 export function BarTile({ children }: { children: React.ReactNode }) {
   return (
-    <span className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-lg bg-fg text-bg md:size-20 md:rounded-xl">
+    <span className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-full bg-fg text-bg sm:rounded-lg md:size-20 md:rounded-xl">
       {children}
     </span>
   );
