@@ -194,7 +194,7 @@ export function GameScreen({
 
       {/* Folded cards. Under the game, with roles hidden, they'd only show bars: gone until shown again.
           Beside it, they stay, so nothing moves. */}
-      <aside className={`${hideRoles ? "hidden lg:flex" : "flex"} flex-col gap-4 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:self-start lg:overflow-y-auto lg:pb-1`}>
+      <aside className={`${hideRoles ? "hidden lg:flex" : "flex"} flex-col gap-4 lg:sticky lg:top-[calc(env(safe-area-inset-top)+1.5rem)] lg:max-h-[calc(100dvh-env(safe-area-inset-top)-3rem)] lg:self-start lg:overflow-y-auto lg:pb-1`}>
         <Remaining game={game} />
         <PlayersPanel game={game} />
         <PhonelessPanel game={game} />
