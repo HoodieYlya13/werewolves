@@ -68,7 +68,7 @@ export function BottomBar() {
             className={`absolute top-0 left-[2.5%] h-px w-[95%] origin-left bg-fg/20 transition-transform duration-250 ease-in-out ${isOpen ? "scale-x-100 delay-500" : "scale-x-0"}`}
           />
           <span className="flex min-w-0 flex-1 items-center gap-4">
-            <AccountTile action={accountAction} pending={pending} isAccountOpen={openPanel === "account"} />
+            <AccountTile action={accountAction} pending={pending} isAccountOpen={openPanel === "account"} isBarOpen={isOpen} />
             <span className="flex min-w-0 flex-1 flex-col items-start justify-center gap-0.5">
               <SiteTitle className="w-fit font-bold tracking-wide uppercase md:text-lg" />
               <AccountLine action={accountAction} />
@@ -112,12 +112,24 @@ function pendingCount(action: AccountAction, session: Session | null, incomingFr
   return incomingFriendRequests + (session?.noPasskey ? 1 : 0);
 }
 
-const TILE_BUTTON = "relative rounded-full sm:rounded-lg md:rounded-xl";
+const TILE_BUTTON = "relative rounded-lg md:rounded-xl";
 
 /** The account's face, or a sign-in icon, with a count of what waits for it. */
-function AccountTile({ action, pending, isAccountOpen }: { action: AccountAction; pending: number; isAccountOpen: boolean }) {
+function AccountTile({
+  action,
+  pending,
+  isAccountOpen,
+  isBarOpen,
+}: {
+  action: AccountAction;
+  pending: number;
+  isAccountOpen: boolean;
+  isBarOpen: boolean;
+}) {
   const { dict } = useI18n();
-  if (action.kind === "unknown" || action.kind === "none") return <BarTile>{null}</BarTile>;
+  // A circle in the closed capsule; opening, it unfolds, keeping only the corner by the bar's bottom-left.
+  const roundCorner = isBarOpen ? "bottom-left" : "all";
+  if (action.kind === "unknown" || action.kind === "none") return <BarTile roundCorner={roundCorner}>{null}</BarTile>;
 
   const withPending = (label: string) => (pending > 0 ? `${label}, ${format(dict.bar.pending, { count: pending })}` : label);
   const badge = <NotificationBadge count={pending} className="absolute -top-1 -right-1" />;
@@ -125,7 +137,7 @@ function AccountTile({ action, pending, isAccountOpen }: { action: AccountAction
   if (action.kind === "sign-in") {
     return (
       <button type="button" onClick={action.run} aria-label={withPending(dict.account.signIn)} className={`group ${TILE_BUTTON}`}>
-        <BarTile>
+        <BarTile roundCorner={roundCorner}>
           <BarIcon icon={CircleUserRound} />
         </BarTile>
         {badge}
@@ -142,7 +154,7 @@ function AccountTile({ action, pending, isAccountOpen }: { action: AccountAction
       aria-label={withPending(isAccountOpen ? dict.bar.closeAccount : dict.bar.openAccount)}
       className={TILE_BUTTON}
     >
-      <BarTile>
+      <BarTile roundCorner={roundCorner}>
         <Face name={account.name} src={account.picture} className="size-full rounded-none text-2xl" />
       </BarTile>
       {badge}

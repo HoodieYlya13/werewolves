@@ -6,10 +6,22 @@ import { format } from "@/lib/i18n/config";
 
 const EASE_OUT_EXPO = "ease-[cubic-bezier(0.16,1,0.3,1)]";
 
-/** The tile on the left of every row of the bar, holding an icon or a face: round on phones, following the bar's corners. */
-export function BarTile({ children }: { children: React.ReactNode }) {
+/** On phones, the tile's corners next to the bar's own round corners: they follow its curve. */
+export type TileRoundCorner = "all" | "bottom-left" | "top-left";
+
+const ROUND_CORNER: Record<TileRoundCorner, string> = {
+  all: "max-sm:rounded-4xl",
+  "bottom-left": "max-sm:rounded-bl-4xl",
+  "top-left": "max-sm:rounded-tl-4xl",
+};
+
+/** The tile on the left of every row of the bar, holding an icon or a face. */
+export function BarTile({ children, roundCorner }: { children: React.ReactNode; roundCorner?: TileRoundCorner }) {
   return (
-    <span className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-full bg-fg text-bg sm:rounded-lg md:size-20 md:rounded-xl">
+    <span
+      data-bar-tile
+      className={`grid size-16 shrink-0 place-items-center overflow-hidden rounded-lg bg-fg text-bg transition-[border-radius] duration-500 md:size-20 md:rounded-xl ${roundCorner ? ROUND_CORNER[roundCorner] : ""}`}
+    >
       {children}
     </span>
   );
