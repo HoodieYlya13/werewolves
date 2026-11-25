@@ -42,22 +42,23 @@ export function BottomBar() {
       <div
         data-bar-open={isOpen || undefined}
         onClick={closeOnLinkClick}
-        className={`theme-dark fixed bottom-2.5 left-1/2 z-40 flex w-[95%] max-w-2xl flex-col overflow-hidden rounded-screen text-fg shadow-lg backdrop-blur-md transition-all duration-500 ease-in-out sm:bottom-4 sm:rounded-xl md:bottom-6 md:rounded-2xl ${isOpen ? "bg-bg/70" : "bg-(--bar-veil)"}`}
+        className={`theme-dark fixed bottom-(--bar-gap) left-1/2 z-40 flex max-h-[calc(100dvh-env(safe-area-inset-top)-2*var(--bar-gap))] w-[95%] max-w-2xl flex-col overflow-hidden text-fg shadow-lg backdrop-blur-md transition-all duration-500 ease-in-out sm:rounded-xl md:rounded-2xl ${isOpen ? "rounded-t-concentric rounded-b-screen bg-bg/70" : "rounded-screen bg-(--bar-veil)"}`}
         style={{ transform: `translate(-50%, ${isVisibleOnScroll || isOpen ? "0" : "calc(100% + 2rem)"})` }}
       >
+        {/* Shrinks and scrolls when the screen is too short for the whole panel above the bar. */}
         <div
-          className="overflow-hidden transition-[height] duration-500 ease-in-out"
+          className="min-h-0 overflow-y-auto overscroll-contain transition-[height] duration-500 ease-in-out"
           style={{ height: isOpen ? panelHeight : 0 }}
           onTransitionEnd={onPanelTransitionEnd}
         >
-          <div ref={panelContentRef} className="max-h-[70dvh] overflow-y-auto overscroll-contain">
+          <div ref={panelContentRef}>
             {/* Keyed: switching panels replays the rows' entrance while the height follows. */}
             {renderedPanel === "menu" && <MenuPanel key="menu" />}
             {renderedPanel === "account" && session?.account && <AccountPanel key="account" session={session} onSignOut={signOut} />}
           </div>
         </div>
 
-        <div className={`relative flex items-center justify-between px-2 pb-2 transition-[padding] duration-500 ${isOpen ? "pt-4" : "pt-2"}`}>
+        <div className={`relative flex shrink-0 items-center justify-between px-2 pb-2 transition-[padding] duration-500 ${isOpen ? "pt-4" : "pt-2"}`}>
           <span
             aria-hidden
             className={`absolute top-0 left-[2.5%] h-px w-[95%] origin-left bg-fg/20 transition-transform duration-250 ease-in-out ${isOpen ? "scale-x-100 delay-500" : "scale-x-0"}`}
