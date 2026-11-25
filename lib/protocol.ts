@@ -374,7 +374,9 @@ export type AccountClientMessage =
    * one let go of it. `here`: this device already holds that seat (signed in
    * again on it), so nothing moves.
    */
-  | { type: "resolve"; takeOver: boolean; here?: boolean };
+  | { type: "resolve"; takeOver: boolean; here?: boolean }
+  /** This account just asked `to` to be friends (or accepted their request) outside a room: `to`'s devices hear it. */
+  | { type: "friend-requested"; to: string; accepted: boolean };
 
 export type AccountServerMessage =
   /** This device was replaced by a newer sign-in. */

@@ -81,6 +81,12 @@ export async function requestFriend(url: string, from: string, to: string): Prom
   return "sent";
 }
 
+/** Whether `from` asked `to` to be friends and `to` hasn't answered yet. */
+export async function hasPendingRequest(url: string, from: string, to: string): Promise<boolean> {
+  const rows = await neon(url)`SELECT 1 FROM friendships WHERE requester = ${from} AND addressee = ${to} AND NOT accepted`;
+  return rows.length > 0;
+}
+
 /** Answers a request `other` sent: accepted, or deleted. */
 export async function answerFriend(url: string, me: string, other: string, accept: boolean) {
   const sql = neon(url);

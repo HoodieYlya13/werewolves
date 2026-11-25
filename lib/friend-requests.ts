@@ -19,6 +19,11 @@ export function setIncomingFriendRequests(sub: string, count: number) {
   listeners.forEach((listener) => listener());
 }
 
+/** Reads the count again for the account already known (a friend just asked, live). */
+export function refreshIncomingFriendRequests() {
+  if (known) void loadIncomingFriendRequests(known.sub);
+}
+
 async function loadIncomingFriendRequests(sub: string) {
   const list = await friendsApi.list();
   if (list) setIncomingFriendRequests(sub, list.incoming.length);

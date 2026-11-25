@@ -1,13 +1,20 @@
 import { getServerByName, Server, type Connection } from "partyserver";
 import { verifyTicket } from "../lib/ticket";
 import { workerTicketKey } from "./keys";
+import { friendsAmong, hasPendingRequest } from "../lib/friends";
 import { sessionTime, type AccountClientMessage, type AccountServerMessage, type FriendFace } from "../lib/protocol";
 
 const CURRENT_KEY = "session";
 const ROOMS_KEY = "rooms";
+/** The same friend hears about this account at most once a minute. */
+const FRIEND_NOTICE_INTERVAL_MS = 60_000;
 
-/** A device's socket. `pending`: a newer sign-in, waiting for its answer about the seat on another device. */
-type DeviceState = { sessionId: string; pending?: { room: string; role: "player" | "host" } };
+/**
+ * A device's socket: its sign-in, and the account's name and photo (shown to
+ * friends it tells about). `pending`: a newer sign-in, waiting for its answer
+ * about the seat on another device.
+ */
+type DeviceState = { sessionId: string; face: FriendFace; pending?: { room: string; role: "player" | "host" } };
 type Device = Connection<DeviceState>;
 
 /**
@@ -63,6 +70,30 @@ export class AccountServer extends Server<Env> {
     this.tellDevices({ type: "friend-request", from, accepted });
   }
 
+  // --- called by devices: friends ---
+
+  private lastFriendNotices = new Map<string, number>();
+
+  /**
+   * A request this account sent (or accepted) from the friends page: told to
+   * `to`'s devices, once the database confirms it, so no one can fake one.
+   */
+  private async tellFriend(conn: Device, to: string, accepted: boolean) {
+    const url = this.env.POSTGRES_URL;
+    const state = conn.state;
+    if (!url || !state || state.pending || typeof to !== "string" || to === this.name) return;
+    const now = Date.now();
+    if (now - (this.lastFriendNotices.get(to) ?? 0) < FRIEND_NOTICE_INTERVAL_MS) return;
+    try {
+      const isConfirmed = accepted ? (await friendsAmong(url, this.name, [to])).length > 0 : await hasPendingRequest(url, this.name, to);
+      if (!isConfirmed) return;
+      this.lastFriendNotices.set(to, now);
+      await (await getServerByName(this.env.Account, to)).friendRequest(state.face, accepted);
+    } catch (error) {
+      console.error("Telling a friend failed:", error);
+    }
+  }
+
   /** The devices of the current sign-in (the others are being signed out). */
   private tellDevices(msg: AccountServerMessage) {
     void this.ctx.storage.get<string>(CURRENT_KEY).then((current) => {
@@ -84,6 +115,7 @@ export class AccountServer extends Server<Env> {
     }
     if (msg.type === "hello") return this.hello(conn, msg);
     if (msg.type === "resolve") return this.resolve(conn, msg.takeOver, msg.here === true);
+    if (msg.type === "friend-requested") return this.tellFriend(conn, msg.to, msg.accepted === true);
   }
 
   private async hello(conn: Device, msg: Extract<AccountClientMessage, { type: "hello" }>) {
@@ -91,6 +123,7 @@ export class AccountServer extends Server<Env> {
     // The socket must prove it is this account, from a known sign-in.
     if (!ticket || ticket.sub !== this.name || !ticket.sid || !sessionTime(ticket.sid)) return conn.close(4001, "invalid-account");
     const sessionId = ticket.sid;
+    const face: FriendFace = { name: ticket.name, picture: ticket.picture };
 
     const current = await this.ctx.storage.get<string>(CURRENT_KEY);
     if (current && sessionTime(sessionId) < sessionTime(current)) {
@@ -101,7 +134,7 @@ export class AccountServer extends Server<Env> {
       // A new device while the account has a seat somewhere: ask it first.
       const seat = await this.liveSeat();
       if (seat) {
-        conn.setState({ sessionId, pending: { room: seat.room, role: seat.role } });
+        conn.setState({ sessionId, face, pending: { room: seat.room, role: seat.role } });
         return this.send(
           conn,
           seat.role === "host"
@@ -110,7 +143,7 @@ export class AccountServer extends Server<Env> {
         );
       }
     }
-    conn.setState({ sessionId });
+    conn.setState({ sessionId, face });
     await this.makeCurrent(conn);
   }
 
@@ -118,7 +151,7 @@ export class AccountServer extends Server<Env> {
   private async resolve(conn: Device, takeOver: boolean, here: boolean) {
     const pending = conn.state?.pending;
     if (!pending) return;
-    conn.setState({ sessionId: conn.state!.sessionId });
+    conn.setState({ sessionId: conn.state!.sessionId, face: conn.state!.face });
     // A master moving here: the old master screen stops first, so signing it
     // out (just below) can't drop the account from the room.
     if (takeOver && !here && pending.role === "host") {

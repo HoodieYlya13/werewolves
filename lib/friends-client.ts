@@ -1,6 +1,7 @@
 "use client";
 
 import type { FriendsList, Person, RequestResult } from "./friends";
+import { sendToAccount } from "./account-socket";
 import { loadSession } from "./session";
 
 /**
@@ -16,10 +17,27 @@ async function call<T>(path: string, init?: RequestInit): Promise<T | null> {
 const post = <T>(path: string, body: unknown, method = "POST") =>
   call<T>(path, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
+/** Their open screens hear about a request just sent, or theirs just accepted. */
+function tellFriend(to: string | undefined, accepted: boolean) {
+  if (to) sendToAccount({ type: "friend-requested", to, accepted });
+}
+
+async function request(to: { sub: string } | { code: string }) {
+  const answer = await post<{ result: RequestResult; to?: string; list: FriendsList }>("/api/auth/friends", { action: "request", ...to });
+  if (answer?.result === "sent" || answer?.result === "accepted") tellFriend(answer.to, answer.result === "accepted");
+  return answer;
+}
+
+async function answer(sub: string, accept: boolean) {
+  const result = await post<{ list: FriendsList }>("/api/auth/friends", { action: "answer", sub, accept });
+  if (result && accept) tellFriend(sub, true);
+  return result;
+}
+
 export const friendsApi = {
   list: () => call<FriendsList>("/api/auth/friends"),
-  request: (to: { sub: string } | { code: string }) => post<{ result: RequestResult; list: FriendsList }>("/api/auth/friends", { action: "request", ...to }),
-  answer: (sub: string, accept: boolean) => post<{ list: FriendsList }>("/api/auth/friends", { action: "answer", sub, accept }),
+  request,
+  answer,
   remove: (sub: string) => post<{ list: FriendsList }>("/api/auth/friends", { action: "remove", sub }),
   search: (query: string) => call<{ people: Person[] }>(`/api/auth/friends/search?q=${encodeURIComponent(query)}`),
 };

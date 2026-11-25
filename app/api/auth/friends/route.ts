@@ -22,8 +22,9 @@ export async function POST(request: NextRequest) {
   return accountRoute(request, async (account, url) => {
     await saveAccount(url, account);
     let result: RequestResult | undefined;
+    let to: string | undefined;
     if (body?.action === "request") {
-      const to = typeof body.code === "string" && /^[A-Za-z0-9]{8}$/.test(body.code) ? (await accountByCode(url, body.code))?.sub : sub;
+      to = typeof body.code === "string" && /^[A-Za-z0-9]{8}$/.test(body.code) ? (await accountByCode(url, body.code))?.sub : (sub ?? undefined);
       result = to ? await requestFriend(url, account.sub, to) : "unknown";
     } else if (body?.action === "answer" && sub) {
       await answerFriend(url, account.sub, sub, body.accept === true);
@@ -32,6 +33,7 @@ export async function POST(request: NextRequest) {
     } else {
       return NextResponse.json({ error: "invalid-request" }, { status: 400 });
     }
-    return NextResponse.json({ result, list: await friendsList(url, account.sub) });
+    // `to`: who a request went to, so the page can tell them (a friend link only knows the code).
+    return NextResponse.json({ result, to, list: await friendsList(url, account.sub) });
   });
 }
