@@ -9,7 +9,6 @@ import { MenuPanel } from "@/components/bottom-bar/menu-panel";
 import { useI18n } from "@/components/i18n-provider";
 import { Face } from "@/components/room-context";
 import { SiteTitle } from "@/components/site-title";
-import { Skeleton } from "@/components/skeletons";
 import { useSignOut } from "@/components/sign-out";
 import { useHideOnScroll } from "@/hooks/use-hide-on-scroll";
 import { useSession, type Session } from "@/lib/session";
@@ -132,17 +131,29 @@ function AccountTile({ action, isAccountOpen }: { action: AccountAction; isAccou
   );
 }
 
+const ACCOUNT_LINE_TEXT = "text-xs font-medium md:text-sm";
+
 /** Under the app's name: the account's username, or an invitation to sign in. Doing the same as the tile. */
 function AccountLine({ action }: { action: AccountAction }) {
-  const { dict } = useI18n();
-  if (action.kind === "unknown") return <Skeleton className="h-4 w-32 md:h-5" />;
+  // An empty line of the same height: the bar keeps its size until the session is known.
+  if (action.kind === "unknown") return <span aria-hidden className={`invisible ${ACCOUNT_LINE_TEXT}`}>&nbsp;</span>;
   if (action.kind === "none") return null;
 
-  const text = action.kind === "sign-in" ? dict.bar.signInInvite : (action.account.username ?? action.account.name);
   return (
-    <button type="button" onClick={action.run} className="w-full truncate text-left text-xs font-medium opacity-70 md:text-sm">
-      {text}
+    <button type="button" onClick={action.run} className={`w-full truncate text-left opacity-70 ${ACCOUNT_LINE_TEXT}`}>
+      {action.kind === "sign-in" ? <SignInInvitation /> : (action.account.username ?? action.account.name)}
     </button>
+  );
+}
+
+/** "Sign in" on phones, where the bar is narrow; the whole invitation on wider screens. */
+function SignInInvitation() {
+  const { dict } = useI18n();
+  return (
+    <>
+      <span className="sm:hidden">{dict.account.signIn}</span>
+      <span className="hidden sm:inline">{dict.bar.signInInvite}</span>
+    </>
   );
 }
 
