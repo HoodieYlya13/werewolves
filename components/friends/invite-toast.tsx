@@ -3,8 +3,10 @@
 import { X } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { Face } from "@/components/room-context";
+import { TOAST_CARD } from "@/components/toast-card";
 import { Button } from "@/components/ui/button";
 import { format } from "@/lib/i18n/config";
+import { cn } from "@/lib/utils";
 import type { FriendFace } from "@/lib/protocol";
 
 /** A friend's invite, as a toast card: join the room, or dismiss. */
@@ -12,7 +14,7 @@ export function InviteCard({ from, room, onJoin, close }: { from: FriendFace; ro
   const { dict } = useI18n();
   const t = dict.friends;
   return (
-    <div className="relative flex w-[min(24rem,calc(100vw-2rem))] items-center gap-3 rounded-2xl border border-line bg-surface p-4 pr-10 text-fg shadow-xl">
+    <div className={cn(TOAST_CARD, "items-center")}>
       <Face name={from.name} src={from.picture} className="size-10 text-sm" />
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <div>

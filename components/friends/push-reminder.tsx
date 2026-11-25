@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Bell, X } from "lucide-react";
 import { toast } from "sonner";
 import { useI18n } from "@/components/i18n-provider";
+import { TOAST_CARD } from "@/components/toast-card";
 import { Button } from "@/components/ui/button";
 import { currentPush, enablePush, pushSupport } from "@/lib/friends-client";
 import { useSession } from "@/lib/session";
@@ -94,7 +95,7 @@ function PromptCard({ sub, close }: { sub: string; close: () => void }) {
   }
 
   return (
-    <div className="relative flex w-[min(24rem,calc(100vw-2rem))] gap-3 rounded-2xl border border-line bg-surface p-4 pr-10 text-fg shadow-xl">
+    <div className={TOAST_CARD}>
       <span className="grid size-10 shrink-0 place-items-center rounded-full bg-moon/15 text-moon">
         <Bell aria-hidden className="size-5" />
       </span>
