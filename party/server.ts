@@ -914,6 +914,12 @@ export class RoomServer extends Server<Env> {
           this.state.masterSeatId = null;
           this.state.endedGame = null;
         }
+        // Players who left mid-game were only kept for the game master to play: they don't play the next one.
+        const leavers = this.state.players.filter((p) => p.left);
+        if (leavers.length) {
+          leavers.forEach((player) => this.rememberFormerPlayer(player));
+          this.state.endedGame = null;
+        }
         this.state.ballot = null;
         this.state.timer = null;
         this.game = null;
@@ -1619,15 +1625,20 @@ export class RoomServer extends Server<Env> {
     }
     player.connected = false;
     if (s.game) {
-      // The game needs everyone it was dealt with: the game master plays their part.
+      // The game needs everyone it was dealt with: the game master plays their part (until it ends).
       player.left = true;
     } else {
-      // Remembered (photo included) so they can ask to come back.
       s.endedGame = null;
-      s.players = s.players.filter((p) => p.id !== player.id);
-      s.formerPlayers = [...(s.formerPlayers ?? []).filter((p) => p.id !== player.id), player];
-      this.reseat();
+      this.rememberFormerPlayer(player);
     }
+  }
+
+  /** Out of the lobby, remembered (photo included) so they can ask to come back. */
+  private rememberFormerPlayer(player: StoredPlayer) {
+    const s = this.state!;
+    s.players = s.players.filter((p) => p.id !== player.id);
+    s.formerPlayers = [...(s.formerPlayers ?? []).filter((p) => p.id !== player.id), player];
+    this.reseat();
   }
 
   /** Tells an account's server whether it has a seat in this room (see party/account.ts). */
