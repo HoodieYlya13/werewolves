@@ -23,6 +23,18 @@ export function matchLocale(acceptLanguage: string | null): Locale {
   return ranked.find((r) => isLocale(r.lang))?.lang as Locale ?? defaultLocale;
 }
 
+/** The locale a path starts with (`/fr/play/ABCD` → "fr"), if any. */
+export function pathLocale(path: string): Locale | null {
+  const first = path.split("/")[1];
+  return isLocale(first) ? first : null;
+}
+
+/** The saved language choice, else the browser's. */
+export function preferredLocale(request: { cookies: { get(name: string): { value: string } | undefined }; headers: Headers }): Locale {
+  const saved = request.cookies.get(LOCALE_COOKIE)?.value;
+  return isLocale(saved) ? saved : matchLocale(request.headers.get("accept-language"));
+}
+
 /** Replaces `{name}` placeholders in a dictionary string. */
 export function format(template: string, values: Record<string, string | number>) {
   return template.replace(/\{(\w+)\}/g, (match, key: string) =>

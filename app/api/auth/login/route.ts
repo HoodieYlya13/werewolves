@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { discover } from "@/lib/account";
+import { pathLocale, preferredLocale } from "@/lib/i18n/config";
 import { authConfig, callbackUrl, codeChallenge, cookieOptions, COOKIES, randomString, safeReturnTo, SCOPE, sitePath } from "@/lib/auth";
 
 /** Starts signing in: Authorization Code with PKCE, then back to `returnTo`. */
@@ -22,6 +23,7 @@ export async function GET(request: NextRequest) {
     nonce,
     code_challenge: await codeChallenge(verifier),
     code_challenge_method: "S256",
+    ui_locales: pathLocale(returnTo) ?? preferredLocale(request),
   }).toString();
 
   const response = NextResponse.redirect(url);
