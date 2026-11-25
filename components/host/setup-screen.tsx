@@ -548,7 +548,7 @@ export function SetupScreen({
           )}
         </section>
 
-        <aside className="flex flex-col gap-4 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:self-start lg:overflow-y-auto lg:pb-1">
+        <aside className="flex flex-col gap-4 lg:sticky lg:top-[calc(var(--header-height)+1.5rem)] lg:max-h-[calc(100dvh-var(--header-height)-3rem)] lg:self-start lg:overflow-y-auto lg:pb-1">
           {hidden && <p className="card p-5 text-muted-foreground">{dict.auto.deckHiddenHint}</p>}
           <section className={`card flex flex-col gap-2 p-5 ${hidden ? "hidden" : ""}`}>
             <div className="flex min-h-10 items-start justify-between gap-3">

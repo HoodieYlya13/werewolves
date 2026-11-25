@@ -64,8 +64,8 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
       </head>
       <body className="font-sans antialiased">
         <I18nProvider locale={locale} dict={dict}>
-          <div className="flex min-h-dvh flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
-            <header className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          <div className="flex min-h-dvh flex-col pb-[env(safe-area-inset-bottom)]">
+            <header className="sticky top-0 z-40 flex h-(--header-height) items-center justify-between gap-3 bg-bg px-4 pt-[env(safe-area-inset-top)] sm:px-6">
               <SiteTitle />
               <div className="flex items-center gap-2">
                 <LocaleSwitcher />

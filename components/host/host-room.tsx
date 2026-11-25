@@ -300,7 +300,7 @@ function HostContent({
         <BackHome />
       </div>
 
-      <section className="card flex flex-col items-center gap-4 p-6 text-center lg:sticky lg:top-6 lg:self-start">
+      <section className="card flex flex-col items-center gap-4 p-6 text-center lg:sticky lg:top-[calc(var(--header-height)+1.5rem)] lg:self-start">
         <p className="text-sm font-medium tracking-wide text-muted-foreground uppercase">{dict.host.roomCode}</p>
         {/* The copy button hangs off the right so the code itself stays centred. */}
         <div className="relative">

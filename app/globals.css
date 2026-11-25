@@ -123,6 +123,9 @@
   }
   html {
     -webkit-tap-highlight-color: transparent;
+    /* The sticky header runs up under the status bar in the home-screen app. */
+    --header-height: calc(3.875rem + env(safe-area-inset-top));
+    scroll-padding-top: var(--header-height);
   }
   /* Scrollbars in the app's colours: a thin rounded thumb on a clear track. */
   * {
