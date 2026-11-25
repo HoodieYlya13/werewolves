@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { InviteCard } from "@/components/friends/invite-toast";
 import { setAccountSocketSender } from "@/lib/account-socket";
-import { refreshIncomingFriendRequests } from "@/lib/friend-requests";
+import { friendRequestReceived } from "@/lib/friend-requests";
 import { format } from "@/lib/i18n/config";
 import type { AccountClientMessage, AccountServerMessage } from "@/lib/protocol";
 import { hostTakeoverKey, identity, partyHost, takeoverKey } from "@/lib/room";
@@ -106,7 +106,7 @@ function AccountSocket({ sub }: { sub: string }) {
           break;
         }
         case "friend-request":
-          refreshIncomingFriendRequests();
+          friendRequestReceived();
           toast(format(msg.accepted ? dict.friends.acceptedToast : dict.friends.requestToast, { name: msg.from.name }), {
             action: { label: dict.friends.see, onClick: () => router.push(`/${locale}/friends`) },
           });

@@ -19,9 +19,18 @@ export function setIncomingFriendRequests(sub: string, count: number) {
   listeners.forEach((listener) => listener());
 }
 
-/** Reads the count again for the account already known (a friend just asked, live). */
-export function refreshIncomingFriendRequests() {
+/** How many live friend requests (or accepts) arrived since the page loaded: the friends page reads its list again on each. */
+let receivedLive = 0;
+
+/** A friend just asked (or accepted), live: the count is read again, and the friends page follows. */
+export function friendRequestReceived() {
+  receivedLive += 1;
+  listeners.forEach((listener) => listener());
   if (known) void loadIncomingFriendRequests(known.sub);
+}
+
+export function useFriendRequestsReceived(): number {
+  return useSyncExternalStore(subscribe, () => receivedLive, () => 0);
 }
 
 async function loadIncomingFriendRequests(sub: string) {

@@ -13,7 +13,7 @@ import { StatsSkeleton } from "@/components/skeletons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { FriendsList, Person } from "@/lib/friends";
-import { setIncomingFriendRequests } from "@/lib/friend-requests";
+import { setIncomingFriendRequests, useFriendRequestsReceived } from "@/lib/friend-requests";
 import { friendsApi } from "@/lib/friends-client";
 import { format } from "@/lib/i18n/config";
 import { useSession } from "@/lib/session";
@@ -26,19 +26,22 @@ export function FriendsView() {
   const sub = session?.account?.sub;
   const [list, setList] = useState<{ sub: string; value: FriendsList | "failed" } | null>(null);
   const [attempt, setAttempt] = useState(0);
+  // A friend asked or accepted, live: the list is read again (the one on screen stays meanwhile).
+  const receivedLive = useFriendRequestsReceived();
 
   useEffect(() => {
     if (!sub) return;
     let cancelled = false;
     void friendsApi.list().then((value) => {
       if (cancelled) return;
-      setList({ sub, value: value ?? "failed" });
       if (value) setIncomingFriendRequests(sub, value.incoming.length);
+      // A failed refresh keeps the list on screen; only a first load shows the error.
+      setList((shown) => (value ? { sub, value } : shown?.sub === sub && shown.value !== "failed" ? shown : { sub, value: "failed" }));
     });
     return () => {
       cancelled = true;
     };
-  }, [sub, attempt]);
+  }, [sub, attempt, receivedLive]);
 
   if (!session) return <StatsSkeleton />;
   // Friends live in the same database as the stats.
