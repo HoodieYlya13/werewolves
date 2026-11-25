@@ -6,60 +6,78 @@
   },
   "project_meta": {
     "role": "Sole Creator & Full-Stack Engineer",
-    "development_phase": "Production (live at werewolves.hy13dev.com)",
-    "languages": ["TypeScript", "CSS"],
+    "development_phase": "Production (live at werewolves.hy13dev.com, played at real game nights)",
+    "languages": ["TypeScript", "SQL", "CSS"],
     "frameworks_and_tools": [
-      "Next.js 16.4 (Cache Components / Partial Prerendering)",
+      "Next.js 16.4 (Cache Components / Partial Prerendering, typed routes)",
       "React 19.3",
       "React Compiler",
       "Tailwind CSS v4",
+      "Radix UI",
       "PartyServer",
-      "Cloudflare Workers & Durable Objects",
+      "Cloudflare Workers & Durable Objects (hibernation, storage, alarms)",
       "Wrangler",
-      "PartySocket (Reconnecting Socket API)",
+      "PartySocket (reconnecting WebSockets)",
+      "Neon serverless PostgreSQL",
+      "OpenID Connect (Authorization Code + PKCE) against my own identity provider",
+      "jose (signed room tickets)",
+      "Web Push (VAPID, signed with WebCrypto)",
+      "Web Audio API",
+      "Web Speech API",
+      "Progressive Web App",
       "Vitest",
-      "Progressive Web App (Web App Manifest)",
-      "Lucide Icons"
+      "Vercel"
     ]
   },
-  "comprehensive_description": "A game master's companion for Werewolves (Les Loups-Garous de Thiercelieux), built for game nights with friends. Narrating the game by heart is error-prone: roles wake in the wrong order, a power gets forgotten, or nobody notices that a team has already won. The app runs the whole game on the narrator's iPad or laptop, step by step, with the exact lines to read aloud, while players join a room by scanning a QR code and hold their phone to reveal their secret role card. Players without a phone can be added by hand, and only the narrator interacts with the game, so it works for any group. It supports 30 roles from the base game and the Nouvelle Lune, Personnages and Le Village expansions, four themes (Werewolves, Mafia, Vampires, Spaceship) that rename every role and line of narration, and English and French with a flash-free light, dark and auto theme.",
+  "comprehensive_description": "A free web app for playing Werewolves (Les Loups-Garous de Thiercelieux) and Mafia at real game nights, in two ways. With a game master, the app runs the game on the master's tablet or laptop: it deals the cards, calls every role in the right order with the exact lines to read aloud, tracks one-time powers and knows who wins, while players join by scanning a QR code and hold their phone to reveal their card. Fully automatic, there is no game master at all: one phone narrates out loud with speech synthesis and a live-composed soundtrack, every player acts secretly on their own phone (the wolves pick a victim together, the Seer looks at a card, the Witch chooses her potions), and the day runs a timed debate and a vote on the phones. It covers 30 roles from the base game and the Nouvelle Lune, Personnages and Le Village expansions, four themes (Werewolves, Mafia, Vampires, Spaceship) that rename every role and line of narration, and English and French. Players can sign in with my own identity provider to keep their name, photo and lifetime stats (win rate, streaks, roles played, who they win with and who eliminates them most), add friends by search or friend link, and invite friends to a room with a live invite and a push notification. It installs as a home-screen app with a floating bottom bar that follows the phone's screen corners, and it is built to survive real nights: locked phones, refreshes, a game master whose battery dies, and players who leave mid-game.",
   "engineering_highlights": [
-    "Event-Sourced Game Engine: The game is stored as its setup plus an append-only action log, and every state is rebuilt by replaying it through pure functions. Undo is popping the last action and replaying, so any misclick, including an accidental end of game, can be taken back.",
-    "Roles as Data: Each role declares its team, night turn order, limited uses and death triggers, and the night sequence is computed from the roles in play. Adding a role means adding a definition rather than editing the game flow.",
-    "Win and 'Who Can Still Win' Detection: Solo goals (Angel, Pied Piper, Abominable Sectarian) are checked before team victories, mixed Cupid couples form their own team, and the narrator always sees which teams can still win.",
-    "Per-Connection Filtered Views: The room server sends each socket its own view. The narrator sees everything, while a phone only receives public information and its own role, so no secret ever reaches another player's device.",
-    "Refresh-Proof Rooms on Durable Objects: Each room is a hibernating Cloudflare Durable Object that persists its state and rebuilds the game on wake-up. Players reclaim their seat with a token saved on their phone after a refresh, a locked screen or a closed tab, and empty rooms clean themselves up after 24 hours.",
+    "Event-Sourced Game Engine: A game is its setup plus an append-only action log, and every state is rebuilt by replaying it through pure functions. Undo pops the last action and replays, so any misclick can be taken back, including an accidental end of game. Saved logs carry an engine version, and an upgrade step fills in answers that newer rules ask for, so games in progress survive rule changes.",
+    "Roles as Data: Each of the 30 roles declares its team, night turn order, limited uses and death triggers, and the night sequence is computed from the roles in play. The engine produces 30 kinds of steps, from the wolves' vote to the Stuttering Judge's second vote, and adding a role means adding a definition rather than editing the game flow.",
+    "Bluff Turns Against Deduction: When a role is dead, or was never dealt, its turn is still called and timed like a real one (the same lines, the same music, a random duration), so the table can never work out which roles are in play or have died from silences.",
+    "Game-Master-Free Mode as a Pure State Machine: Each engine step becomes a few beats (lines a narrator phone reads aloud, then a hold, a player's choice, a debate or a ballot). The beat machine is a pure function of the state and the clock, called by the room on every message and Durable Object alarm, which made timers, early ends once everyone has acted, and pausing testable without a network.",
+    "Per-Connection Filtered Views: The room server sends each socket its own view. The game master sees everything, while a phone only receives public information and its own secrets, so no role ever reaches another player's device.",
+    "Resilience for Real Nights: Phones reclaim their seat with a saved token after a refresh or a locked screen. If the game master's device goes silent for 60 seconds, the room hands the game to the first dead player's phone, and the master can take it back later from the same device, or from any device by signing in. Players who leave mid-game are played by the master and dropped once the game ends, and returning players walk straight back into an open lobby.",
+    "One Device per Account: Every signed-in page keeps a socket to a Durable Object named after the account. A newer sign-in signs the older device out, and if the account still has a seat in a room on the old device, the new one is asked whether to take it over.",
+    "Accounts on My Own Identity Provider: Sign-in is OpenID Connect with PKCE against my own auth server, with rotating refresh tokens, a code-only email for sign-ins started from the app (an installed iPhone app never receives links), and short-lived signed tickets that prove an account to a room without the room ever seeing a token.",
+    "Live Friends and Invites: Invites reach a friend three ways: a live card on every open screen through their account's Durable Object, a Web Push notification (signed with VAPID in WebCrypto on the Worker, carrying no payload), and a stored record the notification reads. Friend requests sent from the website are relayed live only after the database confirms them, so no client can fake one, and the badge and friends list update without a refresh.",
+    "Stats Without Losing Guest Games: Finished games are saved from the Worker to Postgres. Players who weren't signed in get a claim code on their phone, so a guest game joins their stats if they sign in within 30 days.",
     "Theme Engine Decoupled from Rules: Themes are whole-word rename maps per language plus targeted overrides, applied to the dictionaries at render time. The engine never reads the theme, and tests fail if any werewolf wording leaks into another theme.",
-    "Spoiler-Safe Shared Screen: Because the narrator's screen is visible to the table, roles can be blurred with one tap and private information (such as the Seer's vision) opens in a full-screen reveal that hides the rest of the board."
+    "Live-Composed Soundtrack: Each night turn has its own scene, synthesised live with the Web Audio API and cross-faded into the next, with a few recordings (wolf howls, a dawn bell per theme). A bluff turn sounds exactly like a real one."
   ],
   "measurable_metrics": {
-    "rules_coverage": "30 roles and 31 distinct night and day step types, each covered by an engine test suite of 67 tests.",
-    "server_footprint": "The whole room server, including the shared game engine, deploys as a 20 KB gzipped Cloudflare Worker.",
-    "operational_cost": "Rooms hibernate between messages and are wiped 24 hours after everyone leaves, so the backend runs on Cloudflare's free plan."
+    "execution_latency": "Every game action is a single WebSocket message to the room's Durable Object, which applies it to the in-memory engine and sends each connection its filtered view, so every screen updates in one round trip, and reconnecting sockets pick the view up again after a dropped connection.",
+    "ui_performance": "Pages are prerendered shells (Next.js Cache Components) with only request-dependent parts streamed, the React Compiler handles memoization, and the floating bar, panels and card reveals animate with CSS transitions on height, transform and opacity. A press-and-hold reveal with a progress ring keeps cards hidden from neighbours.",
+    "operational_cost": "Runs on free tiers: Vercel for the site, a 159 KB gzipped Cloudflare Worker (room server, account servers and the shared engine) whose rooms hibernate between messages and wipe themselves 24 hours after everyone leaves, and Neon serverless Postgres for accounts, friends and stats. 139 automated tests (103 for the engine) guard the rules."
   },
   "star_challenges": [
     {
       "situation": "Narrating a game with many roles from memory leads to mistakes that can ruin a round: waking roles out of order, forgetting a once-per-game power, or missing that a team has already won.",
-      "action": "Modelled every role as data and built a pure engine that computes the night order, prompts the narrator with each line to read, tracks one-time powers, and checks every win condition after each step.",
-      "result": "The narrator only has to read and tap. The rules are enforced by tested code instead of memory, including edge cases like the Angel's first-vote win and mixed lovers.",
+      "action": "Modelled every role as data and built a pure engine that computes the night order, prompts the game master with each line to read, tracks one-time powers, and checks every win condition after each step, with solo goals checked before team victories.",
+      "result": "The game master only has to read and tap. The rules are enforced by tested code instead of memory, including edge cases like the Angel's win, mixed lovers forming their own team, and the Devoted Servant taking a dead player's card.",
       "inline_image": ""
     },
     {
-      "situation": "In a live game, one wrong tap (the wrong victim, the wrong vote, or ending the game by accident) is hard to fix without restarting.",
-      "action": "Designed the game state as a replay of a setup and an action log, making undo a matter of dropping the last action, and kept a closed game resumable until the lineup changes.",
-      "result": "Any step can be rolled back instantly, with no special-case undo code per role.",
+      "situation": "Many groups have nobody willing to sit out as game master, and a shared screen can't hide anyone's actions.",
+      "action": "Built a mode with no game master: a narrator phone reads the night aloud with speech synthesis and music, each player acts in secret on their own phone, a pure beat machine on the room server drives the timing, and bluff turns keep dead or missing roles from being deduced.",
+      "result": "Everyone plays, including the person who created the game, and the app runs entire games on its own, from dealing the cards to announcing the winner.",
+      "inline_image": ""
+    },
+    {
+      "situation": "At a real game night, the game master's phone locked, the installed app lost its room, and the game was stuck with no one able to continue.",
+      "action": "Traced it to a stale token path that created a new room and to a cleared identity, fixed both, and added an automatic handover to a dead player's phone after a minute of silence, with a way for the master to reclaim the game from the same device or any signed-in device.",
+      "result": "A game survives the master's device going away: it carries on in someone's hand, and the master can pick it back up.",
       "inline_image": ""
     },
     {
       "situation": "The hosted PartyKit platform that ran the realtime rooms shut down in October 2026, taking the multiplayer backend offline.",
       "action": "Migrated the room server to PartyServer on my own Cloudflare account, moving to Durable Objects with hibernation, storage-backed state and alarms, and verified reconnects, filtered views, undo and persistence across Worker restarts with end-to-end socket tests.",
-      "result": "Rooms survive refreshes and server restarts with no change for players, and the backend now deploys with a single Wrangler command, with a separate staging environment for previews.",
+      "result": "Rooms survive refreshes and server restarts with no change for players, and the backend deploys as part of the site's build, with a separate staging environment for previews.",
       "inline_image": ""
     }
   ],
   "architectural_deep_dive": {
-    "text": "The frontend is a Next.js 16 app using Cache Components (Partial Prerendering) and the React Compiler, served per language under /en and /fr and installable as a PWA. The narrator's browser creates a room on a PartyServer Durable Object and holds a secret host token. Phones join with a name and receive a player token, both kept in localStorage. All rules live in a framework-free TypeScript engine shared by the server and the client: the server stores the setup and action log, replays them into the current state, and sends each connection a filtered view. Themes and translations are applied only in the UI layer, so the same engine powers every theme and language.",
+    "text": "The frontend is a Next.js 16 app on Vercel using Cache Components (Partial Prerendering) and the React Compiler, served per language under /en and /fr, with rules, roles and FAQ guides for search engines, and installable as a PWA. All rules live in a framework-free TypeScript engine shared by the server and the client. The realtime backend is a Cloudflare Worker built with PartyServer and two kinds of Durable Objects: one per room, which stores the setup and action log, replays them into the current state, runs the game-master-free mode on alarms, and sends each connection a filtered view; and one per account, which every signed-in page connects to for single-device sign-in, live invites and friend requests. Accounts come from my own OpenID Connect provider: the Next.js server keeps the tokens in cookies and mints short-lived signed tickets that the Durable Objects verify. Stats, friends, invites and push subscriptions live in Neon Postgres: the Worker saves each finished game and records invites, and Next.js route handlers serve stats and manage friends. Themes and translations are applied only in the UI layer, so the same engine powers every theme and language.",
     "illustration": null
   },
-  "lessons_learned": "Event sourcing pays off quickly in a game with complex rules: once state is a pure replay of actions, undo, persistence and server restarts all come for free, and the engine can be tested without a UI or a network. Keeping the rules engine independent of presentation also made it possible to add themes and languages without touching game logic. Finally, relying on a hosted realtime platform is a risk worth planning for, and keeping the server thin made the migration to self-hosted Durable Objects a matter of hours."
+  "lessons_learned": "Event sourcing paid off again and again: once state is a pure replay of actions, undo, persistence, server restarts and even rule changes in the middle of a game come almost for free, and the engine can be tested without a UI or a network. The same idea carried the game-master-free mode, written as a pure function of state and time. Real game nights were the best test suite: a locked phone, an installed app that never refreshes, or a player who walks out mid-game exposed problems no unit test would have found, and each fix made the app sturdier. Finally, depending on a hosted realtime platform is a risk worth planning for, and keeping the server thin made the move to self-hosted Durable Objects quick."
 }
