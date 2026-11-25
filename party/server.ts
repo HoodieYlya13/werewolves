@@ -566,7 +566,15 @@ export class RoomServer extends Server<Env> {
         }
         // An account keeps its name; anyone else may come back under a new one.
         const name = known?.sub ? known.name : this.validateName(sender, msg.name, playerId);
-        if (!name || this.tooManyRequests(sender, playerId)) return;
+        if (!name) return;
+        // An open lobby lets anyone in: no need to ask the game master.
+        if (!this.state.locked && !this.state.game) {
+          if (this.isFull(sender)) return;
+          this.state.requests = this.state.requests?.filter((r) => r.id !== playerId);
+          await this.bringBack(playerId, name);
+          break;
+        }
+        if (this.tooManyRequests(sender, playerId)) return;
         this.state.requests = [
           ...(this.state.requests ?? []).filter((r) => r.id !== playerId),
           { id: playerId, name, kind: "rejoin", account: !!known?.sub },
@@ -605,34 +613,7 @@ export class RoomServer extends Server<Env> {
           this.state.deniedIds = [...(this.state.deniedIds ?? []), request.id];
           break;
         }
-        let player = this.state.players.find((p) => p.id === request.id);
-        if (player) {
-          player.left = false;
-        } else {
-          const former = this.state.formerPlayers?.find((p) => p.id === request.id);
-          if (!former) break;
-          this.state.formerPlayers = this.state.formerPlayers!.filter((p) => p.id !== former.id);
-          player = { ...former, left: false };
-          // Back in their seat. Mid-game they sit out until the next one, at the end of the table.
-          if (this.state.game) this.state.players.push(player);
-          else this.state.players.splice(Math.min(former.seat, this.state.players.length), 0, player);
-          this.reseat();
-          this.state.endedGame = null;
-        }
-        // The name may have been taken while they were away.
-        const name = player.sub
-          ? this.claimAccountName({ ...player, accountName: player.accountName ?? request.name }, player.id)
-          : this.isNameFree(request.name, player.id)
-            ? request.name
-            : this.uniqueName(request.name, player.id);
-        if (player.name !== name) this.renamePlayer(player, name);
-        await this.tellAccount(player.sub, true);
-        for (const c of this.getConnections<ConnState>()) {
-          if (c.state?.kind === "returning" && c.state.playerId === player.id) {
-            c.setState({ kind: "player", playerId: player.id });
-            player.connected = true;
-          }
-        }
+        await this.bringBack(request.id, request.name);
         break;
       }
       case "close-room": {
@@ -1615,6 +1596,39 @@ export class RoomServer extends Server<Env> {
       if (entry) entry.name = name;
     }
     if (this.state!.game) this.game = replay(this.state!.game.setup, this.state!.game.log);
+  }
+
+  /** A former player takes their seat again (and their name, unless it was taken meanwhile). */
+  private async bringBack(playerId: string, requestedName: string) {
+    const s = this.state!;
+    let player = s.players.find((p) => p.id === playerId);
+    if (player) {
+      player.left = false;
+    } else {
+      const former = s.formerPlayers?.find((p) => p.id === playerId);
+      if (!former) return;
+      s.formerPlayers = s.formerPlayers!.filter((p) => p.id !== former.id);
+      player = { ...former, left: false };
+      // Back in their seat. Mid-game they sit out until the next one, at the end of the table.
+      if (s.game) s.players.push(player);
+      else s.players.splice(Math.min(former.seat, s.players.length), 0, player);
+      this.reseat();
+      s.endedGame = null;
+    }
+    // The name may have been taken while they were away.
+    const name = player.sub
+      ? this.claimAccountName({ ...player, accountName: player.accountName ?? requestedName }, player.id)
+      : this.isNameFree(requestedName, player.id)
+        ? requestedName
+        : this.uniqueName(requestedName, player.id);
+    if (player.name !== name) this.renamePlayer(player, name);
+    await this.tellAccount(player.sub, true);
+    for (const c of this.getConnections<ConnState>()) {
+      if (c.state?.kind === "returning" && c.state.playerId === player.id) {
+        c.setState({ kind: "player", playerId: player.id });
+        player.connected = true;
+      }
+    }
   }
 
   /** A player leaves: mid-game they stay in it for the game master to play; in the lobby they're remembered. */

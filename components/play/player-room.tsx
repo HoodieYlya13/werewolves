@@ -275,6 +275,7 @@ function PlayerScreen({ code }: { code: string }) {
       {ready && view?.rejoin && !joinAsNew && (
         <RejoinCard
           rejoin={view.rejoin}
+          isRoomOpen={!view.locked && view.phase === "lobby"}
           error={error}
           signedIn={!!account}
           onAsk={(newName) => void askToComeBack(newName)}
@@ -909,8 +910,19 @@ function KnockCard({ name, onCancel }: { name: string; onCancel: () => void }) {
   );
 }
 
+type RejoinDict = ReturnType<typeof useI18n>["dict"]["play"]["rejoin"];
+
+/** What the player who left reads: asked and refused, signing in first, coming straight back, or asking. */
+function rejoinHint(t: RejoinDict, { rejoin, needsSignIn, isRoomOpen }: { rejoin: NonNullable<PlayerView["rejoin"]>; needsSignIn: boolean; isRoomOpen: boolean }) {
+  if (rejoin.status === "denied") return t.denied;
+  if (needsSignIn) return t.hintSignIn;
+  if (isRoomOpen) return rejoin.account ? t.hintOpenAccount : t.hintOpen;
+  return rejoin.account ? t.hintAccount : t.hint;
+}
+
 function RejoinCard({
   rejoin,
+  isRoomOpen,
   error,
   signedIn,
   onAsk,
@@ -918,6 +930,8 @@ function RejoinCard({
   onJoinAsNew,
 }: {
   rejoin: NonNullable<PlayerView["rejoin"]>;
+  /** An open lobby: coming back needs no one's OK. */
+  isRoomOpen: boolean;
   error: ErrorCode | null;
   signedIn: boolean;
   onAsk: (name: string) => void;
@@ -950,7 +964,7 @@ function RejoinCard({
     >
       <p className="text-xl font-semibold">{t.title}</p>
       <p className="text-muted-foreground">
-        {rejoin.status === "denied" ? t.denied : needsSignIn ? t.hintSignIn : rejoin.account ? t.hintAccount : t.hint}
+        {rejoinHint(t, { rejoin, needsSignIn, isRoomOpen })}
       </p>
       {/* An account comes back under its own name. */}
       {!rejoin.account && (
@@ -972,7 +986,7 @@ function RejoinCard({
       )}
       <Button type="submit" disabled={!needsSignIn && !name.trim()}>
         {needsSignIn && <CircleUserRound aria-hidden />}
-        {needsSignIn ? t.signInToReturn : rejoin.status === "denied" ? t.askAgain : t.ask}
+        {needsSignIn ? t.signInToReturn : isRoomOpen ? t.comeBack : rejoin.status === "denied" ? t.askAgain : t.ask}
       </Button>
       {rejoin.account && (
         <Button type="button" variant="outline" onClick={onJoinAsNew}>
