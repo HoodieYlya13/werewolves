@@ -3,7 +3,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, CircleHelp, Languages, SunMoon, VenetianMask, type LucideIcon } from "lucide-react";
+import { BookOpen, CircleHelp, Languages, MessageSquareHeart, SunMoon, VenetianMask, type LucideIcon } from "lucide-react";
 import { IconRow } from "@/components/bottom-bar/bar-row";
 import { PanelList } from "@/components/bottom-bar/panel-list";
 import { useI18n } from "@/components/i18n-provider";
@@ -11,6 +11,9 @@ import { LocaleSwitcher, pathAfterLocale, pathInLocale, rememberLocale } from "@
 import { nextTheme, setTheme, ThemeSwitcher } from "@/components/theme-switcher";
 import { locales } from "@/lib/i18n/config";
 import { readTheme } from "@/lib/theme";
+
+/** The feedback form on my portfolio's contact page, for this app (it lists the apps it takes feedback for). */
+const FEEDBACK_URL = "https://www.hy13dev.com/contact?app=werewolves";
 
 /** The burger menu: the guides, then the language and theme settings. */
 export function MenuPanel() {
@@ -21,6 +24,9 @@ export function MenuPanel() {
         <PageLink href={`/${locale}/rules`} icon={BookOpen} label={dict.nav.rules} />
         <PageLink href={`/${locale}/roles`} icon={VenetianMask} label={dict.nav.roles} />
         <PageLink href={`/${locale}/faq`} icon={CircleHelp} label={dict.nav.faq} />
+        <a href={FEEDBACK_URL} className="block rounded-lg">
+          <IconRow icon={MessageSquareHeart} label={dict.nav.feedback} />
+        </a>
         <LanguageRow />
         <ThemeRow />
       </PanelList>

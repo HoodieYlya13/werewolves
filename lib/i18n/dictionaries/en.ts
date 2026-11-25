@@ -28,6 +28,7 @@ const en = {
     rules: "Rules",
     roles: "Roles",
     faq: "FAQ",
+    feedback: "Send feedback",
     start: "Start a game",
   },
   home: {
