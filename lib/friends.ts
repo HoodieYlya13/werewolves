@@ -25,8 +25,8 @@ export type RequestResult = "sent" | "accepted" | "already-friends" | "already-s
 
 /** How long an invite stays (for the notification and the invites route). */
 export const INVITE_MINUTES = 120;
-/** The same friend to the same room, from the same person, at most this often. */
-const REINVITE_MINUTES = 5;
+/** The same friend to the same room, from the same person, at most this often: enough against notification spam, short enough to ask again after a missed invite. */
+const REINVITE_SECONDS = 30;
 
 /** Saves the account's name, username and photo (and gives it a friend code the first time). */
 export async function saveAccount(url: string, account: Account) {
@@ -150,7 +150,7 @@ export async function recordInvites(url: string, from: string, to: string[], roo
       SELECT ${from}, t.value, ${room} FROM json_array_elements_text(${JSON.stringify(to)}::json) t
       WHERE NOT EXISTS (
         SELECT 1 FROM invites i WHERE i.from_sub = ${from} AND i.to_sub = t.value AND i.room = ${room}
-          AND i.created_at > now() - make_interval(mins => ${REINVITE_MINUTES}))
+          AND i.created_at > now() - make_interval(secs => ${REINVITE_SECONDS}))
       RETURNING to_sub`,
   ]);
   return rows.map((r) => r.to_sub as string);

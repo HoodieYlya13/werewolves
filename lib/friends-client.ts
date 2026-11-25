@@ -1,6 +1,6 @@
 "use client";
 
-import type { FriendsList, Person, RequestResult } from "./friends";
+import type { FriendsList, Invite, Person, RequestResult } from "./friends";
 import { sendToAccount } from "./account-socket";
 import { loadSession } from "./session";
 
@@ -40,6 +40,7 @@ export const friendsApi = {
   answer,
   remove: (sub: string) => post<{ list: FriendsList }>("/api/auth/friends", { action: "remove", sub }),
   search: (query: string) => call<{ people: Person[] }>(`/api/auth/friends/search?q=${encodeURIComponent(query)}`),
+  invites: () => call<{ invites: Invite[] }>("/api/auth/invites"),
 };
 
 // --- push notifications ---

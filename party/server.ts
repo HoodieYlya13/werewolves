@@ -23,7 +23,7 @@ import { verifyTicket } from "../lib/ticket";
 import { workerTicketKey } from "./keys";
 import type { Ballot, Timer } from "../lib/ballot";
 import { deleteResult, hashClaimCode, saveResult, type GameResult } from "../lib/stats";
-import { friendsAmong, profilePeek, recordInvites, requestFriend, saveAccount } from "../lib/friends";
+import { friendsAmong, INVITE_MINUTES, profilePeek, recordInvites, requestFriend, saveAccount } from "../lib/friends";
 import { sendPushes } from "./push";
 import * as auto from "../lib/auto";
 import { WITCH_ASKS, type WitchAsk } from "../lib/auto";
@@ -57,6 +57,7 @@ const STORAGE_KEY = "room";
 const FRIEND_CALLS_PER_MINUTE = 10;
 /** Friends invited in one go. */
 const MAX_INVITES = 30;
+const INVITE_MS = INVITE_MINUTES * 60_000;
 
 type StoredPlayer = Omit<PublicPlayer, "account" | "picture"> & {
   token: string | null;
@@ -178,6 +179,8 @@ type RoomState = {
   phonePlays?: { at: number; actions: Record<string, Action>; wolfPicks: Record<string, string>; asked?: Record<string, WitchAsk> } | null;
   /** With a game master: the Witch's question the game master is on, for the step at `at` (her phone follows). */
   masterStage?: { at: number; stage: WitchAsk } | null;
+  /** Accounts invited from this room, and when: for the length of the invite, they join a locked lobby without asking. */
+  invitedAt?: Record<string, number>;
   /** With a game master: the log length whose lead lines ("go back to sleep"…) the game master has read. */
   leadReadAt?: number | null;
 };
@@ -441,8 +444,8 @@ export class RoomServer extends Server<Env> {
           if (!this.state || !canJoin()) return;
         }
         const showUsername = !!msg.showUsername && !!account?.username;
-        // A locked room or a game: a new phone asks the game master instead.
-        if (this.state.locked || this.state.game) {
+        // A game, or a locked room it wasn't invited to: a new phone asks the game master instead.
+        if (this.state.game || (this.state.locked && !(account && this.isInvited(account.sub)))) {
           const name = account ? (showUsername ? account.username! : account.name) : this.cleanName(sender, msg.name);
           if (!name) return;
           const state: { deviceId?: string; token?: string } = sender.state?.kind === "guest" ? sender.state : {};
@@ -1250,7 +1253,10 @@ export class RoomServer extends Server<Env> {
     let invited: string[] = [];
     try {
       const friends = await friendsAmong(url, me.sub, wanted);
-      if (friends.length) invited = await recordInvites(url, me.sub, friends, this.name);
+      if (friends.length) {
+        invited = await recordInvites(url, me.sub, friends, this.name);
+        await this.rememberInvited(friends);
+      }
     } catch (error) {
       console.error("Inviting friends failed:", error);
     }
@@ -1261,6 +1267,18 @@ export class RoomServer extends Server<Env> {
       } catch {}
     }
     this.ctx.waitUntil(sendPushes(this.env, url, invited).catch((error) => console.error("Sending invites failed:", error)));
+  }
+
+  private async rememberInvited(subs: string[]) {
+    const now = Date.now();
+    const stillValid = Object.entries(this.state!.invitedAt ?? {}).filter(([, at]) => now - at < INVITE_MS);
+    this.state!.invitedAt = Object.fromEntries([...stillValid, ...subs.map((sub) => [sub, now] as const)]);
+    await this.persist();
+  }
+
+  private isInvited(sub: string): boolean {
+    const at = this.state?.invitedAt?.[sub];
+    return at !== undefined && Date.now() - at < INVITE_MS;
   }
 
   // --- stats ---

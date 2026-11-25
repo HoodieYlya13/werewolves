@@ -86,6 +86,16 @@ export function AddFriendButton({ name, playerId, send, className = "" }: { name
   );
 }
 
+/** Whether this account has a recent invite to `room`: it then joins a locked lobby without asking. */
+export function useIsInvitedTo(room: string, shouldCheck: boolean): boolean {
+  const [invitedRooms, setInvitedRooms] = useState<string[]>([]);
+  useEffect(() => {
+    if (!shouldCheck) return;
+    void friendsApi.invites().then((answer) => setInvitedRooms(answer?.invites.map((invite) => invite.room) ?? []));
+  }, [shouldCheck]);
+  return invitedRooms.includes(room);
+}
+
 /** Picks friends and invites them to this room. */
 export function InviteFriendsButton({ send, className }: { send: (msg: ClientMessage) => void; className?: string }) {
   const { dict, locale } = useI18n();

@@ -30,6 +30,7 @@ import {
   useFriendToasts,
   useFriendsHere,
   useFriendsInRoom,
+  useIsInvitedTo,
 } from "@/components/friends/room-friends";
 import { PhotoPicker } from "@/components/photo-picker";
 import { rememberGuestGame } from "@/lib/guest-games";
@@ -191,6 +192,8 @@ function PlayerScreen({ code }: { code: string }) {
     identity.setPhoto(data);
   }
 
+  const isInvitedHere = useIsInvitedTo(code, !!session?.stats && !!account && !!view?.locked && !view.game);
+
   if (error === "room-not-found" || error === "room-closed") return <FatalError code={error} />;
 
   /** A guest's photo, in the room and remembered on this phone. */
@@ -245,8 +248,8 @@ function PlayerScreen({ code }: { code: string }) {
   const room = { code, players: view?.players ?? [], timer: view?.timer ?? null, clockOffset };
   // Night, eyes closed: the phone shows its player's name and photo, and nothing else.
   const asleep = !!(me && live && view?.info && view.game && view.game.phase.kind === "night" && !view.game.prologue && !view.game.winner);
-  // A locked room or a game: joining only asks the game master (and says so).
-  const closed = view?.game ? dict.play.knock.game : view?.locked ? dict.play.knock.locked : null;
+  // A game, or a locked room this account wasn't invited to: joining only asks the game master (and says so).
+  const closed = view?.game ? dict.play.knock.game : view?.locked && !isInvitedHere ? dict.play.knock.locked : null;
   const knocking = view?.knock?.status === "pending";
   // What to show a phone without a seat depends on the account too: until both
   // are known, a skeleton instead of a form that may be the wrong one.
