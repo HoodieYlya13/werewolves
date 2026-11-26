@@ -1,27 +1,35 @@
 "use client";
 
+import { useState } from "react";
 import { ImagePlus, UserCog } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
-import { accountPageUrl, currentPath, markAccountVisit, useSession } from "@/lib/session";
+import { Spinner } from "@/components/ui/spinner";
+import { leaveForAccountPage, useAuthRedirect } from "@/lib/auth-redirect";
+import { accountPageUrl, currentPath, useSession } from "@/lib/session";
 
 /** A link to the account page, which brings the player back here afterwards. */
 function AccountPageLink({ icon: Icon, label }: { icon: typeof ImagePlus; label: string }) {
   const { locale } = useI18n();
   const session = useSession();
+  const redirect = useAuthRedirect();
+  const [wasPressed, setWasPressed] = useState(false);
   const href = session?.account && accountPageUrl(session, locale);
   if (!session || !href) return null;
+  const isOpening = wasPressed && redirect === "account";
   return (
     <a
       href={href}
+      aria-busy={isOpening}
       className="inline-flex items-center gap-1.5 text-sm font-medium text-moon underline-offset-4 hover:underline"
       onClick={(e) => {
         // The page to come back to is read at the click: it can change without a re-render.
         e.preventDefault();
-        markAccountVisit();
+        setWasPressed(true);
+        leaveForAccountPage();
         window.location.assign(accountPageUrl(session, locale, currentPath()) ?? href);
       }}
     >
-      <Icon aria-hidden className="size-4" />
+      {isOpening ? <Spinner /> : <Icon aria-hidden className="size-4" />}
       {label}
     </a>
   );

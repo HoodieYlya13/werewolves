@@ -7,7 +7,9 @@ import { toast } from "sonner";
 import { useI18n } from "@/components/i18n-provider";
 import { TOAST_CARD } from "@/components/toast-card";
 import { Button } from "@/components/ui/button";
-import { currentPath, markAccountVisit, passkeyPageUrl, useSession, type Session } from "@/lib/session";
+import { Spinner } from "@/components/ui/spinner";
+import { leaveForAccountPage, useAuthRedirect } from "@/lib/auth-redirect";
+import { currentPath, passkeyPageUrl, useSession, type Session } from "@/lib/session";
 
 /** `{sub}:{day}`: the account, and the last day it was reminded (or signed in). */
 const SHOWN_KEY = "ww:passkey-reminder";
@@ -70,10 +72,11 @@ export function PasskeyReminder() {
 
 function ReminderCard({ session, close }: { session: Session; close: () => void }) {
   const { dict, locale } = useI18n();
+  const isOpeningPasskeyPage = useAuthRedirect() === "account";
   function addPasskey() {
     const href = passkeyPageUrl(session, locale, currentPath());
     if (!href) return;
-    markAccountVisit();
+    leaveForAccountPage();
     window.location.assign(href);
   }
   return (
@@ -85,7 +88,8 @@ function ReminderCard({ session, close }: { session: Session; close: () => void 
         <p className="font-semibold">{dict.account.passkeyReminder}</p>
         <p className="text-sm text-muted-foreground">{dict.account.passkeyReminderBody}</p>
         <div className="mt-2 flex gap-2">
-          <Button type="button" size="sm" onClick={addPasskey}>
+          <Button type="button" size="sm" aria-busy={isOpeningPasskeyPage} onClick={addPasskey}>
+            {isOpeningPasskeyPage && <Spinner />}
             {dict.account.addPasskey}
           </Button>
           <Button type="button" size="sm" variant="ghost" onClick={close}>

@@ -187,6 +187,7 @@ const fr: Dictionary = {
     signOut: "Se déconnecter",
     signingIn: "Connexion…",
     signingOut: "Déconnexion…",
+    openingAccount: "Ouverture du compte…",
     signInFailed: "Le serveur de connexion ne répond pas. Réessayez dans un instant.",
     tryAgain: "Réessayer",
     stats: "Mes statistiques",

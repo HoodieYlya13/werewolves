@@ -185,6 +185,7 @@ const en = {
     signOut: "Sign out",
     signingIn: "Signing in…",
     signingOut: "Signing out…",
+    openingAccount: "Opening your account…",
     signInFailed: "The sign-in server isn't answering. Try again in a moment.",
     tryAgain: "Try again",
     stats: "My stats",

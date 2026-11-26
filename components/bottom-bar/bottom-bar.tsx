@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CircleUserRound, Menu, X } from "lucide-react";
-import { goToAuth, useAuthRedirect, type AuthDirection } from "@/components/account-button";
+import { goToAuth } from "@/components/account-button";
 import { AccountPanel } from "@/components/bottom-bar/account-panel";
 import { BarIcon, BarSpinner, BarTile, NotificationBadge } from "@/components/bottom-bar/bar-row";
 import { MenuPanel } from "@/components/bottom-bar/menu-panel";
@@ -13,6 +13,7 @@ import { useSignOut } from "@/components/sign-out";
 import { useHideOnScroll } from "@/hooks/use-hide-on-scroll";
 import { useIncomingFriendRequests } from "@/lib/friend-requests";
 import { format } from "@/lib/i18n/config";
+import { useAuthRedirect, type AuthDestination } from "@/lib/auth-redirect";
 import { useSession, type Session } from "@/lib/session";
 
 type Panel = "menu" | "account";
@@ -31,6 +32,7 @@ export function BottomBar() {
   const { signOut, confirmation } = useSignOut();
   const { openPanel, renderedPanel, panelHeight, panelContentRef, toggle, close, onPanelTransitionEnd } = usePanels();
   const isOpen = openPanel !== null;
+  useCloseAccountPanelOnSignOut(session?.account?.sub ?? null, openPanel, close);
 
   useCloseOnEscapeAndBack(close);
   const accountAction = accountActionFor(session, () => toggle("account"));
@@ -135,7 +137,7 @@ function AccountTile({
   isBarOpen,
 }: {
   action: AccountAction;
-  redirect: AuthDirection | null;
+  redirect: AuthDestination | null;
   pending: number;
   isAccountOpen: boolean;
   isBarOpen: boolean;
@@ -187,7 +189,7 @@ function AccountTile({
 const ACCOUNT_LINE_TEXT = "text-xs font-medium md:text-sm";
 
 /** Under the app's name: the account's username, or an invitation to sign in, or what is on its way. Doing the same as the tile. */
-function AccountLine({ action, redirect }: { action: AccountAction; redirect: AuthDirection | null }) {
+function AccountLine({ action, redirect }: { action: AccountAction; redirect: AuthDestination | null }) {
   // An empty line of the same height: the bar keeps its size until the session is known.
   if (action.kind === "unknown") return <span aria-hidden className={`invisible ${ACCOUNT_LINE_TEXT}`}>&nbsp;</span>;
   if (action.kind === "none") return null;
@@ -199,9 +201,11 @@ function AccountLine({ action, redirect }: { action: AccountAction; redirect: Au
   );
 }
 
-function AccountLineLabel({ action, redirect }: { action: Exclude<AccountAction, { kind: "unknown" | "none" }>; redirect: AuthDirection | null }) {
+const REDIRECT_LABEL = { in: "signingIn", out: "signingOut", account: "openingAccount" } as const satisfies Record<AuthDestination, string>;
+
+function AccountLineLabel({ action, redirect }: { action: Exclude<AccountAction, { kind: "unknown" | "none" }>; redirect: AuthDestination | null }) {
   const { dict } = useI18n();
-  if (redirect) return redirect === "in" ? dict.account.signingIn : dict.account.signingOut;
+  if (redirect) return dict.account[REDIRECT_LABEL[redirect]];
   if (action.kind === "sign-in") return <SignInInvitation />;
   return action.account.username ?? action.account.name;
 }
@@ -251,6 +255,14 @@ function usePanels() {
   }
 
   return { openPanel, renderedPanel, panelHeight, panelContentRef, toggle, close, onPanelTransitionEnd };
+}
+
+/** Signed out while the account's panel is open (from another device, say): nothing is left to show in it. */
+function useCloseAccountPanelOnSignOut(accountSub: string | null, openPanel: Panel | null, close: () => void) {
+  const [shownAccountSub, setShownAccountSub] = useState(accountSub);
+  if (accountSub === shownAccountSub) return;
+  setShownAccountSub(accountSub);
+  if (!accountSub && openPanel === "account") close();
 }
 
 function useCloseOnEscapeAndBack(close: () => void) {

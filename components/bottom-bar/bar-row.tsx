@@ -74,10 +74,10 @@ export function NotificationBadge({ count, className = "" }: { count: number; cl
   );
 }
 
-/** A row with an icon in its tile, a label, and a count of what waits there. */
-export function IconRow({ icon, label, badge = 0 }: { icon: LucideIcon; label: string; badge?: number }) {
+/** A row with an icon in its tile (a spinner while what it opens is on its way), a label, and a count of what waits there. */
+export function IconRow({ icon, label, badge = 0, isLoading = false }: { icon: LucideIcon; label: string; badge?: number; isLoading?: boolean }) {
   return (
-    <BarRow tile={<BarIcon icon={icon} />}>
+    <BarRow tile={isLoading ? <BarSpinner /> : <BarIcon icon={icon} />}>
       <span className="flex items-center justify-between gap-2 pr-2">
         <RollingText text={label} />
         <NotificationBadge count={badge} />

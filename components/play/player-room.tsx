@@ -4,7 +4,8 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useParams, useRouter } from "next/navigation";
 import { BadgeCheck, Check, Crown, CircleUserRound, LogOut, Pencil, Skull, Sun, UserPlus, UserRound, Vote } from "lucide-react";
-import { AuthButton, goToAuth, useAuthRedirect } from "@/components/account-button";
+import { AuthButton, goToAuth } from "@/components/account-button";
+import { useAuthRedirect } from "@/lib/auth-redirect";
 import { AccountLinks, AddAccountPhoto } from "@/components/account-page-link";
 import { ConfirmButton } from "@/components/confirm-button";
 import {
