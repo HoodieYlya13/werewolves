@@ -89,6 +89,8 @@ function AccountSocket({ sub }: { sub: string }) {
           // Already in that room: nothing to join.
           if (window.location.pathname.includes(`/${msg.room}`)) break;
           const room = msg.room;
+          // Loaded while the toast is read, so joining opens the room at once.
+          router.prefetch(`/${locale}/play/${room}`);
           toast.custom(
             (id) => (
               <InviteCard

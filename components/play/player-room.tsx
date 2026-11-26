@@ -4,7 +4,7 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useParams, useRouter } from "next/navigation";
 import { BadgeCheck, Check, Crown, CircleUserRound, LogOut, Pencil, Skull, Sun, UserPlus, UserRound, Vote } from "lucide-react";
-import { AuthButton, goToAuth } from "@/components/account-button";
+import { AuthButton, goToAuth, useAuthRedirect } from "@/components/account-button";
 import { AccountLinks, AddAccountPhoto } from "@/components/account-page-link";
 import { ConfirmButton } from "@/components/confirm-button";
 import {
@@ -49,6 +49,7 @@ import { getTicket, setSignOutGuard, useSession } from "@/lib/session";
 import { MAX_NAME_LENGTH, type ClientMessage, type ErrorCode, type PlayerView } from "@/lib/protocol";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 
 export function PlayerRoom() {
   const { code } = useParams<{ code: string }>();
@@ -63,7 +64,7 @@ const PHONE_TOASTS: ErrorCode[] = ["invalid-account", "account-in-use", "account
 function PlayerScreen({ code }: { code: string }) {
   const { dict, locale } = useI18n();
   const router = useRouter();
-  const { view, live, error, status, send, clockOffset, close, flushed, otherRoom, clearOtherRoom } = useRoom<PlayerView>(code, "player");
+  const { view, live, error, status, isAwaitingReply, send, clockOffset, close, flushed, otherRoom, clearOtherRoom } = useRoom<PlayerView>(code, "player");
   // The last join, link or rejoin sent with the account, to send again after "leave the other room".
   const lastAccountMessage = useRef<Extract<ClientMessage, { leaveOther?: boolean }> | null>(null);
   function sendWithAccount(message: Extract<ClientMessage, { leaveOther?: boolean }>) {
@@ -90,6 +91,19 @@ function PlayerScreen({ code }: { code: string }) {
   // Without a game master: one device reads the game out loud, and screens stay on.
   useNarrator(view?.speaker ?? null, send);
   useWakeLock(!!view?.auto && !!view.game && !view.game.winner);
+
+  // Asked to come in: its button spins until the room answers, fetching the account's ticket included.
+  const [hasAskedToJoin, setHasAskedToJoin] = useState(false);
+  const [isFetchingTicket, setIsFetchingTicket] = useState(false);
+  const isJoining = isFetchingTicket || (hasAskedToJoin && isAwaitingReply);
+
+  async function ticketToJoin() {
+    setHasAskedToJoin(true);
+    setIsFetchingTicket(true);
+    const ticket = await getTicket({ room: code });
+    setIsFetchingTicket(false);
+    return ticket;
+  }
 
   // Left an account's seat, then chose "Join as a new player": show the join form instead.
   const [joinAsNew, setJoinAsNew] = useState(false);
@@ -211,17 +225,20 @@ function PlayerScreen({ code }: { code: string }) {
 
   /** An account's seat needs the account's proof; a guest seat only a name. */
   async function askToComeBack(newName: string) {
+    if (isJoining) return;
     if (view?.rejoin?.account) {
-      const ticket = await getTicket({ room: code });
+      const ticket = await ticketToJoin();
       if (ticket) sendWithAccount({ type: "request-rejoin", name: newName, ticket });
       return;
     }
     identity.setName(newName.trim());
+    setHasAskedToJoin(true);
     send({ type: "request-rejoin", name: newName });
   }
 
   async function joinWithAccount() {
-    const ticket = await getTicket({ room: code });
+    if (isJoining) return;
+    const ticket = await ticketToJoin();
     // Signed out meanwhile: the session update shows the guest form instead.
     if (ticket && account) sendWithAccount({ type: "join", name: account.name, ticket, showUsername });
   }
@@ -279,6 +296,7 @@ function PlayerScreen({ code }: { code: string }) {
         <RejoinCard
           rejoin={view.rejoin}
           isRoomOpen={!view.locked && view.phase === "lobby"}
+          isAsking={isJoining}
           error={error}
           signedIn={!!account}
           onAsk={(newName) => void askToComeBack(newName)}
@@ -318,7 +336,8 @@ function PlayerScreen({ code }: { code: string }) {
             <UsernameChoice username={account.username} checked={showUsername} onChange={changeShowUsername} />
           )}
           {closed && <p className="text-sm text-muted-foreground">{closed}</p>}
-          <Button type="button" className="w-full" onClick={joinWithAccount}>
+          <Button type="button" className="w-full" aria-busy={isJoining} onClick={joinWithAccount}>
+            {isJoining && <Spinner />}
             {closed ? dict.play.knock.ask : format(dict.account.joinAs, { name: expectedName ?? account.name })}
           </Button>
           {view.knock?.status === "denied" && (
@@ -340,8 +359,9 @@ function PlayerScreen({ code }: { code: string }) {
           className="card flex flex-col gap-3 p-6"
           onSubmit={(e) => {
             e.preventDefault();
-            if (!name.trim()) return;
+            if (!name.trim() || isJoining) return;
             identity.setName(name.trim());
+            setHasAskedToJoin(true);
             send({ type: "join", name, photo });
           }}
         >
@@ -370,7 +390,8 @@ function PlayerScreen({ code }: { code: string }) {
             onChange={(e) => setName(e.target.value)}
           />
           {closed && <p className="text-sm text-muted-foreground">{closed}</p>}
-          <Button type="submit" disabled={!name.trim()}>
+          <Button type="submit" aria-busy={isJoining} disabled={!name.trim()}>
+            {isJoining && <Spinner />}
             {closed ? dict.play.knock.ask : dict.play.join}
           </Button>
           {(error === "name-taken" || error === "invalid-name") && (
@@ -926,6 +947,7 @@ function rejoinHint(t: RejoinDict, { rejoin, needsSignIn, isRoomOpen }: { rejoin
 function RejoinCard({
   rejoin,
   isRoomOpen,
+  isAsking,
   error,
   signedIn,
   onAsk,
@@ -935,6 +957,7 @@ function RejoinCard({
   rejoin: NonNullable<PlayerView["rejoin"]>;
   /** An open lobby: coming back needs no one's OK. */
   isRoomOpen: boolean;
+  isAsking: boolean;
   error: ErrorCode | null;
   signedIn: boolean;
   onAsk: (name: string) => void;
@@ -946,6 +969,8 @@ function RejoinCard({
   const [name, setName] = useState(rejoin.name);
   // An account's seat only goes back to that account: sign in first.
   const needsSignIn = rejoin.account && !signedIn;
+  const isSigningIn = useAuthRedirect() === "in" && needsSignIn;
+  const isBusy = isAsking || isSigningIn;
 
   if (rejoin.status === "pending") {
     return (
@@ -987,8 +1012,8 @@ function RejoinCard({
           />
         </>
       )}
-      <Button type="submit" disabled={!needsSignIn && !name.trim()}>
-        {needsSignIn && <CircleUserRound aria-hidden />}
+      <Button type="submit" aria-busy={isBusy} disabled={!needsSignIn && !name.trim()}>
+        {isBusy ? <Spinner /> : needsSignIn && <CircleUserRound aria-hidden />}
         {needsSignIn ? t.signInToReturn : isRoomOpen ? t.comeBack : rejoin.status === "denied" ? t.askAgain : t.ask}
       </Button>
       {rejoin.account && (

@@ -1,5 +1,5 @@
 import "server-only";
-import type { NextRequest, NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { DEFAULT_ISSUER, discover, verifyIdToken, type Account } from "./account";
 import { newSessionId } from "./protocol";
 import { ticketKey } from "./ticket";
@@ -42,6 +42,18 @@ export function siteOrigin(request: NextRequest) {
 
 /** A redirect to a path on this site. */
 export const sitePath = (request: NextRequest, path: string) => new URL(path, siteOrigin(request));
+
+/** The page asks with `respond=json` to follow the redirect itself, showing a spinner meanwhile and an error if it fails. */
+export function redirectTo(request: NextRequest, target: URL) {
+  if (request.nextUrl.searchParams.get("respond") === "json") return NextResponse.json({ url: target.toString() });
+  return NextResponse.redirect(target);
+}
+
+/** The auth server didn't answer: the page says so, or, followed as a link, is back where it was. */
+export function authServerDown(request: NextRequest, returnTo: string) {
+  if (request.nextUrl.searchParams.get("respond") === "json") return NextResponse.json({ error: "auth-server-down" }, { status: 503 });
+  return NextResponse.redirect(sitePath(request, returnTo));
+}
 
 export const callbackUrl = (request: NextRequest) => `${siteOrigin(request)}/api/auth/callback`;
 export const loggedOutUrl = (request: NextRequest) => `${siteOrigin(request)}/api/auth/logged-out`;

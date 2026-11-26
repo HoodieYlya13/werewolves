@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CircleUserRound, Menu, X } from "lucide-react";
-import { goToAuth } from "@/components/account-button";
+import { goToAuth, useAuthRedirect, type AuthDirection } from "@/components/account-button";
 import { AccountPanel } from "@/components/bottom-bar/account-panel";
-import { BarIcon, BarTile, NotificationBadge } from "@/components/bottom-bar/bar-row";
+import { BarIcon, BarSpinner, BarTile, NotificationBadge } from "@/components/bottom-bar/bar-row";
 import { MenuPanel } from "@/components/bottom-bar/menu-panel";
 import { useI18n } from "@/components/i18n-provider";
 import { Face } from "@/components/room-context";
@@ -26,6 +26,7 @@ type Panel = "menu" | "account";
 export function BottomBar() {
   const { dict } = useI18n();
   const session = useSession();
+  const redirect = useAuthRedirect();
   const isVisibleOnScroll = useHideOnScroll();
   const { signOut, confirmation } = useSignOut();
   const { openPanel, renderedPanel, panelHeight, panelContentRef, toggle, close, onPanelTransitionEnd } = usePanels();
@@ -68,10 +69,10 @@ export function BottomBar() {
             className={`absolute top-0 left-[2.5%] h-px w-[95%] origin-left bg-fg/20 transition-transform duration-250 ease-in-out ${isOpen ? "scale-x-100 delay-500" : "scale-x-0"}`}
           />
           <span className="flex min-w-0 flex-1 items-center gap-4">
-            <AccountTile action={accountAction} pending={pending} isAccountOpen={openPanel === "account"} isBarOpen={isOpen} />
+            <AccountTile action={accountAction} redirect={redirect} pending={pending} isAccountOpen={openPanel === "account"} isBarOpen={isOpen} />
             <span className="flex min-w-0 flex-1 flex-col items-start justify-center gap-0.5">
               <SiteTitle className="w-fit font-bold tracking-wide uppercase md:text-lg" />
-              <AccountLine action={accountAction} />
+              <AccountLine action={accountAction} redirect={redirect} />
             </span>
           </span>
           <button
@@ -79,7 +80,7 @@ export function BottomBar() {
             onClick={() => toggle("menu")}
             aria-expanded={openPanel === "menu"}
             aria-label={openPanel === "menu" ? dict.bar.closeMenu : dict.bar.openMenu}
-            className="p-3 transition-opacity duration-300 hover:opacity-70"
+            className="p-3 transition-[opacity,scale] duration-300 hover:opacity-70 active:scale-90"
           >
             {openPanel === "menu" ? <X aria-hidden className="size-6 md:size-8" /> : <Menu aria-hidden className="size-6 md:size-8" />}
           </button>
@@ -123,16 +124,18 @@ function pendingCount(action: AccountAction, session: Session | null, incomingFr
   return incomingFriendRequests + (session?.noPasskey ? 1 : 0);
 }
 
-const TILE_BUTTON = "relative cursor-pointer rounded-lg md:rounded-xl";
+const TILE_BUTTON = "relative cursor-pointer rounded-lg transition-transform active:scale-95 md:rounded-xl";
 
-/** The account's face, or a sign-in icon, with a count of what waits for it. */
+/** The account's face, or a sign-in icon, with a count of what waits for it; a spinner while either is on its way. */
 function AccountTile({
   action,
+  redirect,
   pending,
   isAccountOpen,
   isBarOpen,
 }: {
   action: AccountAction;
+  redirect: AuthDirection | null;
   pending: number;
   isAccountOpen: boolean;
   isBarOpen: boolean;
@@ -140,16 +143,23 @@ function AccountTile({
   const { dict } = useI18n();
   // A circle in the closed capsule; opening, it unfolds, keeping only the corner by the bar's bottom-left.
   const roundCorner = isBarOpen ? "bottom-left" : "all";
-  if (action.kind === "unknown" || action.kind === "none") return <BarTile roundCorner={roundCorner}>{null}</BarTile>;
+  if (action.kind === "none") return <BarTile roundCorner={roundCorner}>{null}</BarTile>;
+  if (action.kind === "unknown") {
+    return (
+      <BarTile roundCorner={roundCorner}>
+        <BarSpinner />
+      </BarTile>
+    );
+  }
 
   const withPending = (label: string) => (pending > 0 ? `${label}, ${format(dict.bar.pending, { count: pending })}` : label);
   const badge = <NotificationBadge count={pending} className="absolute -top-1 -right-1" />;
 
   if (action.kind === "sign-in") {
     return (
-      <button type="button" onClick={action.run} aria-label={withPending(dict.account.signIn)} className={`group ${TILE_BUTTON}`}>
+      <button type="button" onClick={action.run} aria-label={withPending(dict.account.signIn)} aria-busy={!!redirect} className={`group ${TILE_BUTTON}`}>
         <BarTile roundCorner={roundCorner}>
-          <BarIcon icon={CircleUserRound} />
+          {redirect ? <BarSpinner /> : <BarIcon icon={CircleUserRound} />}
         </BarTile>
         {badge}
       </button>
@@ -163,10 +173,11 @@ function AccountTile({
       onClick={action.run}
       aria-expanded={isAccountOpen}
       aria-label={withPending(isAccountOpen ? dict.bar.closeAccount : dict.bar.openAccount)}
+      aria-busy={!!redirect}
       className={TILE_BUTTON}
     >
       <BarTile roundCorner={roundCorner}>
-        <Face name={account.name} src={account.picture} className="size-full rounded-none text-2xl" />
+        {redirect ? <BarSpinner /> : <Face name={account.name} src={account.picture} className="size-full rounded-none text-2xl" />}
       </BarTile>
       {badge}
     </button>
@@ -175,17 +186,24 @@ function AccountTile({
 
 const ACCOUNT_LINE_TEXT = "text-xs font-medium md:text-sm";
 
-/** Under the app's name: the account's username, or an invitation to sign in. Doing the same as the tile. */
-function AccountLine({ action }: { action: AccountAction }) {
+/** Under the app's name: the account's username, or an invitation to sign in, or what is on its way. Doing the same as the tile. */
+function AccountLine({ action, redirect }: { action: AccountAction; redirect: AuthDirection | null }) {
   // An empty line of the same height: the bar keeps its size until the session is known.
   if (action.kind === "unknown") return <span aria-hidden className={`invisible ${ACCOUNT_LINE_TEXT}`}>&nbsp;</span>;
   if (action.kind === "none") return null;
 
   return (
     <button type="button" onClick={action.run} className={`w-full cursor-pointer truncate text-left opacity-70 ${ACCOUNT_LINE_TEXT}`}>
-      {action.kind === "sign-in" ? <SignInInvitation /> : (action.account.username ?? action.account.name)}
+      <AccountLineLabel action={action} redirect={redirect} />
     </button>
   );
+}
+
+function AccountLineLabel({ action, redirect }: { action: Exclude<AccountAction, { kind: "unknown" | "none" }>; redirect: AuthDirection | null }) {
+  const { dict } = useI18n();
+  if (redirect) return redirect === "in" ? dict.account.signingIn : dict.account.signingOut;
+  if (action.kind === "sign-in") return <SignInInvitation />;
+  return action.account.username ?? action.account.name;
 }
 
 /** "Sign in" on phones, where the bar is narrow; the whole invitation on wider screens. */

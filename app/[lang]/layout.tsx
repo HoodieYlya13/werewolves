@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Cinzel, Geist } from "next/font/google";
 import { Suspense } from "react";
+import { SignInFailureToast } from "@/components/account-button";
 import { BottomBar } from "@/components/bottom-bar/bottom-bar";
 import { I18nProvider } from "@/components/i18n-provider";
 import { ResumeRooms } from "@/components/resume-rooms";
@@ -67,6 +68,7 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
           </div>
           <BottomBar />
           <Toaster position="top-center" />
+          <SignInFailureToast />
           <SessionGuard />
           {/* It reads the URL, which only exists at runtime: kept out of the prerendered shell. */}
           <Suspense fallback={null}>

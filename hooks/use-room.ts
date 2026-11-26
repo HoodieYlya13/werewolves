@@ -56,6 +56,8 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
   const [clockOffset, setClockOffset] = useState(() => lastViews.get(cacheKey)?.clockOffset ?? 0);
   // The account has a seat in another room; set until the phone answers.
   const [otherRoom, setOtherRoom] = useState<{ room: string; inGame: boolean } | null>(null);
+  // Something was sent and the room hasn't answered yet, with a view or an error.
+  const [isAwaitingReply, setIsAwaitingReply] = useState(false);
 
   const socket = usePartySocket({
     host: partyHost(),
@@ -92,6 +94,7 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
           setClockOffset(offsetFrom(msg.view.serverNow));
           lastViews.set(cacheKey, { view: msg.view, clockOffset: offsetFrom(msg.view.serverNow) });
           setError(null);
+          setIsAwaitingReply(false);
           break;
         case "joined":
           identity.setPlayer(code, { id: msg.playerId, token: msg.token });
@@ -126,6 +129,7 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
           break;
         case "other-room":
           setOtherRoom({ room: msg.room, inGame: msg.inGame });
+          setIsAwaitingReply(false);
           break;
         case "error":
           if (["removed", "signed-in-elsewhere", "left-elsewhere", "moved-room"].includes(msg.code)) identity.setPlayer(code, null);
@@ -140,6 +144,7 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
             lastViews.delete(cacheKey);
           }
           setError(msg.code);
+          setIsAwaitingReply(false);
           break;
       }
     },
@@ -182,6 +187,7 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
 
   function send(message: ClientMessage) {
     setError(null);
+    setIsAwaitingReply(true);
     socket.send(JSON.stringify(message));
   }
 
@@ -199,5 +205,5 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
     });
   }
 
-  return { view, live, error, status, send, clockOffset, close, flushed, otherRoom, clearOtherRoom: () => setOtherRoom(null) };
+  return { view, live, error, status, isAwaitingReply, send, clockOffset, close, flushed, otherRoom, clearOtherRoom: () => setOtherRoom(null) };
 }

@@ -2,6 +2,7 @@
 
 import type { LucideIcon } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
+import { Spinner } from "@/components/ui/spinner";
 import { format } from "@/lib/i18n/config";
 
 const EASE_OUT_EXPO = "ease-[cubic-bezier(0.16,1,0.3,1)]";
@@ -30,6 +31,11 @@ export function BarTile({ children, roundCorner }: { children: React.ReactNode; 
 /** An icon that shrinks a little while its row is hovered. */
 export function BarIcon({ icon: Icon }: { icon: LucideIcon }) {
   return <Icon aria-hidden className={`size-8 transition-all duration-500 group-hover:size-7 md:size-10 md:group-hover:size-9 ${EASE_OUT_EXPO}`} />;
+}
+
+/** In the tile while what goes there is on its way: the session, or the auth server. */
+export function BarSpinner() {
+  return <Spinner className="size-8 md:size-10" />;
 }
 
 /** A label that rolls up to a copy of itself while its row is hovered. */

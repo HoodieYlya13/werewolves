@@ -183,6 +183,10 @@ const en = {
   account: {
     signIn: "Sign in",
     signOut: "Sign out",
+    signingIn: "Signing in…",
+    signingOut: "Signing out…",
+    signInFailed: "The sign-in server isn't answering. Try again in a moment.",
+    tryAgain: "Try again",
     stats: "My stats",
     manage: "Manage account",
     passkeyReminder: "Sign in faster with a passkey",
