@@ -19,6 +19,8 @@ type Discovery = {
   authorization_endpoint: string;
   token_endpoint: string;
   end_session_endpoint?: string;
+  /** This auth server's own: ends a sign-in from this server, with the refresh token, so the browser needn't go there. */
+  server_end_session_endpoint?: string;
   jwks_uri: string;
 };
 

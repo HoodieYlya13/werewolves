@@ -8,7 +8,7 @@ import { useI18n } from "@/components/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { currentRedirect, setRedirecting, useAuthRedirect } from "@/lib/auth-redirect";
-import { signInUrl, signOutUrl } from "@/lib/session";
+import { showSignedOut, signInUrl, signOutUrl } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 export type AuthDirection = "in" | "out";
@@ -28,16 +28,32 @@ async function signInPageUrl(returnTo: string): Promise<string | null> {
   return answer?.url ?? null;
 }
 
-/** Signs in or out through the auth server, then back to `returnTo` (this page by default). A failed sign-in says so in a toast. */
-export async function goToAuth(to: AuthDirection, returnTo = currentPage()) {
-  if (currentRedirect()) return;
-  setRedirecting(to);
-  if (to === "out") {
-    forgetPasskeyReminder();
-    forgetPushPrompt();
+/** Ends the sign-in from this site's server; false when the auth server has to be visited instead. */
+async function endSignInInBackground(): Promise<boolean> {
+  const response = await fetch("/api/auth/sign-out", { method: "POST", cache: "no-store" }).catch(() => null);
+  if (!response?.ok) return false;
+  const answer = (await response.json().catch(() => null)) as { endedOnAuthServer?: boolean } | null;
+  return !!answer?.endedOnAuthServer;
+}
+
+/** Signed out on the page at once; through the auth server only when it can't be done from here. */
+async function signOut(returnTo: string) {
+  forgetPasskeyReminder();
+  forgetPushPrompt();
+  showSignedOut();
+  if (!(await endSignInInBackground())) {
+    setRedirecting("out");
     window.location.assign(signOutUrl(returnTo));
     return;
   }
+  if (returnTo !== currentPage()) window.location.assign(returnTo);
+}
+
+/** Signs in through the auth server, or out, then back to `returnTo` (this page by default). A failed sign-in says so in a toast. */
+export async function goToAuth(to: AuthDirection, returnTo = currentPage()) {
+  if (currentRedirect()) return;
+  if (to === "out") return signOut(returnTo);
+  setRedirecting(to);
   const url = await signInPageUrl(returnTo);
   if (url) {
     window.location.assign(url);

@@ -108,6 +108,13 @@ export async function getTicket(to: { room: string } | "account"): Promise<strin
   return res?.ok ? ((await res.json()) as { ticket: string }).ticket : null;
 }
 
+/** Signed out at once on the page, while the server ends the sign-in behind it. */
+export function showSignedOut() {
+  if (!session?.account) return;
+  session = { ...session, account: null, sessionId: null, noPasskey: false };
+  listeners.forEach((listener) => listener());
+}
+
 /** Signs out on this device only (the account signed in elsewhere): no trip to the auth server. */
 export async function forgetSession() {
   await fetch("/api/auth/forget", { method: "POST" }).catch(() => {});

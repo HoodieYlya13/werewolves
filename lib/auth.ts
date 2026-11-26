@@ -159,14 +159,17 @@ export async function currentAccount(request: NextRequest, config: AuthConfig, {
 
 const publicAccount = ({ sub, name, picture, username }: Account): Account => ({ sub, name, picture, username });
 
+/** The headers of a form posted to the auth server, authenticated with the client secret. */
+function clientFormHeaders(config: AuthConfig): Record<string, string> {
+  const credentials = `${encodeURIComponent(config.clientId)}:${encodeURIComponent(config.clientSecret)}`;
+  return { "Content-Type": "application/x-www-form-urlencoded", Authorization: `Basic ${Buffer.from(credentials).toString("base64")}` };
+}
+
 /** Calls the token endpoint, authenticating with the client secret. */
 export async function requestTokens(config: AuthConfig, params: Record<string, string>): Promise<TokenResponse | null> {
   const { token_endpoint } = await discover(config.issuer);
-  const headers: Record<string, string> = { "Content-Type": "application/x-www-form-urlencoded" };
   const body = new URLSearchParams(params);
-  const credentials = `${encodeURIComponent(config.clientId)}:${encodeURIComponent(config.clientSecret)}`;
-  headers.Authorization = `Basic ${Buffer.from(credentials).toString("base64")}`;
-  const res = await fetch(token_endpoint, { method: "POST", headers, body, cache: "no-store" });
+  const res = await fetch(token_endpoint, { method: "POST", headers: clientFormHeaders(config), body, cache: "no-store" });
   // Only a refusal (4xx) is an answer; a server error is thrown, like a network one.
   if (res.status >= 500) throw new Error(`Token endpoint error ${res.status}`);
   return res.ok ? ((await res.json()) as TokenResponse) : null;
@@ -184,6 +187,22 @@ export function saveTokens(request: NextRequest, response: NextResponse, tokens:
 /** This device's sign-in, so the account can be signed in on one device at a time. */
 export function saveSession(request: NextRequest, response: NextResponse, sessionId: string) {
   response.cookies.set(COOKIES.session, sessionId, cookieOptions(request, REFRESH_MAX_AGE));
+}
+
+const END_SIGN_IN_TIMEOUT_MS = 10_000;
+
+/** Ends the sign-in behind this refresh token on the auth server, from here. False when it couldn't (no such endpoint, no answer). */
+export async function endSignInOnAuthServer(config: AuthConfig, refreshToken: string): Promise<boolean> {
+  const discovery = await discover(config.issuer).catch(() => null);
+  if (!discovery?.server_end_session_endpoint) return false;
+  const response = await fetch(discovery.server_end_session_endpoint, {
+    method: "POST",
+    headers: clientFormHeaders(config),
+    body: new URLSearchParams({ refresh_token: refreshToken }),
+    cache: "no-store",
+    signal: AbortSignal.timeout(END_SIGN_IN_TIMEOUT_MS),
+  }).catch(() => null);
+  return !!response?.ok;
 }
 
 export function clearTokens(request: NextRequest, response: NextResponse) {
