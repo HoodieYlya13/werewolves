@@ -20,12 +20,10 @@ const signInFailureListeners = new Set<(returnTo: string) => void>();
 
 const currentPage = () => window.location.pathname + window.location.search;
 
-/** The auth server's sign-in page, or null when it doesn't answer. */
-async function signInPageUrl(returnTo: string): Promise<string | null> {
+/** Whether the auth server answers, asked in the background so the page can say so if it doesn't. */
+async function isSignInReachable(returnTo: string): Promise<boolean> {
   const response = await fetch(`${signInUrl(returnTo)}&respond=json`, { cache: "no-store", signal: AbortSignal.timeout(SIGN_IN_TIMEOUT_MS) }).catch(() => null);
-  if (!response?.ok) return null;
-  const answer = (await response.json().catch(() => null)) as { url?: string } | null;
-  return answer?.url ?? null;
+  return !!response?.ok;
 }
 
 /** Ends the sign-in from this site's server; false when the auth server has to be visited instead. */
@@ -54,9 +52,10 @@ export async function goToAuth(to: AuthDirection, returnTo = currentPage()) {
   if (currentRedirect()) return;
   if (to === "out") return signOut(returnTo);
   setRedirecting(to);
-  const url = await signInPageUrl(returnTo);
-  if (url) {
-    window.location.assign(url);
+  if (await isSignInReachable(returnTo)) {
+    // Through this site's own route, which redirects there: an installed iPhone app keeps a redirect
+    // it started in the app, but opens a script's jump to another site in a separate browser sheet.
+    window.location.assign(signInUrl(returnTo));
     return;
   }
   setRedirecting(null);

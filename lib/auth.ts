@@ -205,6 +205,20 @@ export async function endSignInOnAuthServer(config: AuthConfig, refreshToken: st
   return !!response?.ok;
 }
 
+/** This app's accounts the auth server deleted lately (it remembers 90 days), or null when it couldn't say. */
+export async function deletedAccountsOnAuthServer(config: AuthConfig): Promise<string[] | null> {
+  const discovery = await discover(config.issuer).catch(() => null);
+  if (!discovery?.deleted_accounts_endpoint) return null;
+  const response = await fetch(discovery.deleted_accounts_endpoint, {
+    method: "POST",
+    headers: clientFormHeaders(config),
+    body: new URLSearchParams(),
+    cache: "no-store",
+  }).catch(() => null);
+  if (!response?.ok) return null;
+  return ((await response.json()) as { subs: string[] }).subs;
+}
+
 export function clearTokens(request: NextRequest, response: NextResponse) {
   for (const name of [COOKIES.id, COOKIES.refresh, COOKIES.session]) response.cookies.set(name, "", cookieOptions(request, 0));
 }

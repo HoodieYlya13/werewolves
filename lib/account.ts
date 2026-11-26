@@ -21,6 +21,8 @@ type Discovery = {
   end_session_endpoint?: string;
   /** This auth server's own: ends a sign-in from this server, with the refresh token, so the browser needn't go there. */
   server_end_session_endpoint?: string;
+  /** Also its own: the accounts it deleted lately, for this app to delete their data. */
+  deleted_accounts_endpoint?: string;
   jwks_uri: string;
 };
 
