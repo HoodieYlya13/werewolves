@@ -818,16 +818,23 @@ function MayorStep({ game, step, act }: Props<"mayor-election" | "mayor-successi
   const name = step.kind === "mayor-succession" ? nameOf(game, step.playerId) : "";
   const { ballot, send, candidates: standing = [] } = useRoomContext();
   // The election's phone vote: the candidates being picked, before it opens.
-  const [candidates, setCandidates] = useState<string[] | null>(null);
+  const [isPickingCandidates, setIsPickingCandidates] = useState(false);
+  // Until the game master edits it, the list follows who stands, even after the picker opened.
+  const [editedCandidates, setEditedCandidates] = useState<string[] | null>(null);
+  const candidates = editedCandidates ?? standing.filter((id) => game.players.find((p) => p.id === id)?.alive);
   const election = step.kind === "mayor-election" ? step : null;
-  const picking = !!election && !ballot && candidates !== null;
+  const picking = !!election && !ballot && isPickingCandidates;
+  const stopPicking = () => {
+    setIsPickingCandidates(false);
+    setEditedCandidates(null);
+  };
   return (
     <>
       <Say>{format(t.say, { name })}</Say>
       {election && standing.length > 0 && <Do>{format(dict.auto.mayorCandidates, { names: names(game, standing) })}</Do>}
       {election && send && !ballot && !picking && (
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="button" variant="outline" className="h-11" onClick={() => setCandidates(standing.filter((id) => game.players.find((p) => p.id === id)?.alive))}>
+          <Button type="button" variant="outline" className="h-11" onClick={() => setIsPickingCandidates(true)}>
             <Smartphone aria-hidden className="size-4" />
             {dict.ballot.open}
           </Button>
@@ -841,7 +848,7 @@ function MayorStep({ game, step, act }: Props<"mayor-election" | "mayor-successi
             game={game}
             players={living(game)}
             selected={candidates}
-            onToggle={(id) => setCandidates((s) => toggle(s ?? [], id, Infinity))}
+            onToggle={(id) => setEditedCandidates(toggle(candidates, id, Infinity))}
           />
           <div className="flex flex-wrap gap-2 [&>*]:grow sm:[&>*]:grow-0">
             <Button
@@ -852,7 +859,7 @@ function MayorStep({ game, step, act }: Props<"mayor-election" | "mayor-successi
             >
               {format(dict.ballot.startElection, { count: candidates.length })}
             </Button>
-            <Button type="button" variant="outline" className="h-12" onClick={() => setCandidates(null)}>
+            <Button type="button" variant="outline" className="h-12" onClick={stopPicking}>
               {dict.ballot.back}
             </Button>
           </div>
