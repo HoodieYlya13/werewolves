@@ -4,6 +4,7 @@ import { BookOpen, Crown, Drama, HandHelping, ListChecks, Music, ShieldCheck, Sm
 import { CreateRoomButton } from "@/components/home/create-room-button";
 import { InstallApp } from "@/components/home/install-app";
 import { JoinForm } from "@/components/home/join-form";
+import { WhenStartScreenIsShort } from "@/components/home/when-start-screen-is-short";
 import { GuestGamesNudge } from "@/components/guest-games";
 import { getGuide } from "@/lib/content/guide";
 import { locales } from "@/lib/i18n/config";
@@ -41,7 +42,11 @@ export default async function HomePage() {
       {/* Starting a game, all at once between the top and the bottom bar. */}
       <div className="first-screen snap-start">
         <div className="first-screen-content flex flex-col justify-center gap-4 sm:gap-8">
-          <h1 className="text-center font-display text-4xl font-bold tracking-wide sm:text-6xl">{dict.app.name}</h1>
+          <div className="flex flex-col gap-3 text-center sm:gap-4">
+            <h1 className="font-display text-4xl font-bold tracking-wide sm:text-6xl">{dict.app.name}</h1>
+            {/* Where the first screen is tall enough; else it waits below it. */}
+            <p className="start-screen-description mx-auto max-w-xl text-balance text-muted-foreground">{dict.app.tagline}</p>
+          </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <section className="card flex flex-col gap-3 p-5 sm:gap-4 sm:p-6">
@@ -68,13 +73,13 @@ export default async function HomePage() {
       </div>
 
       <div className="flex snap-start flex-col gap-16 pt-10">
-        <section className="flex flex-col gap-6">
-          <div className="flex flex-col gap-3 text-center">
+        <WhenStartScreenIsShort>
+          <section className="flex flex-col gap-3 text-center">
             <h2 className="font-display text-3xl font-bold">{dict.home.aboutTitle}</h2>
             <p className="mx-auto max-w-xl text-balance text-muted-foreground">{dict.app.tagline}</p>
-          </div>
-          <GuestGamesNudge />
-        </section>
+          </section>
+        </WhenStartScreenIsShort>
+        <GuestGamesNudge />
 
         <section className="flex flex-col gap-6">
           <h2 className="text-center font-display text-3xl font-bold">{guide.howTitle}</h2>

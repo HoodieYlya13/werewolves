@@ -290,7 +290,18 @@
  */
 .first-screen-content {
   container: first-screen / size;
-  min-height: max(32rem, calc(100svh - var(--page-top) - var(--bar-space)));
+  /* A height, not a minimum: container queries read only an explicit height. */
+  height: max(32rem, calc(100svh - var(--page-top) - var(--bar-space)));
+}
+
+/* The description under the home's title: only where the first screen has room for it (tall, or wide with its cards side by side). */
+.start-screen-description {
+  display: none;
+}
+@container first-screen (height >= 44rem) or ((width >= 44rem) and (height >= 30rem)) {
+  .start-screen-description {
+    display: block;
+  }
 }
 
 /* With a first screen, the page springs back to it, or on to what follows, instead of stopping in between. */
