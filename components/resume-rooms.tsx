@@ -62,7 +62,7 @@ function ResumeRoomsForPath() {
   return (
     // Slides in rather than shoving the page down in one frame. Sticky: it takes its place at the top, then floats over the page as it scrolls.
     <div
-      className={`pointer-events-none sticky top-[calc(env(safe-area-inset-top)+0.5rem)] z-20 mx-auto flex w-full max-w-3xl flex-col gap-2 px-4 pb-4 sm:px-6 ${slideIn ? "animate-in duration-300 fade-in slide-in-from-top-2" : ""}`}
+      className={`pointer-events-none sticky top-[calc(env(safe-area-inset-top)+2rem)] z-20 mx-auto flex w-full max-w-3xl flex-col gap-2 px-4 pb-4 sm:px-6 ${slideIn ? "animate-in duration-300 fade-in slide-in-from-top-2" : ""}`}
     >
       {rooms.map((room) => (
         <RoomLink key={`${room.role}:${room.code}`} room={room} />
