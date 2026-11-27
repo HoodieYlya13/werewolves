@@ -38,8 +38,8 @@ export function useBubble({ isInRoom, isOpen, isVisible, barRef }: BubbleOptions
 
   const target: BubbleShape = !isInRoom || isOpen || isUnfolded ? "bar" : "bubble";
   const [shape, setShape] = useState<BubbleShape>(target);
-  // Outside rooms, or with a panel open, the whole bar at once.
-  if ((!isInRoom || isOpen) && shape !== "bar") setShape("bar");
+  // A panel opens on the whole bar at once; leaving or entering a room steps through the circle like a tap.
+  if (isOpen && shape !== "bar") setShape("bar");
   useStepToward(shape, target, setShape);
 
   const isWaitingToFold = isInRoom && isUnfolded && !isOpen;
