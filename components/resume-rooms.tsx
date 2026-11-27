@@ -60,9 +60,9 @@ function ResumeRoomsForPath() {
 
   if (inRoom || rooms.length === 0) return null;
   return (
-    // Slides in rather than shoving the page down in one frame.
+    // Slides in rather than shoving the page down in one frame. Sticky: it takes its place at the top, then floats over the page as it scrolls.
     <div
-      className={`mx-auto flex w-full max-w-3xl flex-col gap-2 px-4 pb-4 sm:px-6 ${slideIn ? "animate-in duration-300 fade-in slide-in-from-top-2" : ""}`}
+      className={`pointer-events-none sticky top-[calc(env(safe-area-inset-top)+0.5rem)] z-20 mx-auto flex w-full max-w-3xl flex-col gap-2 px-4 pb-4 sm:px-6 ${slideIn ? "animate-in duration-300 fade-in slide-in-from-top-2" : ""}`}
     >
       {rooms.map((room) => (
         <RoomLink key={`${room.role}:${room.code}`} room={room} />
@@ -80,7 +80,7 @@ function RoomLink({ room }: { room: Active }) {
       ? format(room.inGame ? t.hostGame : t.host, { code: room.code })
       : format(room.inGame ? t.playerGame : t.player, { code: room.code, name: room.name });
   return (
-    <div role="status" className="card flex items-center gap-3 px-4 py-3">
+    <div role="status" className="card pointer-events-auto flex items-center gap-3 px-4 py-3 shadow-lg shadow-black/20">
       <Icon aria-hidden className="size-5 shrink-0 text-moon" />
       <p className="min-w-0 flex-1 text-sm">{label}</p>
       <Button asChild size="sm" className="shrink-0">
