@@ -8,10 +8,13 @@ const STEP = `${STEP_MS}ms`;
 /** On big screens the bar sits narrower than the screen: the bubble slides from the bar's right end to the screen's corner. */
 const SHIFT_TO_CORNER = "max(0px, calc((100vw - min(95vw, 42rem)) / 2 - var(--bar-gap)))";
 
+/** A little further from the edges than the bar, clear of the screen's rounded corner. */
+const BUBBLE_INSET = "0.375rem";
+
 /** Its size, corners and place move together, within one step. */
 export function barMotion(shape: BubbleShape): React.CSSProperties {
   return {
-    translate: shape === "bubble" ? SHIFT_TO_CORNER : "0px",
+    translate: shape === "bubble" ? `calc(${SHIFT_TO_CORNER} - ${BUBBLE_INSET}) calc(-1 * ${BUBBLE_INSET})` : "0px",
     transitionProperty: "width, translate, border-radius",
     transitionDuration: STEP,
     transitionTimingFunction: "ease-in-out",
