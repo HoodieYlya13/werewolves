@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { STEP_MS, type BubbleShape } from "./bubble-motion";
 
 const FOLD_AFTER_MS = 4000;
@@ -18,7 +18,8 @@ type BubbleOptions = {
  * In a room, the bar rests as a bubble in the corner. Tapped, it grows into
  * a circle as tall as the bar on its way back from the corner, then stretches
  * into the bar; it folds back the same way once left alone for a moment, on
- * a tap elsewhere, when scrolling hides it, or when its panel closes.
+ * a tap elsewhere, when scrolling hides it, or when its panel closes. While
+ * the mouse is over it, it stays.
  */
 export function useBubble({ isInRoom, isOpen, isVisible, barRef }: BubbleOptions) {
   const [isUnfolded, setIsUnfolded] = useState(false);
@@ -43,7 +44,9 @@ export function useBubble({ isInRoom, isOpen, isVisible, barRef }: BubbleOptions
   useStepToward(shape, target, setShape);
 
   const isWaitingToFold = isInRoom && isUnfolded && !isOpen;
-  useFoldAfterIdle(isWaitingToFold, lastTouch, setIsUnfolded);
+  const isMouseOver = useIsMouseOver(barRef, shape);
+  // Leaving it with the mouse starts the wait again from the start.
+  useFoldAfterIdle(isWaitingToFold && !isMouseOver, lastTouch, setIsUnfolded);
   useFoldOnTapElsewhere(isWaitingToFold, barRef, setIsUnfolded);
   useFoldOncePanelClosed(isPanelClosing, setIsUnfolded, setIsPanelClosing);
 
@@ -55,6 +58,40 @@ export function useBubble({ isInRoom, isOpen, isVisible, barRef }: BubbleOptions
 }
 
 type SetUnfolded = (isUnfolded: boolean) => void;
+
+type Point = { x: number; y: number };
+
+/**
+ * Whether the mouse is over the bar: checked when the mouse moves, and when
+ * the bar ends a step, since a bar moving under a still mouse fires no event.
+ */
+function useIsMouseOver(barRef: React.RefObject<HTMLElement | null>, shape: BubbleShape) {
+  const [isOver, setIsOver] = useState(false);
+  const mouse = useRef<Point | null>(null);
+
+  useEffect(() => {
+    const check = () => {
+      const point = mouse.current;
+      const under = point && document.elementFromPoint(point.x, point.y);
+      setIsOver(!!under && !!barRef.current?.contains(under));
+    };
+    const onPointer = (event: PointerEvent) => {
+      if (event.pointerType !== "mouse") return;
+      mouse.current = { x: event.clientX, y: event.clientY };
+      check();
+    };
+    const afterStep = setTimeout(check, STEP_MS);
+    document.addEventListener("pointermove", onPointer);
+    document.addEventListener("pointerdown", onPointer);
+    return () => {
+      clearTimeout(afterStep);
+      document.removeEventListener("pointermove", onPointer);
+      document.removeEventListener("pointerdown", onPointer);
+    };
+  }, [barRef, shape]);
+
+  return isOver;
+}
 
 /** One step at a time through the circle: a step starts at once from either end, and once the circle is reached from the middle. */
 function useStepToward(shape: BubbleShape, target: BubbleShape, setShape: (shape: BubbleShape) => void) {
