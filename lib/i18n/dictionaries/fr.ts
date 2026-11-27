@@ -35,6 +35,7 @@ const shared: SharedDictionary = {
     start: "Lancer une partie",
   },
   home: {
+    aboutTitle: "C'est quoi ?",
     hostTitle: "Je crée la partie",
     hostDescription: "Menez-la sur un grand écran, ou laissez l'application la mener et jouez avec tout le monde. Les joueurs rejoignent avec leur téléphone.",
     createRoom: "Créer une partie",

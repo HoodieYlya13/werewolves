@@ -39,7 +39,7 @@ export default async function HomePage() {
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-4 pb-10 sm:px-6">
       <JsonLd data={app} />
       {/* Starting a game, all at once between the top and the bottom bar. */}
-      <div className="first-screen flex snap-start flex-col justify-center gap-6 sm:gap-8">
+      <div className="first-screen flex snap-start flex-col justify-center gap-4 sm:gap-8">
         <h1 className="text-center font-display text-4xl font-bold tracking-wide sm:text-6xl">{dict.app.name}</h1>
 
         <div className="grid gap-4 md:grid-cols-2">
@@ -61,14 +61,18 @@ export default async function HomePage() {
             <JoinForm />
           </section>
         </div>
+
+        <InstallApp />
       </div>
 
       <div className="flex snap-start flex-col gap-16 pt-10">
-        <div className="flex flex-col gap-6">
-          <p className="mx-auto max-w-xl text-center text-balance text-muted-foreground">{dict.app.tagline}</p>
+        <section className="flex flex-col gap-6">
+          <div className="flex flex-col gap-3 text-center">
+            <h2 className="font-display text-3xl font-bold">{dict.home.aboutTitle}</h2>
+            <p className="mx-auto max-w-xl text-balance text-muted-foreground">{dict.app.tagline}</p>
+          </div>
           <GuestGamesNudge />
-          <InstallApp />
-        </div>
+        </section>
 
         <section className="flex flex-col gap-6">
           <h2 className="text-center font-display text-3xl font-bold">{guide.howTitle}</h2>

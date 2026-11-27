@@ -34,6 +34,7 @@ const shared = {
     start: "Start a game",
   },
   home: {
+    aboutTitle: "What is it?",
     hostTitle: "I create the game",
     hostDescription: "Run it as the game master on a big screen, or let the app run it and play with everyone. Players join with their phones.",
     createRoom: "Create a room",
