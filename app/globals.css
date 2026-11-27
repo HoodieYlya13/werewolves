@@ -278,10 +278,19 @@
   pointer-events: none;
 }
 
-/* A page's first screen: the whole screen, its content centered above the bottom bar, at least tall enough for it on a small window. */
+/* A page's first screen: the whole screen, at least tall enough for its content on a small window. */
 .first-screen {
   min-height: max(calc(32rem + var(--bar-space)), calc(100dvh - var(--page-top)));
-  padding-bottom: var(--bar-space);
+}
+
+/*
+ * Its content, centered above the bottom bar on the screen as it is with the
+ * browser's toolbars shown: it doesn't move or change as they hide on scroll.
+ * Its height is what `@container first-screen` queries read.
+ */
+.first-screen-content {
+  container: first-screen / size;
+  min-height: max(32rem, calc(100svh - var(--page-top) - var(--bar-space)));
 }
 
 /* With a first screen, the page springs back to it, or on to what follows, instead of stopping in between. */

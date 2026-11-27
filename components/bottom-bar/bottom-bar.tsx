@@ -8,6 +8,7 @@ import { AccountPanel } from "@/components/bottom-bar/account-panel";
 import { BarIcon, BarSpinner, BarTile, NotificationBadge } from "@/components/bottom-bar/bar-row";
 import { MenuIcon } from "@/components/bottom-bar/menu-icon";
 import { MenuPanel } from "@/components/bottom-bar/menu-panel";
+import { StartGameButton } from "@/components/bottom-bar/start-game-button";
 import { barMotion, rowMotion, type BubbleShape } from "@/components/bottom-bar/bubble-motion";
 import { useBubble } from "@/components/bottom-bar/use-bubble";
 import { useI18n } from "@/components/i18n-provider";
@@ -40,10 +41,11 @@ export function BottomBar() {
 }
 
 function BottomBarForPath() {
-  return <Bar isInRoom={isRoomPath(usePathname())} />;
+  const pathname = usePathname();
+  return <Bar pathname={pathname} isInRoom={isRoomPath(pathname)} />;
 }
 
-function Bar({ isInRoom }: { isInRoom: boolean }) {
+function Bar({ pathname, isInRoom }: { pathname: string; isInRoom: boolean }) {
   const { dict } = useI18n();
   const session = useSession();
   const redirect = useAuthRedirect();
@@ -116,6 +118,7 @@ function Bar({ isInRoom }: { isInRoom: boolean }) {
                   <AccountLine action={accountAction} redirect={redirect} />
                 </span>
               </span>
+              <StartGameButton pathname={pathname} isInRoom={isInRoom} />
               <button
                 type="button"
                 onClick={isFolded ? unfold : () => toggle("menu")}

@@ -499,6 +499,7 @@ const shared = {
     "signed-in-elsewhere": "Your account joined this room from another device, which now has your seat.",
   },
   bar: {
+    startGame: "Start a game",
     openMenu: "Open the menu",
     closeMenu: "Close the menu",
     showBar: "Show the menu bar",

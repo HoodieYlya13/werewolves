@@ -499,6 +499,7 @@ const shared: SharedDictionary = {
     "signed-in-elsewhere": "Votre compte a rejoint la partie depuis un autre appareil, qui a pris votre place.",
   },
   bar: {
+    startGame: "Lancer une partie",
     openMenu: "Ouvrir le menu",
     closeMenu: "Fermer le menu",
     showBar: "Afficher la barre de menu",

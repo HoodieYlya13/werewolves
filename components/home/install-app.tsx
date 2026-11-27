@@ -76,8 +76,8 @@ export function InstallApp() {
         <Download aria-hidden />
         {t.button}
       </Button>
-      {/* Short screens keep the button alone, so the whole start of a game fits on the home's first screen. */}
-      <p className="max-w-sm text-sm text-pretty text-muted-foreground [@media(max-height:45rem)]:hidden">{t.hint}</p>
+      {/* On the home's first screen, a short screen keeps the button alone so the whole start of a game fits. */}
+      <p className="max-w-sm text-sm text-pretty text-muted-foreground [@container_first-screen_(height<36rem)]:hidden">{t.hint}</p>
 
       <Dialog open={guide} onOpenChange={setGuide}>
         <DialogContent closeLabel={dict.host.close} className="max-w-[min(26rem,calc(100vw-2rem))] sm:max-w-[26rem]">
