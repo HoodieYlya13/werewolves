@@ -3,6 +3,7 @@ import { verifyTicket } from "../lib/ticket";
 import { workerTicketKey } from "./keys";
 import { friendsAmong, hasPendingRequest } from "../lib/friends";
 import { sessionTime, type AccountClientMessage, type AccountServerMessage, type FriendFace } from "../lib/protocol";
+import { parseAccountMessage } from "../lib/protocol-schemas";
 
 const CURRENT_KEY = "session";
 const ROOMS_KEY = "rooms";
@@ -81,7 +82,7 @@ export class AccountServer extends Server<Env> {
   private async tellFriend(conn: Device, to: string, accepted: boolean) {
     const url = this.env.POSTGRES_URL;
     const state = conn.state;
-    if (!url || !state || state.pending || typeof to !== "string" || to === this.name) return;
+    if (!url || !state || state.pending || to === this.name) return;
     const now = Date.now();
     if (now - (this.lastFriendNotices.get(to) ?? 0) < FRIEND_NOTICE_INTERVAL_MS) return;
     try {
@@ -107,15 +108,11 @@ export class AccountServer extends Server<Env> {
 
   async onMessage(conn: Device, raw: string | ArrayBuffer) {
     if (typeof raw !== "string") return;
-    let msg: AccountClientMessage;
-    try {
-      msg = JSON.parse(raw);
-    } catch {
-      return;
-    }
+    const msg = parseAccountMessage(raw);
+    if (!msg) return;
     if (msg.type === "hello") return this.hello(conn, msg);
-    if (msg.type === "resolve") return this.resolve(conn, msg.takeOver, msg.here === true);
-    if (msg.type === "friend-requested") return this.tellFriend(conn, msg.to, msg.accepted === true);
+    if (msg.type === "resolve") return this.resolve(conn, msg.takeOver, msg.here ?? false);
+    if (msg.type === "friend-requested") return this.tellFriend(conn, msg.to, msg.accepted);
   }
 
   private async hello(conn: Device, msg: Extract<AccountClientMessage, { type: "hello" }>) {

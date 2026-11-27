@@ -82,12 +82,12 @@ export async function profile(room: RoomServer, conn: Conn, isHost: boolean, pla
 }
 
 /** Invites friends to this room: on their open pages, and by push where they turned it on. */
-export async function invite(room: RoomServer, conn: Conn, isHost: boolean, subs: unknown) {
+export async function invite(room: RoomServer, conn: Conn, isHost: boolean, subs: string[]) {
   const url = room.bindings.POSTGRES_URL;
   const me = accountOf(room, conn, isHost);
-  if (!url || !me || !Array.isArray(subs) || tooManyFriendCalls(room, conn)) return;
+  if (!url || !me || tooManyFriendCalls(room, conn)) return;
   const s = room.state!;
-  const wanted = [...new Set(subs.filter((x): x is string => typeof x === "string"))]
+  const wanted = [...new Set(subs)]
     .slice(0, MAX_INVITES)
     // Already here (playing or running it): nothing to invite to.
     .filter((sub) => sub !== s.hostSub && !findAccount(room, sub));

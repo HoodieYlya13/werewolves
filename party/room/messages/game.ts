@@ -142,7 +142,7 @@ export const gameMessages = {
     if (!room.game) return "unchanged";
     const living = room.game.players.filter((p) => p.alive).map((p) => p.id);
     if (step?.kind === "mayor-election") {
-      const wanted = Array.isArray(msg.candidateIds) ? msg.candidateIds : [];
+      const wanted = msg.candidateIds ?? [];
       const candidateIds = living.filter((id) => wanted.includes(id));
       if (candidateIds.length === 0) return "unchanged";
       state.ballot = { kind: "mayor", voterIds: living, candidateIds, votes: {} };

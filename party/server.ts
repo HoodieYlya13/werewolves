@@ -3,6 +3,7 @@ import { replay, type GameState } from "../lib/engine";
 import { workerTicketKey } from "./keys";
 import * as auto from "../lib/auto";
 import type { ClientMessage, ErrorCode, SeatStatus, ServerMessage } from "../lib/protocol";
+import { parseClientMessage } from "../lib/protocol-schemas";
 import { type Conn, type ConnState, LEADER_GRACE_MS, MASTER_GRACE_MS, MESSAGES_PER_SECOND, PHOTO_PREFIX, ROOM_TTL_MS, type RoomState, SPEAKER_GRACE_MS, STORAGE_KEY, isDeviceId, upgradeGame } from "./room/state";
 import { leaveSeat, hostSeat } from "./room/seats";
 import { takeHost, closeHosts, releaseAccounts } from "./room/accounts";
@@ -193,12 +194,8 @@ export class RoomServer extends Server<Env> {
   async onMessage(sender: Conn, raw: string | ArrayBuffer) {
     if (this.flooding(sender)) return;
     if (typeof raw !== "string" || !this.state) return;
-    let msg: ClientMessage;
-    try {
-      msg = JSON.parse(raw);
-    } catch {
-      return;
-    }
+    const msg = parseClientMessage(raw);
+    if (!msg) return;
 
     const isHost = sender.state?.kind === "host";
     const logLength = this.state.game?.log.length;
@@ -212,8 +209,6 @@ export class RoomServer extends Server<Env> {
       return this.send(sender, { type: "error", code: "invalid-action" });
     }
 
-    // Own keys only: a made-up type such as "toString" finds nothing.
-    if (!Object.hasOwn(messageHandlers, msg.type)) return;
     const handle = messageHandlers[msg.type] as MessageHandlers[ClientMessage["type"]];
     const outcome = await handle({ room: this, sender, isHost, state: this.state }, msg as never);
     if (outcome === "unchanged" || !this.state) return;
