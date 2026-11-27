@@ -500,6 +500,7 @@ const shared: SharedDictionary = {
   bar: {
     openMenu: "Ouvrir le menu",
     closeMenu: "Fermer le menu",
+    showBar: "Afficher la barre de menu",
     openAccount: "Ouvrir votre compte",
     closeAccount: "Fermer votre compte",
     signInInvite: "Connectez-vous pour garder votre nom, votre photo et vos stats",

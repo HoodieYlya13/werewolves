@@ -8,7 +8,7 @@ import { useI18n } from "@/components/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { format } from "@/lib/i18n/config";
 import type { SeatStatus } from "@/lib/protocol";
-import { identity, savedSeats, seatStatus } from "@/lib/room";
+import { identity, isRoomPath, savedSeats, seatStatus } from "@/lib/room";
 
 type Active = Extract<SeatStatus, { active: true }> & { code: string };
 
@@ -32,7 +32,7 @@ export function ResumeRooms() {
 function ResumeRoomsForPath() {
   const pathname = usePathname();
   // Inside a room page, that room is the page itself.
-  const inRoom = /^\/[a-z]{2}\/(host|play)\/[A-Z]{4}/.test(pathname);
+  const inRoom = isRoomPath(pathname);
   const [rooms, setRooms] = useState<Active[]>(known);
   // Only a bar that wasn't there already slides in.
   const [slideIn] = useState(known.length === 0);

@@ -17,6 +17,9 @@ export function isRoomCode(value: string) {
   return value.length === CODE_LENGTH && normalizeRoomCode(value) === value;
 }
 
+/** A room's own page (`/fr/play/ABCD`, `/en/host/ABCD`), as the game master or a player. */
+export const isRoomPath = (pathname: string) => /^\/[a-z]{2}\/(host|play)\/[A-Z]{4}/.test(pathname);
+
 /**
  * Identities live in localStorage so a refresh, a locked screen or a closed tab
  * puts you back in the same seat. One entry per room.

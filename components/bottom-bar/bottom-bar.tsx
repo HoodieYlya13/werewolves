@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { CircleUserRound, Menu, X } from "lucide-react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
+import { CircleUserRound } from "lucide-react";
 import { goToAuth } from "@/components/account-button";
 import { AccountPanel } from "@/components/bottom-bar/account-panel";
 import { BarIcon, BarSpinner, BarTile, NotificationBadge } from "@/components/bottom-bar/bar-row";
+import { MenuIcon } from "@/components/bottom-bar/menu-icon";
 import { MenuPanel } from "@/components/bottom-bar/menu-panel";
+import { useBubble } from "@/components/bottom-bar/use-bubble";
 import { useI18n } from "@/components/i18n-provider";
 import { Face } from "@/components/room-context";
 import { SiteTitle } from "@/components/site-title";
@@ -14,6 +17,7 @@ import { useHideOnScroll } from "@/hooks/use-hide-on-scroll";
 import { useIncomingFriendRequests } from "@/lib/friend-requests";
 import { format } from "@/lib/i18n/config";
 import { useAuthRedirect, type AuthDestination } from "@/lib/auth-redirect";
+import { isRoomPath } from "@/lib/room";
 import { useSession, type Session } from "@/lib/session";
 
 type Panel = "menu" | "account";
@@ -22,9 +26,23 @@ type Panel = "menu" | "account";
  * The app's navigation, floating at the bottom: the account on the left, the
  * app's name with the account's username (or an invitation to sign in) under
  * it, and the menu on the right. Either one opens a panel above the bar; the
- * other one swaps its content without closing it.
+ * other one swaps its content without closing it. In a room, it rests as a
+ * bubble around the menu button.
  */
 export function BottomBar() {
+  // usePathname is request-time on dynamic routes: their static shell has no bar until the page runs.
+  return (
+    <Suspense fallback={null}>
+      <BottomBarForPath />
+    </Suspense>
+  );
+}
+
+function BottomBarForPath() {
+  return <Bar isInRoom={isRoomPath(usePathname())} />;
+}
+
+function Bar({ isInRoom }: { isInRoom: boolean }) {
   const { dict } = useI18n();
   const session = useSession();
   const redirect = useAuthRedirect();
@@ -38,6 +56,8 @@ export function BottomBar() {
   const accountAction = accountActionFor(session, () => toggle("account"));
   const incomingFriendRequests = useIncomingFriendRequests(session?.stats ? session.account?.sub : undefined);
   const pending = pendingCount(accountAction, session, incomingFriendRequests);
+  const barRef = useRef<HTMLDivElement>(null);
+  const { isBubble, unfold, keepUnfolded } = useBubble({ isInRoom, isOpen, isVisible: isVisibleOnScroll, barRef });
 
   function closeOnLinkClick(event: React.MouseEvent) {
     if ((event.target as HTMLElement).closest("a")) close();
@@ -46,46 +66,55 @@ export function BottomBar() {
   return (
     <>
       <MenuBackdrop isOpen={isOpen} onClose={close} />
+      {/* The bar's full width: the bubble shrinks toward its right end, where the menu button stays. */}
       <div
-        data-bar-open={isOpen || undefined}
-        onClick={closeOnLinkClick}
-        className={`theme-dark fixed bottom-(--bar-gap) left-1/2 z-40 flex max-h-[calc(100dvh-env(safe-area-inset-top)-2*var(--bar-gap))] w-[95%] max-w-2xl flex-col overflow-hidden text-fg shadow-lg backdrop-blur-md transition-all duration-500 ease-in-out rounded-concentric sm:rounded-xl md:rounded-2xl ${isOpen ? "bg-bg/70" : "bg-(--bar-veil)"}`}
+        className="@container pointer-events-none fixed bottom-(--bar-gap) left-1/2 z-40 flex w-[95%] max-w-2xl justify-end transition-transform duration-500 ease-in-out"
         style={{ transform: `translate(-50%, ${isVisibleOnScroll || isOpen ? "0" : "calc(100% + 2rem)"})` }}
       >
-        {/* Shrinks and scrolls when the screen is too short for the whole panel above the bar. */}
         <div
-          className="min-h-0 overflow-y-auto overscroll-contain transition-[height] duration-500 ease-in-out"
-          style={{ height: isOpen ? panelHeight : 0 }}
-          onTransitionEnd={onPanelTransitionEnd}
+          ref={barRef}
+          data-bar-open={isOpen || undefined}
+          onClick={closeOnLinkClick}
+          onPointerDown={keepUnfolded}
+          className={`theme-dark pointer-events-auto flex max-h-[calc(100dvh-env(safe-area-inset-top)-2*var(--bar-gap))] flex-col overflow-hidden text-fg shadow-lg backdrop-blur-md transition-all duration-500 ease-in-out rounded-concentric sm:rounded-xl md:rounded-2xl ${isBubble ? "w-20 md:w-24" : "w-full"} ${isOpen ? "bg-bg/70" : "bg-(--bar-veil)"}`}
         >
-          <div ref={panelContentRef}>
-            {/* Keyed: switching panels replays the rows' entrance while the height follows. */}
-            {renderedPanel === "menu" && <MenuPanel key="menu" />}
-            {renderedPanel === "account" && session?.account && <AccountPanel key="account" session={session} incomingFriendRequests={incomingFriendRequests} onSignOut={signOut} />}
-          </div>
-        </div>
-
-        <div className={`relative flex shrink-0 items-center justify-between px-2 pb-2 transition-[padding] duration-500 ${isOpen ? "pt-4" : "pt-2"}`}>
-          <span
-            aria-hidden
-            className={`absolute top-0 left-[2.5%] h-px w-[95%] origin-left bg-fg/20 transition-transform duration-250 ease-in-out ${isOpen ? "scale-x-100 delay-500" : "scale-x-0"}`}
-          />
-          <span className="flex min-w-0 flex-1 items-center gap-4">
-            <AccountTile action={accountAction} redirect={redirect} pending={pending} isAccountOpen={openPanel === "account"} isBarOpen={isOpen} />
-            <span className="flex min-w-0 flex-1 flex-col items-start justify-center gap-0.5">
-              <SiteTitle className="w-fit font-bold tracking-wide uppercase md:text-lg" />
-              <AccountLine action={accountAction} redirect={redirect} />
-            </span>
-          </span>
-          <button
-            type="button"
-            onClick={() => toggle("menu")}
-            aria-expanded={openPanel === "menu"}
-            aria-label={openPanel === "menu" ? dict.bar.closeMenu : dict.bar.openMenu}
-            className="p-3 transition-[opacity,scale] duration-300 hover:opacity-70 active:scale-90"
+          {/* Shrinks and scrolls when the screen is too short for the whole panel above the bar. */}
+          <div
+            className="min-h-0 overflow-y-auto overscroll-contain transition-[height] duration-500 ease-in-out"
+            style={{ height: isOpen ? panelHeight : 0 }}
+            onTransitionEnd={onPanelTransitionEnd}
           >
-            {openPanel === "menu" ? <X aria-hidden className="size-6 md:size-8" /> : <Menu aria-hidden className="size-6 md:size-8" />}
-          </button>
+            <div ref={panelContentRef}>
+              {/* Keyed: switching panels replays the rows' entrance while the height follows. */}
+              {renderedPanel === "menu" && <MenuPanel key="menu" />}
+              {renderedPanel === "account" && session?.account && <AccountPanel key="account" session={session} incomingFriendRequests={incomingFriendRequests} onSignOut={signOut} />}
+            </div>
+          </div>
+
+          {/* As wide as the whole bar even in the bubble, which clips it from the left. */}
+          <div className={`relative flex w-[100cqw] shrink-0 items-center justify-between self-end px-2 pb-2 transition-[padding] duration-500 ${isOpen ? "pt-4" : "pt-2"}`}>
+            <span
+              aria-hidden
+              className={`absolute top-0 left-[2.5%] h-px w-[95%] origin-left bg-fg/20 transition-transform duration-250 ease-in-out ${isOpen ? "scale-x-100 delay-500" : "scale-x-0"}`}
+            />
+            <span inert={isBubble} className="flex min-w-0 flex-1 items-center gap-4">
+              <AccountTile action={accountAction} redirect={redirect} pending={pending} isAccountOpen={openPanel === "account"} isBarOpen={isOpen} />
+              <span className="flex min-w-0 flex-1 flex-col items-start justify-center gap-0.5">
+                <SiteTitle className="w-fit font-bold tracking-wide uppercase md:text-lg" />
+                <AccountLine action={accountAction} redirect={redirect} />
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={isBubble ? unfold : () => toggle("menu")}
+              aria-expanded={openPanel === "menu"}
+              aria-label={isBubble ? withPendingLabel(dict.bar.showBar, pending, dict.bar.pending) : openPanel === "menu" ? dict.bar.closeMenu : dict.bar.openMenu}
+              className="relative grid size-16 shrink-0 place-items-center transition-[opacity,scale] duration-300 hover:opacity-70 active:scale-90 md:size-20"
+            >
+              <MenuIcon shape={openPanel === "menu" ? "cross" : isBubble ? "dots" : "lines"} className="size-6 md:size-8" />
+              {isBubble && <NotificationBadge count={pending} className="absolute top-0.5 right-0.5" />}
+            </button>
+          </div>
         </div>
       </div>
       {confirmation}
@@ -126,6 +155,11 @@ function pendingCount(action: AccountAction, session: Session | null, incomingFr
   return incomingFriendRequests + (session?.noPasskey ? 1 : 0);
 }
 
+/** A button's label, with how many things wait for the account when any do. */
+function withPendingLabel(label: string, pending: number, pendingTemplate: string) {
+  return pending > 0 ? `${label}, ${format(pendingTemplate, { count: pending })}` : label;
+}
+
 const TILE_BUTTON = "relative cursor-pointer rounded-lg transition-transform active:scale-95 md:rounded-xl";
 
 /** The account's face, or a sign-in icon, with a count of what waits for it; a spinner while either is on its way. */
@@ -154,7 +188,7 @@ function AccountTile({
     );
   }
 
-  const withPending = (label: string) => (pending > 0 ? `${label}, ${format(dict.bar.pending, { count: pending })}` : label);
+  const withPending = (label: string) => withPendingLabel(label, pending, dict.bar.pending);
   const badge = <NotificationBadge count={pending} className="absolute -top-1 -right-1" />;
 
   if (action.kind === "sign-in") {

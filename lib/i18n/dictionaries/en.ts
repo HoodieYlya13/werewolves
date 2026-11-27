@@ -500,6 +500,7 @@ const shared = {
   bar: {
     openMenu: "Open the menu",
     closeMenu: "Close the menu",
+    showBar: "Show the menu bar",
     openAccount: "Open your account",
     closeAccount: "Close your account",
     signInInvite: "Sign in to keep your name, photo and stats",
