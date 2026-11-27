@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Clock, Crown, Eye, EyeOff, FlaskConical, Hand, Layers, Megaphone, Moon, SkipForward, Skull, ThumbsDown, ThumbsUp, Volume2, VolumeX } from "lucide-react";
+import { Check, Clock, Crown, Eye, EyeOff, Hand, Layers, Megaphone, Moon, SkipForward, Skull, Volume2, VolumeX } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { HoldProgressRing } from "@/components/hold-progress-ring";
 import { useHoldToReveal } from "@/hooks/use-hold-to-reveal";
@@ -11,12 +11,12 @@ import { Avatar, formatDuration, useRoomContext, type Send, useName } from "@/co
 import { Button } from "@/components/ui/button";
 import { chooseVoice, hushVoice, setVoice, unlockVoice, useSpeaking, useVoiceLocked, useVoiceOn, useVoices, useVoiceSupport } from "@/hooks/use-narrator";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { pickAction, type PhoneTurn } from "@/lib/auto";
+import type { PhoneTurn } from "@/lib/auto";
 import { format } from "@/lib/i18n/config";
-import type { ClientMessage, PlayerView } from "@/lib/protocol";
+import type { PlayerView } from "@/lib/protocol";
 import { unlockSound } from "@/lib/sound";
-import { unreachable } from "@/lib/exhaustive";
-import { PickList } from "@/components/game/pick-list";
+import { phoneTurnOf } from "./turn-screens";
+import type { PhoneTurnKind, PhoneTurnScreen } from "./turn-parts";
 
 
 /** Eyes closed: nothing on the screen, unless it's this player's turn. */
@@ -259,84 +259,16 @@ export function NarratorCard({ view, send }: { view: PlayerView; send: Send }) {
 // --- leading ---
 export function TurnPanel({ view, turn, send }: { view: PlayerView; turn: PhoneTurn; send: Send }) {
   const { dict } = useI18n();
-  const name = useName();
-  const t = dict.auto;
-  const act = (action: Extract<ClientMessage, { type: "play" }>["action"]) => send({ type: "play", action });
-
-  let body: React.ReactNode;
-  switch (turn.kind) {
-    case "pick":
-      body = <PickTurn turn={turn} onConfirm={(ids) => act(pickAction(turn, ids))} />;
-      break;
-    case "wolves":
-      body = <WolvesTurn turn={turn} me={view.me!.id} send={send} />;
-      break;
-    case "witch":
-      body = <WitchTurn turn={turn} onConfirm={(heal, poisonId) => act({ type: "witch", heal, poisonId })} />;
-      break;
-    case "cards":
-      body = <CardsTurn turn={turn} onConfirm={(pick) => act(turn.step === "thief" ? { type: "thief", pick } : { type: "choose", value: pick })} />;
-      break;
-    case "choice":
-      body = <ChoiceTurn turn={turn} onConfirm={(value) => act({ type: "choose", value })} />;
-      break;
-    case "seer-result":
-      body = (
-        <div className="flex flex-col items-center gap-2 text-center">
-          <p className="text-2xl">{format(dict.game.steps["seer-result"].reveal, { target: name(turn.targetId) })}</p>
-          <RoleName role={turn.role} className="font-display text-5xl font-bold" />
-        </div>
-      );
-      break;
-    case "fox-result": {
-      const f = dict.game.steps["fox-result"];
-      body = (
-        <div className="flex flex-col items-center gap-2 text-center">
-          {/* Laid out like the Seer's: the sentence, then the answer in the card's big type. */}
-          <p className="text-2xl">{turn.hasWolf ? f.yes : f.no}</p>
-          <ul className={`flex flex-col gap-1 font-display text-4xl font-bold wrap-anywhere ${turn.hasWolf ? "text-primary" : "text-ok"}`}>
-            {turn.playerIds.map((id) => (
-              <li key={id}>{name(id)}</li>
-            ))}
-          </ul>
-        </div>
-      );
-      break;
-    }
-    case "check":
-      body = (
-        <p className="text-center text-2xl font-semibold text-balance">
-          {turn.message === "lover" ? format(t.check.lover, { name: name(turn.partnerId!) }) : t.check[turn.message]}
-        </p>
-      );
-      break;
-    case "group":
-      body = (
-        <div className="flex flex-col items-center gap-4">
-          <p className="text-xl font-semibold">{t.group[turn.group]}</p>
-          <ul className="flex flex-wrap justify-center gap-3">
-            {turn.ids.map((id) => (
-              <li key={id} className="flex flex-col items-center gap-1">
-                <Avatar playerId={id} name={name(id)} className="size-16 text-xl" />
-                <span className="max-w-24 text-center font-medium wrap-anywhere">{name(id)}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      );
-      break;
-    default:
-      unreachable(turn);
-  }
-  const title = turn.kind === "pick" ? t.turn[turn.step] : turn.kind === "wolves" ? dict.auto.wolvesName : turn.kind === "witch" ? dict.roles.witch.name : null;
-  // News for this player alone, read with others' eyes possibly open: only while held, and the same face-down panel for everyone.
-  const secret = turn.kind === "check" || turn.kind === "group" || turn.kind === "seer-result" || turn.kind === "fox-result";
+  const { Screen, title, isSecret } = phoneTurnOf(turn.kind) as PhoneTurnScreen<PhoneTurnKind>;
+  const body = <Screen view={view} turn={turn} send={send} />;
+  const heading = title?.(dict, turn);
   return (
     <section className="card flex flex-col gap-4 p-4 ring-2 ring-moon/50">
-      <p className="text-xs font-semibold tracking-[0.2em] text-moon uppercase">{t.yourTurn}</p>
-      {title && <h2 className="-mt-2 text-xl font-semibold">{title}</h2>}
-      {secret ? <HoldToSee>{body}</HoldToSee> : body}
-      {secret ? <LookButton view={view} send={send} /> : <TurnClock view={view} send={send} />}
+      <p className="text-xs font-semibold tracking-[0.2em] text-moon uppercase">{dict.auto.yourTurn}</p>
+      {heading && <h2 className="-mt-2 text-xl font-semibold">{heading}</h2>}
+      {/* News for this player alone, read with others' eyes possibly open: only while held, and the same face-down panel for everyone. */}
+      {isSecret ? <HoldToSee>{body}</HoldToSee> : body}
+      {isSecret ? <LookButton view={view} send={send} /> : <TurnClock view={view} send={send} />}
     </section>
   );
 }
@@ -431,294 +363,5 @@ function TurnClock({ view, send }: { view: PlayerView; send: Send }) {
         </Button>
       )}
     </div>
-  );
-}
-/** A choice only counts once confirmed: one stray tap never plays a turn. */
-function PlayButton({ ready, onClick, label }: { ready: boolean; onClick: () => void; label?: string }) {
-  const { dict } = useI18n();
-  return (
-    <Button type="button" className="h-12 text-base" disabled={!ready} onClick={onClick}>
-      <Check aria-hidden className="size-5" />
-      {label ?? dict.game.confirm}
-    </Button>
-  );
-}
-/** A plain option that's picked, then confirmed. */
-function OptionButton({ on, onClick, children, className = "" }: { on: boolean; onClick: () => void; children: React.ReactNode; className?: string }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={onClick}
-      className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border-2 px-3 py-2 text-center font-semibold ${on ? "border-primary bg-primary/10" : "border-line bg-surface-2"} ${className}`}
-    >
-      {children}
-    </button>
-  );
-}
-function CardsTurn({ turn, onConfirm }: { turn: Extract<PhoneTurn, { kind: "cards" }>; onConfirm: (pick: number | null) => void }) {
-  const { dict } = useI18n();
-  const t = dict.auto;
-  // undefined: nothing picked yet; null: keeping one's card (or no power).
-  const [pick, setPick] = useState<number | null | undefined>(undefined);
-  return (
-    <>
-      <p className="text-muted-foreground">{turn.step === "thief" ? t.thiefHint : t.actorHint}</p>
-      <div className={`grid gap-3 ${turn.cards.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
-        {turn.cards.map((role, i) => (
-          <OptionButton key={i} on={pick === i} onClick={() => setPick(i)} className="aspect-[3/4] p-3 text-lg">
-            <RoleName role={role} />
-          </OptionButton>
-        ))}
-      </div>
-      {turn.canKeep && (
-        <OptionButton on={pick === null} onClick={() => setPick(null)}>
-          {turn.step === "thief" ? t.keep : t.noPower}
-        </OptionButton>
-      )}
-      <PlayButton ready={pick !== undefined} onClick={() => onConfirm(pick ?? null)} />
-    </>
-  );
-}
-function ChoiceTurn({ turn, onConfirm }: { turn: Extract<PhoneTurn, { kind: "choice" }>; onConfirm: (value: string | boolean) => void }) {
-  const { dict } = useI18n();
-  const name = useName();
-  const t = dict.auto;
-  const steps = dict.game.steps;
-  const [value, setValue] = useState<string | boolean | null>(null);
-  const [question, options]: [string, { label: string; value: string | boolean }[]] =
-    turn.step === "wolf-hound"
-      ? [steps["wolf-hound"].say, [{ label: steps["wolf-hound"].village, value: "village" }, { label: steps["wolf-hound"].wolves, value: "wolves" }]]
-      : [
-          turn.step === "infect" ? format(t.infect, { name: name(turn.victimId!) }) : turn.step === "servant" ? format(t.servantChoice, { name: name(turn.victimId!) }) : t.judge,
-          [
-            { label: t.yes, value: true },
-            { label: t.no, value: false },
-          ],
-        ];
-  return (
-    <>
-      <p className="text-xl font-semibold">{question}</p>
-      <div className="grid grid-cols-2 gap-2">
-        {options.map((o) => (
-          <OptionButton key={String(o.value)} on={value === o.value} onClick={() => setValue(o.value)} className="min-h-14 text-base">
-            {o.label}
-          </OptionButton>
-        ))}
-      </div>
-      <PlayButton ready={value !== null} onClick={() => onConfirm(value!)} />
-    </>
-  );
-}
-function toggle(list: string[], id: string, max: number) {
-  if (list.includes(id)) return list.filter((x) => x !== id);
-  return max === 1 ? [id] : list.length < max ? [...list, id] : list;
-}
-function PickTurn({ turn, onConfirm }: { turn: Extract<PhoneTurn, { kind: "pick" }>; onConfirm: (ids: string[]) => void }) {
-  const { dict } = useI18n();
-  const name = useName();
-  const [selected, setSelected] = useState<string[]>([]);
-  const [nobody, setNobody] = useState(false);
-  const skipLabel = (dict.game.steps as Record<string, { skip?: string }>)[turn.step]?.skip;
-  const valid = selected.length >= turn.min && selected.length <= turn.max;
-  return (
-    <>
-      {turn.lastId && <p className="text-sm text-muted-foreground">{format(dict.auto.lastProtected, { name: name(turn.lastId) })}</p>}
-      <PickList
-        targets={turn.targets}
-        selected={selected}
-        onToggle={(id) => {
-          setNobody(false);
-          setSelected((s) => toggle(s, id, turn.max));
-        }}
-      />
-      {turn.skip && (
-        <OptionButton
-          on={nobody}
-          onClick={() => {
-            setNobody(!nobody);
-            setSelected([]);
-          }}
-        >
-          {skipLabel ?? dict.auto.no}
-        </OptionButton>
-      )}
-      <PlayButton ready={nobody || valid} onClick={() => onConfirm(nobody ? [] : selected)} />
-    </>
-  );
-}
-function WolvesTurn({ turn, me, send }: { turn: Extract<PhoneTurn, { kind: "wolves" }>; me: string; send: Send }) {
-  const { dict } = useI18n();
-  const name = useName();
-  const mine = turn.picks[me] ?? null;
-  // The pick only reaches the pack once confirmed.
-  const [draft, setDraft] = useState<string | null>(mine);
-  return (
-    <>
-      <p className="text-sm text-muted-foreground">{dict.auto.wolvesHint}</p>
-      <ul className="grid grid-cols-2 gap-2">
-        {turn.targets.map((id) => {
-          const pickers = turn.wolves.filter((w) => turn.picks[w] === id);
-          return (
-            <li key={id}>
-              <button
-                type="button"
-                aria-pressed={draft === id}
-                onClick={() => setDraft(draft === id ? null : id)}
-                className={`flex min-h-14 w-full flex-col items-start gap-1 rounded-xl border-2 px-2 py-2 text-left font-semibold ${draft === id ? "border-primary bg-primary/10" : mine === id ? "border-dashed border-primary/60" : "border-line bg-surface-2"}`}
-              >
-                <span className="flex w-full items-center gap-2">
-                  <Avatar playerId={id} name={name(id)} className="size-8" />
-                  <span className="min-w-0 flex-1 wrap-anywhere">{name(id)}</span>
-                </span>
-                {pickers.length > 0 && (
-                  <span className="flex -space-x-1">
-                    {pickers.map((w) => (
-                      <Avatar key={w} playerId={w} name={name(w)} className="size-5 ring-2 ring-surface" />
-                    ))}
-                  </span>
-                )}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      <PlayButton ready={draft !== mine} onClick={() => send({ type: "wolf-pick", targetId: draft })} label={draft === null && mine ? dict.auto.withdrawPick : undefined} />
-      {turn.wolves.length > 1 && (
-        <div className="text-sm">
-          <p className="mb-1 font-medium">{dict.auto.wolvesPicks}</p>
-          <ul className="flex flex-col gap-0.5 text-muted-foreground">
-            {turn.wolves.map((w) => (
-              <li key={w}>
-                {name(w)} → {turn.picks[w] ? name(turn.picks[w]) : dict.auto.noPick}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </>
-  );
-}
-function WitchTurn({ turn, onConfirm }: { turn: Extract<PhoneTurn, { kind: "witch" }>; onConfirm: (heal: boolean, poisonId: string | null) => void }) {
-  const { dict } = useI18n();
-  const name = useName();
-  const t = dict.game.steps.witch;
-  // One question at a time: the healing potion, then the poison. With a game master,
-  // each when they ask it (`turn.ask`); without, one after the other.
-  const [mine, setMine] = useState<"heal" | "poison" | "target">("heal");
-  const [heal, setHeal] = useState(false);
-  const [poison, setPoison] = useState<string[]>([]);
-  const led = turn.ask !== undefined;
-  const healed = led ? (turn.healed ?? false) : heal;
-  const stage = !led ? mine : turn.ask === "poison" ? (mine === "target" ? "target" : "poison") : turn.ask === "heal" && turn.healed != null ? "answered" : turn.ask;
-  const victim = turn.victimId ? name(turn.victimId) : null;
-  // Each answer is picked, then confirmed: a slip of the thumb doesn't waste a potion.
-  const [choice, setChoice] = useState<{ stage: string; yes: boolean } | null>(null);
-  const asking = `${stage}`;
-  const picked = choice && choice.stage === asking ? choice.yes : null;
-  const answer = (onYes: () => void, onNo: () => void) => (
-    <>
-      <div className="grid grid-cols-2 gap-2">
-        <OptionButton on={picked === true} onClick={() => setChoice({ stage: asking, yes: true })}>
-          <ThumbsUp aria-hidden className="size-5" />
-          {dict.auto.yes}
-        </OptionButton>
-        <OptionButton on={picked === false} onClick={() => setChoice({ stage: asking, yes: false })}>
-          <ThumbsDown aria-hidden className="size-5" />
-          {dict.auto.no}
-        </OptionButton>
-      </div>
-      <PlayButton
-        ready={picked !== null}
-        onClick={() => {
-          setChoice(null);
-          (picked ? onYes : onNo)();
-        }}
-      />
-    </>
-  );
-  const back = (to: "heal" | "poison") =>
-    (!led || to === "poison") && (
-      <Button type="button" variant="ghost" className="h-10" onClick={() => setMine(to)}>
-        {dict.ballot.back}
-      </Button>
-    );
-  const shown = <p className="text-2xl font-semibold wrap-anywhere">{victim ? format(t.victim, { name: victim }) : t.noVictim}</p>;
-
-  if (stage === "show") {
-    return (
-      <>
-        {shown}
-        <p className="text-muted-foreground">{t.wait}</p>
-      </>
-    );
-  }
-  if (stage === "answered") {
-    return (
-      <>
-        {shown}
-        <p className="text-muted-foreground">{format(t.answered, { answer: turn.healed ? dict.auto.yes : dict.auto.no })}</p>
-      </>
-    );
-  }
-  if (stage === "heal") {
-    // With a game master, the answer goes to them now; without, it waits for the poison's.
-    const answerHeal = (yes: boolean) => {
-      if (led) return onConfirm(yes, null);
-      setHeal(yes);
-      setMine("poison");
-    };
-    return (
-      <>
-        {shown}
-        {victim && turn.canHeal ? (
-          <>
-            <p className="flex items-center gap-2 font-medium">
-              <FlaskConical aria-hidden className="size-5 shrink-0 text-ok" />
-              {t.askHeal}
-            </p>
-            {answer(() => answerHeal(true), () => answerHeal(false))}
-          </>
-        ) : (
-          <>
-            <p className="text-muted-foreground">{!turn.hasHealingPotion ? t.cantHeal : victim ? t.cantHealSelf : t.noVictim}</p>
-            <PlayButton ready label={dict.game.continue} onClick={() => answerHeal(false)} />
-          </>
-        )}
-      </>
-    );
-  }
-  if (stage === "poison") {
-    return (
-      <>
-        {healed && victim && <p className="font-medium text-ok wrap-anywhere">{format(t.heal, { name: victim })}</p>}
-        {turn.canPoison ? (
-          <>
-            <p className="flex items-center gap-2 font-medium">
-              <Skull aria-hidden className="size-5 shrink-0 text-primary" />
-              {t.askPoison}
-            </p>
-            {answer(() => setMine("target"), () => onConfirm(healed, null))}
-          </>
-        ) : (
-          <>
-            <p className="text-muted-foreground">{t.cantPoison}</p>
-            <PlayButton ready onClick={() => onConfirm(healed, null)} />
-          </>
-        )}
-        {back("heal")}
-      </>
-    );
-  }
-  return (
-    <>
-      <p className="flex items-center gap-2 font-medium">
-        <Skull aria-hidden className="size-5 shrink-0 text-primary" />
-        {t.poison}
-      </p>
-      <PickList targets={turn.targets} selected={poison} onToggle={(id) => setPoison((s) => toggle(s, id, 1))} />
-      <PlayButton ready={poison.length > 0} onClick={() => onConfirm(healed, poison[0])} />
-      {back("poison")}
-    </>
   );
 }
