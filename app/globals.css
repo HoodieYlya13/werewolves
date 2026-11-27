@@ -303,6 +303,12 @@
     display: block;
   }
 }
+/* Without the install card (installed already, or a browser that can't), it needs less. */
+@container first-screen (height >= 36rem) {
+  .first-screen-content:not(:has(.install-app)) .start-screen-description {
+    display: block;
+  }
+}
 
 /* With a first screen, the page springs back to it, or on to what follows, instead of stopping in between. */
 html:has(.first-screen) {

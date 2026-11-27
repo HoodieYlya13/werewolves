@@ -63,7 +63,7 @@ export function InstallApp() {
   if (!prompt && !ios) return null;
 
   return (
-    <div className="flex flex-col items-center gap-2 text-center">
+    <div className="install-app flex flex-col items-center gap-2 text-center">
       <Button
         variant="outline"
         onClick={async () => {
