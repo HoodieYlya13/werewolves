@@ -62,7 +62,7 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
       <body className="font-sans antialiased">
         <I18nProvider locale={locale} dict={dict}>
           {/* No header any more: the gap it left at the top, and the bar floats over the end of a page as it hides there. */}
-          <div className="flex min-h-dvh flex-col pt-[calc(env(safe-area-inset-top)+2rem)] pb-[env(safe-area-inset-bottom)]">
+          <div className="flex min-h-dvh flex-col pt-(--page-top) pb-[env(safe-area-inset-bottom)]">
             <ResumeRooms />
             {children}
           </div>

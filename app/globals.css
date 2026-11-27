@@ -137,6 +137,13 @@
     @media (width >= 48rem) {
       --bar-gap: 1.5rem;
     }
+    /* Below the status bar: where pages start, and where the back-to-your-room banner floats. */
+    --page-top: calc(env(safe-area-inset-top) + 2rem);
+    /* What the closed bottom bar covers at the bottom of the screen, with a gap above it too. */
+    --bar-space: calc(5rem + 2 * var(--bar-gap));
+    @media (width >= 48rem) {
+      --bar-space: calc(6rem + 2 * var(--bar-gap));
+    }
   }
   /* No scrollbars: they take room from the layout. Everything still scrolls. */
   * {
@@ -269,6 +276,17 @@
 /* Taps go through to the page while it fades. */
 ::view-transition {
   pointer-events: none;
+}
+
+/* A page's first screen: everything between the top and the bottom bar, at least tall enough for its content on a small window. */
+.first-screen {
+  min-height: max(32rem, calc(100dvh - var(--page-top) - var(--bar-space)));
+}
+
+/* With a first screen, the page springs back to it, or on to what follows, instead of stopping in between. */
+html:has(.first-screen) {
+  scroll-snap-type: y mandatory;
+  scroll-padding-top: var(--page-top);
 }
 
 /* The page stays put behind an open bottom-bar panel. */
