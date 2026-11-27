@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { GROW_MS, type BubbleShape } from "./bubble-motion";
+import { STEP_MS, type BubbleShape } from "./bubble-motion";
 
 const FOLD_AFTER_MS = 4000;
 /** The panel's own closing time: the bar folds only once it has. */
@@ -15,14 +15,13 @@ type BubbleOptions = {
 };
 
 /**
- * In a room, the bar rests as a bubble. Tapped, it grows into a circle as
- * tall as the bar, then into the bar itself, and
- * folds back once left alone for a moment, on a tap elsewhere, when scrolling
- * hides it, or when its panel closes.
+ * In a room, the bar rests as a bubble in the corner. Tapped, it grows into
+ * a circle as tall as the bar on its way back from the corner, then stretches
+ * into the bar; it folds back the same way once left alone for a moment, on
+ * a tap elsewhere, when scrolling hides it, or when its panel closes.
  */
 export function useBubble({ isInRoom, isOpen, isVisible, barRef }: BubbleOptions) {
   const [isUnfolded, setIsUnfolded] = useState(false);
-  const [isGrown, setIsGrown] = useState(false);
   const [lastTouch, setLastTouch] = useState(0);
   const [shownOpen, setShownOpen] = useState(isOpen);
   const [shownVisible, setShownVisible] = useState(isVisible);
@@ -37,8 +36,11 @@ export function useBubble({ isInRoom, isOpen, isVisible, barRef }: BubbleOptions
     if (!isVisible) setIsUnfolded(false);
   }
 
-  if (!isUnfolded && isGrown) setIsGrown(false);
-  useGrowIntoBar(isInRoom && isUnfolded && !isGrown, setIsGrown);
+  const target: BubbleShape = !isInRoom || isOpen || isUnfolded ? "bar" : "bubble";
+  const [shape, setShape] = useState<BubbleShape>(target);
+  // Outside rooms, or with a panel open, the whole bar at once.
+  if ((!isInRoom || isOpen) && shape !== "bar") setShape("bar");
+  useStepToward(shape, target, setShape);
 
   const isWaitingToFold = isInRoom && isUnfolded && !isOpen;
   useFoldAfterIdle(isWaitingToFold, lastTouch, setIsUnfolded);
@@ -46,27 +48,22 @@ export function useBubble({ isInRoom, isOpen, isVisible, barRef }: BubbleOptions
   useFoldOncePanelClosed(isPanelClosing, setIsUnfolded, setIsPanelClosing);
 
   return {
-    shape: shapeOf({ isInRoom, isOpen, isUnfolded, isGrown }),
+    shape,
     unfold: () => setIsUnfolded(true),
     keepUnfolded: () => setLastTouch(Date.now()),
   };
 }
 
-function shapeOf({ isInRoom, isOpen, isUnfolded, isGrown }: { isInRoom: boolean; isOpen: boolean; isUnfolded: boolean; isGrown: boolean }): BubbleShape {
-  if (!isInRoom || isOpen) return "bar";
-  if (!isUnfolded) return "bubble";
-  return isGrown ? "bar" : "circle";
-}
-
 type SetUnfolded = (isUnfolded: boolean) => void;
 
-/** Once the circle has grown (and slid back from the corner first, where it does), it stretches into the bar. */
-function useGrowIntoBar(isGrowing: boolean, setIsGrown: (isGrown: boolean) => void) {
+/** One step at a time through the circle: a step starts at once from either end, and once the circle is reached from the middle. */
+function useStepToward(shape: BubbleShape, target: BubbleShape, setShape: (shape: BubbleShape) => void) {
   useEffect(() => {
-    if (!isGrowing) return;
-    const timeout = setTimeout(() => setIsGrown(true), GROW_MS());
+    if (shape === target) return;
+    const isInTheMiddle = shape === "circle";
+    const timeout = setTimeout(() => setShape(isInTheMiddle ? target : "circle"), isInTheMiddle ? STEP_MS : 0);
     return () => clearTimeout(timeout);
-  }, [isGrowing, setIsGrown]);
+  }, [shape, target, setShape]);
 }
 
 /** The timer restarts on each touch of the bar. */

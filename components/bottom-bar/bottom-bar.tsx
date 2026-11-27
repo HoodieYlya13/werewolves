@@ -72,7 +72,7 @@ function Bar({ isInRoom }: { isInRoom: boolean }) {
       <MenuBackdrop isOpen={isOpen} onClose={close} />
       {/* The bar's full width: the bubble shrinks toward its right end, where the menu button stays. */}
       <div
-        className="@container pointer-events-none fixed bottom-(--bar-gap) left-1/2 z-40 flex w-[95%] max-w-2xl justify-end transition-transform duration-500 ease-in-out [--slide:0ms] min-[44.25rem]:[--slide:200ms]"
+        className="@container pointer-events-none fixed bottom-(--bar-gap) left-1/2 z-40 flex w-[95%] max-w-2xl justify-end transition-transform duration-500 ease-in-out"
         style={{ transform: `translate(-50%, ${isVisibleOnScroll || isOpen ? "0" : "calc(100% + 2rem)"})` }}
       >
         {/* Its shape and place; the bar inside clips its content, while the bubble's badge overlaps its edge. */}
@@ -103,7 +103,7 @@ function Bar({ isInRoom }: { isInRoom: boolean }) {
             {/* As wide as the whole bar even in the bubble, which clips it from the left. */}
             <div
               className={`relative flex w-[100cqw] shrink-0 items-center justify-between self-end ${isBubble ? "h-14 p-0" : isOpen ? "h-22 px-2 pt-4 pb-2 md:h-26" : "h-20 px-2 py-2 md:h-24"}`}
-              style={rowMotion(shape)}
+              style={rowMotion}
             >
               <span
                 aria-hidden
@@ -121,7 +121,7 @@ function Bar({ isInRoom }: { isInRoom: boolean }) {
                 onClick={isFolded ? unfold : () => toggle("menu")}
                 aria-expanded={openPanel === "menu"}
                 aria-label={isFolded ? withPendingLabel(dict.bar.showBar, pending, dict.bar.pending) : openPanel === "menu" ? dict.bar.closeMenu : dict.bar.openMenu}
-                className={`relative grid shrink-0 place-items-center transition-[opacity,scale,width,height] duration-200 hover:opacity-70 active:scale-90 ${isBubble ? "size-14" : "size-16 md:size-20"}`}
+                className={`relative grid shrink-0 place-items-center transition-[opacity,scale,width,height] duration-250 hover:opacity-70 active:scale-90 ${isBubble ? "size-14" : "size-16 md:size-20"}`}
               >
                 <MenuIcon shape={openPanel === "menu" ? "cross" : isFolded ? "dots" : "lines"} className="size-6 md:size-8" />
               </button>
@@ -138,10 +138,10 @@ function Bar({ isInRoom }: { isInRoom: boolean }) {
   );
 }
 
-/** The bar's width and corners in each shape: a small circle, a circle as tall as the bar, the whole bar. */
+/** The bar's width and corners in each shape: a small circle, a square as tall as the bar with its corners (a circle on phones), the whole bar. */
 const BAR_SHAPE: Record<BubbleShape, string> = {
   bubble: "w-14 rounded-[1.75rem]",
-  circle: "w-20 rounded-[2.5rem] md:w-24 md:rounded-[3rem]",
+  circle: "w-20 rounded-concentric sm:rounded-xl md:w-24 md:rounded-2xl",
   bar: "w-full rounded-concentric sm:rounded-xl md:rounded-2xl",
 };
 
