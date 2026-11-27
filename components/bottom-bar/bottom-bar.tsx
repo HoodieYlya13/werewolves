@@ -8,7 +8,7 @@ import { AccountPanel } from "@/components/bottom-bar/account-panel";
 import { BarIcon, BarSpinner, BarTile, NotificationBadge } from "@/components/bottom-bar/bar-row";
 import { MenuIcon } from "@/components/bottom-bar/menu-icon";
 import { MenuPanel } from "@/components/bottom-bar/menu-panel";
-import { barMotion, rowMotion } from "@/components/bottom-bar/bubble-motion";
+import { barMotion, rowMotion, type BubbleShape } from "@/components/bottom-bar/bubble-motion";
 import { useBubble } from "@/components/bottom-bar/use-bubble";
 import { useI18n } from "@/components/i18n-provider";
 import { Face } from "@/components/room-context";
@@ -58,7 +58,10 @@ function Bar({ isInRoom }: { isInRoom: boolean }) {
   const incomingFriendRequests = useIncomingFriendRequests(session?.stats ? session.account?.sub : undefined);
   const pending = pendingCount(accountAction, session, incomingFriendRequests);
   const barRef = useRef<HTMLDivElement>(null);
-  const { isBubble, unfold, keepUnfolded } = useBubble({ isInRoom, isOpen, isVisible: isVisibleOnScroll, barRef });
+  const { shape, unfold, keepUnfolded } = useBubble({ isInRoom, isOpen, isVisible: isVisibleOnScroll, barRef });
+  const isBubble = shape === "bubble";
+  // The bubble and the circle it grows into: only the menu button shows.
+  const isFolded = shape !== "bar";
 
   function closeOnLinkClick(event: React.MouseEvent) {
     if ((event.target as HTMLElement).closest("a")) close();
@@ -72,60 +75,75 @@ function Bar({ isInRoom }: { isInRoom: boolean }) {
         className="@container pointer-events-none fixed bottom-(--bar-gap) left-1/2 z-40 flex w-[95%] max-w-2xl justify-end transition-transform duration-500 ease-in-out [--slide:0ms] min-[44.25rem]:[--slide:200ms]"
         style={{ transform: `translate(-50%, ${isVisibleOnScroll || isOpen ? "0" : "calc(100% + 2rem)"})` }}
       >
+        {/* Its shape and place; the bar inside clips its content, while the bubble's badge overlaps its edge. */}
         <div
           ref={barRef}
           data-bar-open={isOpen || undefined}
           onClick={closeOnLinkClick}
           onPointerDown={keepUnfolded}
-          className={`theme-dark pointer-events-auto flex max-h-[calc(100dvh-env(safe-area-inset-top)-2*var(--bar-gap))] flex-col overflow-hidden text-fg shadow-lg backdrop-blur-md ${isBubble ? "w-14 rounded-[1.75rem]" : "w-full rounded-concentric sm:rounded-xl md:rounded-2xl"} ${isOpen ? "bg-bg/70" : "bg-(--bar-veil)"}`}
-          style={barMotion(isBubble)}
+          className={`theme-dark pointer-events-auto relative text-fg ${BAR_SHAPE[shape]}`}
+          style={barMotion(shape)}
         >
-          {/* Shrinks and scrolls when the screen is too short for the whole panel above the bar. */}
           <div
-            className="min-h-0 overflow-y-auto overscroll-contain transition-[height] duration-500 ease-in-out"
-            style={{ height: isOpen ? panelHeight : 0 }}
-            onTransitionEnd={onPanelTransitionEnd}
+            className={`flex max-h-[calc(100dvh-env(safe-area-inset-top)-2*var(--bar-gap))] flex-col overflow-hidden rounded-[inherit] shadow-lg backdrop-blur-md transition-[background-color] duration-500 ${isOpen ? "bg-bg/70" : "bg-(--bar-veil)"}`}
           >
-            <div ref={panelContentRef}>
-              {/* Keyed: switching panels replays the rows' entrance while the height follows. */}
-              {renderedPanel === "menu" && <MenuPanel key="menu" />}
-              {renderedPanel === "account" && session?.account && <AccountPanel key="account" session={session} incomingFriendRequests={incomingFriendRequests} onSignOut={signOut} />}
+            {/* Shrinks and scrolls when the screen is too short for the whole panel above the bar. */}
+            <div
+              className="min-h-0 overflow-y-auto overscroll-contain transition-[height] duration-500 ease-in-out"
+              style={{ height: isOpen ? panelHeight : 0 }}
+              onTransitionEnd={onPanelTransitionEnd}
+            >
+              <div ref={panelContentRef}>
+                {/* Keyed: switching panels replays the rows' entrance while the height follows. */}
+                {renderedPanel === "menu" && <MenuPanel key="menu" />}
+                {renderedPanel === "account" && session?.account && <AccountPanel key="account" session={session} incomingFriendRequests={incomingFriendRequests} onSignOut={signOut} />}
+              </div>
+            </div>
+
+            {/* As wide as the whole bar even in the bubble, which clips it from the left. */}
+            <div
+              className={`relative flex w-[100cqw] shrink-0 items-center justify-between self-end ${isBubble ? "h-14 p-0" : isOpen ? "h-22 px-2 pt-4 pb-2 md:h-26" : "h-20 px-2 py-2 md:h-24"}`}
+              style={rowMotion(shape)}
+            >
+              <span
+                aria-hidden
+                className={`absolute top-0 left-[2.5%] h-px w-[95%] origin-left bg-fg/20 transition-transform duration-250 ease-in-out ${isOpen ? "scale-x-100 delay-500" : "scale-x-0"}`}
+              />
+              <span inert={isFolded} className="flex min-w-0 flex-1 items-center gap-4">
+                <AccountTile action={accountAction} redirect={redirect} pending={pending} isAccountOpen={openPanel === "account"} isBarOpen={isOpen} />
+                <span className="flex min-w-0 flex-1 flex-col items-start justify-center gap-0.5">
+                  <SiteTitle className="w-fit font-bold tracking-wide uppercase md:text-lg" />
+                  <AccountLine action={accountAction} redirect={redirect} />
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={isFolded ? unfold : () => toggle("menu")}
+                aria-expanded={openPanel === "menu"}
+                aria-label={isFolded ? withPendingLabel(dict.bar.showBar, pending, dict.bar.pending) : openPanel === "menu" ? dict.bar.closeMenu : dict.bar.openMenu}
+                className={`relative grid shrink-0 place-items-center transition-[opacity,scale,width,height] duration-200 hover:opacity-70 active:scale-90 ${isBubble ? "size-14" : "size-16 md:size-20"}`}
+              >
+                <MenuIcon shape={openPanel === "menu" ? "cross" : isFolded ? "dots" : "lines"} className="size-6 md:size-8" />
+              </button>
             </div>
           </div>
-
-          {/* As wide as the whole bar even in the bubble, which clips it from the left. */}
-          <div
-            className={`relative flex w-[100cqw] shrink-0 items-center justify-between self-end ${isBubble ? "h-14 p-0" : isOpen ? "h-22 px-2 pt-4 pb-2 md:h-26" : "h-20 px-2 py-2 md:h-24"}`}
-            style={rowMotion({ isBubble, isOpen, isInRoom })}
-          >
-            <span
-              aria-hidden
-              className={`absolute top-0 left-[2.5%] h-px w-[95%] origin-left bg-fg/20 transition-transform duration-250 ease-in-out ${isOpen ? "scale-x-100 delay-500" : "scale-x-0"}`}
-            />
-            <span inert={isBubble} className="flex min-w-0 flex-1 items-center gap-4">
-              <AccountTile action={accountAction} redirect={redirect} pending={pending} isAccountOpen={openPanel === "account"} isBarOpen={isOpen} />
-              <span className="flex min-w-0 flex-1 flex-col items-start justify-center gap-0.5">
-                <SiteTitle className="w-fit font-bold tracking-wide uppercase md:text-lg" />
-                <AccountLine action={accountAction} redirect={redirect} />
-              </span>
-            </span>
-            <button
-              type="button"
-              onClick={isBubble ? unfold : () => toggle("menu")}
-              aria-expanded={openPanel === "menu"}
-              aria-label={isBubble ? withPendingLabel(dict.bar.showBar, pending, dict.bar.pending) : openPanel === "menu" ? dict.bar.closeMenu : dict.bar.openMenu}
-              className={`relative grid shrink-0 place-items-center transition-[opacity,scale,width,height] duration-200 hover:opacity-70 active:scale-90 ${isBubble ? "size-14" : "size-16 md:size-20"}`}
-            >
-              <MenuIcon shape={openPanel === "menu" ? "cross" : isBubble ? "dots" : "lines"} className="size-6 md:size-8" />
-              {isBubble && <NotificationBadge count={pending} className="absolute top-0.5 right-0.5" />}
-            </button>
-          </div>
+          {/* The button's label says the count already. */}
+          <span aria-hidden className={`pointer-events-none absolute -top-1 -right-1 transition-opacity duration-200 ${isFolded ? "opacity-100" : "opacity-0"}`}>
+            <NotificationBadge count={pending} />
+          </span>
         </div>
       </div>
       {confirmation}
     </>
   );
 }
+
+/** The bar's width and corners in each shape: a small circle, a circle as tall as the bar, the whole bar. */
+const BAR_SHAPE: Record<BubbleShape, string> = {
+  bubble: "w-14 rounded-[1.75rem]",
+  circle: "w-20 rounded-[2.5rem] md:w-24 md:rounded-[3rem]",
+  bar: "w-full rounded-concentric sm:rounded-xl md:rounded-2xl",
+};
 
 /** Behind an open panel: blurs the page, lightened in dark mode so the dark panel stands out, and closes the panel on click. */
 function MenuBackdrop({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
