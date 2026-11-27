@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { assignRoles, createGame, defaultSettings, type RoleId, type Settings } from "./engine";
-import * as auto from "./auto";
-import en from "./i18n/dictionaries/en";
+import { assignRoles, createGame, defaultSettings, type RoleId, type Settings } from "../engine";
+import * as auto from ".";
+import en from "../i18n/dictionaries/en";
 
 function room(roleList: RoleId[], settings: Partial<Settings> = {}) {
   const players = roleList.map((_, i) => ({ id: `p${i}`, name: `P${i}`, seat: i }));

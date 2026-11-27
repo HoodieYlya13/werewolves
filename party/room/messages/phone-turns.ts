@@ -1,6 +1,6 @@
 import { applyAction, type Action } from "../../../lib/engine";
 import * as auto from "../../../lib/auto";
-import { refuse, type MessageContext, type MessageHandlers, type Outcome } from "./handler";
+import { refuse, type MessageContext, type MessageHandlerGroup, type Outcome } from "./handler";
 import { autoContext, autoRoom, speakerId } from "../auto-runner";
 import { seatOf } from "../seats";
 import { witchAsk } from "../views";
@@ -39,7 +39,7 @@ function answerAutoGame({ room, sender }: MessageContext, answer: AutoAnswer): O
   return answer(game, id, autoContext(room)) ? "changed" : "unchanged";
 }
 
-export const phoneTurnMessages: MessageHandlers = {
+export const phoneTurnMessages = {
   play: async (context, msg) => {
     if (hasGameMaster(context)) return playForGameMaster(context, { kind: "play", action: msg.action });
     const { room, sender } = context;
@@ -61,4 +61,4 @@ export const phoneTurnMessages: MessageHandlers = {
     if (!game || sender.id !== speakerId(room)) return "unchanged";
     return auto.cueDone(game, msg.id, autoContext(room)) ? "changed" : "unchanged";
   },
-};
+} satisfies MessageHandlerGroup;

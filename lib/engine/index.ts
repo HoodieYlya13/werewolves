@@ -1,5 +1,6 @@
 export * from "./types";
-export { roles, roleIds, actorRoles, nightSequence } from "./roles";
+export { roles, roleIds, actorRoles, callsOf } from "./roles";
+export { unannouncedDeadIds } from "./view";
 export { createGame, applyAction, replay } from "./flow";
 export { ENGINE_VERSION, upgradeLog } from "./upgrade";
 export { getWinner, remainingTeams, teamOf } from "./win";

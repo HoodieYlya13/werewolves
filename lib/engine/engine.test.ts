@@ -417,6 +417,7 @@ describe("phone views", () => {
   it("never shows other players' roles, unless revealed on death or at the end", () => {
     const hidden = play(setup(["werewolf", "villager", "villager", "villager"], { settings: { revealRoleOnDeath: false } }), [
       { type: "wolves", targetId: "p1" },
+      go,
     ]);
     expect(publicGame(hidden).dead).toEqual([{ playerId: "p1", role: null }]);
     expect(publicGame(hidden).roles).toBeNull();
@@ -429,6 +430,24 @@ describe("phone views", () => {
       go,
     ]);
     expect(publicGame(over).roles).toEqual({ p0: "werewolf", p1: "villager", p2: "villager" });
+  });
+
+  it("shows the dead alive until the narrator has announced them", () => {
+    const dawn = play(setup(["werewolf", "villager", "villager", "villager", "villager"], { settings: { mayor: true } }), [
+      { type: "wolves", targetId: "p4" },
+      go,
+      { type: "mayor", targetId: "p1" },
+      { type: "vote", targetId: null },
+      { type: "wolves", targetId: "p1" },
+    ]);
+    expect(dawn.step.kind).toBe("deaths");
+    expect(publicGame(dawn).dead.map((d) => d.playerId)).toEqual(["p4"]);
+    expect(publicGame(dawn).mayorId).toBe("p1");
+    expect(playerInfo(dawn, "p1")).toMatchObject({ alive: true, isMayor: true });
+
+    const announced = applyAction(dawn, go);
+    expect(publicGame(announced).dead).toContainEqual({ playerId: "p1", role: "villager" });
+    expect(playerInfo(announced, "p1")!.alive).toBe(false);
   });
 });
 

@@ -1,8 +1,8 @@
 import { addFriend, friendsHere, invite, profile } from "../friends";
-import type { MessageHandlers } from "./handler";
+import type { MessageHandlerGroup } from "./handler";
 
 /** Friend calls answer the sender only: the room itself doesn't change. */
-export const friendMessages: MessageHandlers = {
+export const friendMessages = {
   "add-friend": async ({ room, sender, isHost }, msg) => {
     await addFriend(room, sender, isHost, msg.playerId);
     return "unchanged";
@@ -19,4 +19,4 @@ export const friendMessages: MessageHandlers = {
     await profile(room, sender, isHost, msg.playerId);
     return "unchanged";
   },
-};
+} satisfies MessageHandlerGroup;

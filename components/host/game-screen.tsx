@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ProfileDialog, type ProfileTarget } from "@/components/friends/room-friends";
+import { unreachable } from "@/lib/exhaustive";
 
 const HIDE_ROLES_KEY = "ww:hide-roles";
 
@@ -377,6 +378,8 @@ function EventText({ game, event }: { game: GameState; event: GameEvent }) {
         : t.scapegoatNobody;
     case "second-vote":
       return t["second-vote"];
+    default:
+      return unreachable(event);
   }
 }
 

@@ -26,6 +26,7 @@ import { pickAction, type PhoneTurn } from "@/lib/auto";
 import { format } from "@/lib/i18n/config";
 import type { ClientMessage, PlayerView } from "@/lib/protocol";
 import { unlockSound } from "@/lib/sound";
+import { unreachable } from "@/lib/exhaustive";
 
 type Send = (message: ClientMessage) => void;
 
@@ -520,6 +521,8 @@ export function TurnPanel({ view, turn, send }: { view: PlayerView; turn: PhoneT
         </div>
       );
       break;
+    default:
+      unreachable(turn);
   }
   const title = turn.kind === "pick" ? t.turn[turn.step] : turn.kind === "wolves" ? dict.auto.wolvesName : turn.kind === "witch" ? dict.roles.witch.name : null;
   // News for this player alone, read with others' eyes possibly open: only while held, and the same face-down panel for everyone.

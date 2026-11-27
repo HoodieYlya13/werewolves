@@ -1,10 +1,10 @@
 import * as auto from "../../../lib/auto";
 import { isLocale } from "../../../lib/i18n/config";
-import { refuse, type MessageHandlers } from "./handler";
+import { refuse, type MessageHandlerGroup } from "./handler";
 import { autoRoom, keepAuto, resumeAuto, suddenDeath, speakerId } from "../auto-runner";
 import { reclaimMaster, transferLead } from "../lead";
 
-export const leadMessages: MessageHandlers = {
+export const leadMessages = {
   "reclaim-master": async ({ room, sender }, msg) => {
     // Saves and tells everyone itself.
     await reclaimMaster(room, sender, msg.ticket);
@@ -55,4 +55,4 @@ export const leadMessages: MessageHandlers = {
     state.locale = msg.locale;
     return "changed";
   },
-};
+} satisfies MessageHandlerGroup;

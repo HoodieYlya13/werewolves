@@ -3,7 +3,7 @@ import * as auto from "../../../lib/auto";
 import { WITCH_ASKS } from "../../../lib/auto";
 import { MAX_TIMER_SECONDS, secureRandom } from "../state";
 import type { RoomState } from "../state";
-import { refuse, type MessageHandlers, type Outcome } from "./handler";
+import { refuse, type MessageHandlerGroup, type Outcome } from "./handler";
 import { rememberFormerPlayer, dropSeat, seatOf } from "../seats";
 import { mayorRaceOpen } from "../auto-runner";
 import { buildSetup, sendEngineError } from "../game";
@@ -18,7 +18,7 @@ function castVote(state: RoomState, voterId: string, targetId: string | null): O
   return "changed";
 }
 
-export const gameMessages: MessageHandlers = {
+export const gameMessages = {
   "start-game": async ({ room, sender, isHost, state }, msg) => {
     if (!isHost) return refuse(room, sender, "not-host");
     try {
@@ -202,4 +202,4 @@ export const gameMessages: MessageHandlers = {
     delete ballot.votes[msg.voterId];
     return "changed";
   },
-};
+} satisfies MessageHandlerGroup;

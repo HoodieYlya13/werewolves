@@ -362,14 +362,15 @@ describe("Personnages", () => {
     // Asked before the card is shown.
     const offer = play(s, [wolves("p3"), go, vote("p1")]);
     expect(offer.step).toMatchObject({ kind: "servant", playerId: "p0", victimId: "p1" });
-    expect(publicGame(offer).dead).toContainEqual({ playerId: "p1", role: null });
+    expect(publicGame(offer).dead.map((d) => d.playerId)).not.toContain("p1");
 
     const taken = applyAction(offer, choose(true));
     expect(taken.players[0].role).toBe("hunter");
     expect(taken.step).toMatchObject({ kind: "deaths", deaths: [{ playerId: "p1" }] });
     // The card left face up is hers: the Hunter's stays secret.
-    expect(publicGame(taken).dead).toContainEqual({ playerId: "p1", role: "devoted-servant" });
-    expect(applyAction(taken, go).step.kind).toBe("wolves");
+    const announced = applyAction(taken, go);
+    expect(publicGame(announced).dead).toContainEqual({ playerId: "p1", role: "devoted-servant" });
+    expect(announced.step.kind).toBe("wolves");
 
     const declined = applyAction(offer, choose(false));
     expect(declined.step.kind).toBe("deaths");

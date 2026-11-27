@@ -215,7 +215,6 @@ export class RoomServer extends Server<Env> {
     // Own keys only: a made-up type such as "toString" finds nothing.
     if (!Object.hasOwn(messageHandlers, msg.type)) return;
     const handle = messageHandlers[msg.type] as MessageHandlers[ClientMessage["type"]];
-    if (!handle) return;
     const outcome = await handle({ room: this, sender, isHost, state: this.state }, msg as never);
     if (outcome === "unchanged" || !this.state) return;
 

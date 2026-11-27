@@ -1,6 +1,21 @@
 import { baseTeam, isWolf, shownCard } from "./helpers";
 import { teamOf } from "./win";
-import type { GameState, PhaseRef, RoleId, Team, Winner } from "./types";
+import type { GameState, PhaseRef, RoleId, Step, Team, Winner } from "./types";
+
+/** The step on screen, then the queued ones. */
+const stepsAhead = (state: GameState): Step[] => [state.step, ...state.pending];
+
+/** Dead, but not announced yet: phones show them alive until the narrator has said it. */
+export function unannouncedDeadIds(state: GameState): Set<string> {
+  return new Set(stepsAhead(state).flatMap((step) => (step.kind === "deaths" ? step.deaths.map((death) => death.playerId) : [])));
+}
+
+/** The Mayor as the table knows them: one whose death isn't announced yet still holds the office. */
+function shownMayorId(state: GameState, unannounced: Set<string>): string | null {
+  if (state.mayorId) return state.mayorId;
+  const succession = stepsAhead(state).find((step) => step.kind === "mayor-succession" && unannounced.has(step.playerId));
+  return succession?.kind === "mayor-succession" ? succession.playerId : null;
+}
 
 /** What a phone may know about its own player. Nothing about anyone else's role. */
 export type PlayerInfo = {
@@ -24,14 +39,15 @@ export function playerInfo(state: GameState, playerId: string): PlayerInfo | nul
   const step = state.step;
   const newlyCharmed = step.kind === "charmed" && step.newIds.includes(playerId);
   const team = teamOf(state, player);
+  const unannounced = unannouncedDeadIds(state);
   return {
     role: player.role,
-    alive: player.alive,
+    alive: player.alive || unannounced.has(playerId),
     team: step.kind === "lovers" && team === "lovers" ? baseTeam(player) : team,
     wakesWithWolves: isWolf(player),
     loverId: step.kind !== "lovers" && state.lovers?.includes(playerId) ? (state.lovers.find((id) => id !== playerId) ?? null) : null,
     charmed: !!player.flags.charmed && !newlyCharmed,
-    isMayor: state.mayorId === playerId,
+    isMayor: shownMayorId(state, unannounced) === playerId,
   };
 }
 
@@ -55,14 +71,13 @@ export type PublicGame = {
 
 export function publicGame(state: GameState): PublicGame {
   const reveal = state.setup.settings.revealRoleOnDeath || !!state.winner;
+  const unannounced = unannouncedDeadIds(state);
   return {
     phase: state.phase,
     prologue: state.step.kind === "prologue",
-    mayorId: state.mayorId,
-    // Not while the Devoted Servant may still take the card: it's shown once she has chosen.
-    dead: state.players
-      .filter((p) => !p.alive)
-      .map((p) => ({ playerId: p.id, role: reveal && !(state.step.kind === "servant" && state.step.victimId === p.id) ? shownCard(p) : null })),
+    mayorId: shownMayorId(state, unannounced),
+    // The Devoted Servant chooses before the death is announced: the card shown is the one she left.
+    dead: state.players.filter((p) => !p.alive && !unannounced.has(p.id)).map((p) => ({ playerId: p.id, role: reveal ? shownCard(p) : null })),
     winner: state.winner,
     roles: state.winner ? Object.fromEntries(state.players.map((p) => [p.id, p.role])) : null,
     known: Object.fromEntries(state.players.filter((p) => p.role === "villager-villager").map((p) => [p.id, p.role])),

@@ -15,9 +15,13 @@ export type MessageContext = {
 
 type MessageOf<T extends ClientMessage["type"]> = Extract<ClientMessage, { type: T }>;
 
+/** One handler per message type: a new message the room doesn't handle doesn't compile. */
 export type MessageHandlers = {
-  [T in ClientMessage["type"]]?: (context: MessageContext, message: MessageOf<T>) => Promise<Outcome>;
+  [T in ClientMessage["type"]]: (context: MessageContext, message: MessageOf<T>) => Promise<Outcome>;
 };
+
+/** The handlers of one concern; together they make every message's. */
+export type MessageHandlerGroup = Partial<MessageHandlers>;
 
 /** Tells the sender why their message did nothing. */
 export function refuse(room: RoomServer, conn: Conn, code: ErrorCode): Outcome {

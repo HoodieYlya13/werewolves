@@ -1,11 +1,11 @@
 import { type ConnState, PHOTO_PREFIX, type StoredRequest } from "../state";
-import { refuse, type MessageHandlers } from "./handler";
+import { refuse, type MessageHandlerGroup } from "./handler";
 import { cleanName, validateName, claimAccountName, untangleNames, renamePlayer } from "../names";
 import { addPlayer, storePhoto, bringBack, leaveSeat, answerNewPhone, undoHandover, reseat, isFull, tooManyRequests, dropSeat } from "../seats";
 import { verifyAccount, linkSeat, findAccount, applyAccount, tellAccount, checkOtherRoom } from "../accounts";
 import { isInvited } from "../friends";
 
-export const seatsMessages: MessageHandlers = {
+export const seatsMessages = {
   join: async ({ room, sender, state }, msg) => {
     // Someone who left may also join again as a new player, leaving their old seat behind.
     const canJoin = () => ["guest", "returning", "locked"].includes(sender.state?.kind ?? "");
@@ -282,4 +282,4 @@ export const seatsMessages: MessageHandlers = {
     if (!(await storePhoto(room, player, msg.data))) return "unchanged";
     return "changed";
   },
-};
+} satisfies MessageHandlerGroup;

@@ -12,6 +12,6 @@
     "isolatedModules": true,
     "paths": { "@/*": ["../*"] }
   },
-  "include": ["*.ts", "../lib/engine/**/*.ts", "../lib/protocol.ts", "../lib/ballot.ts", "../lib/account.ts", "../lib/stats.ts", "../lib/ticket.ts", "../lib/auto.ts", "../lib/soundtrack.ts", "../lib/sound-types.ts", "../lib/themes/*.ts", "../lib/i18n/config.ts", "../lib/i18n/dictionaries/*.ts"],
-  "exclude": ["../lib/engine/**/*.test.ts"]
+  "include": ["*.ts", "../lib/engine/**/*.ts", "../lib/protocol.ts", "../lib/ballot.ts", "../lib/account.ts", "../lib/stats.ts", "../lib/ticket.ts", "../lib/auto/**/*.ts", "../lib/roles/**/*.ts", "../lib/steps/**/*.ts", "../lib/soundtrack.ts", "../lib/sound-types.ts", "../lib/themes/*.ts", "../lib/i18n/config.ts", "../lib/i18n/dictionaries/*.ts"],
+  "exclude": ["../lib/**/*.test.ts"]
 }

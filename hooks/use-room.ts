@@ -5,6 +5,7 @@ import usePartySocket from "partysocket/react";
 import type { ClientMessage, ConnectQuery, ErrorCode, RoomView, ServerMessage } from "@/lib/protocol";
 import { clearHostTakeover, identity, isTakingHostOver, partyHost } from "@/lib/room";
 import { getTicket } from "@/lib/session";
+import { ignoreUnknown } from "@/lib/exhaustive";
 
 /** Errors after which reconnecting is pointless. */
 const FATAL: ErrorCode[] = ["room-not-found", "room-taken", "not-host", "room-closed", "host-moved", "too-many-rooms"];
@@ -146,6 +147,8 @@ export function useRoom<V extends RoomView>(code: string, as: V["kind"]) {
           setError(msg.code);
           setIsAwaitingReply(false);
           break;
+        default:
+          ignoreUnknown(msg);
       }
     },
   });

@@ -1,10 +1,10 @@
 import { isLocale } from "../../../lib/i18n/config";
 import type { ConnState } from "../state";
-import { refuse, type MessageHandlers } from "./handler";
+import { refuse, type MessageHandlerGroup } from "./handler";
 import { storePhoto, dropSeat, hostSeat, addHostSeat, removeHostSeat, syncHostSeat } from "../seats";
 import { verifyAccount, completePendingLinks, tellAccount, releaseAccounts } from "../accounts";
 
-export const roomMessages: MessageHandlers = {
+export const roomMessages = {
   "close-room": async ({ room, sender, isHost }) => {
     if (!isHost) return refuse(room, sender, "not-host");
     await releaseAccounts(room);
@@ -64,4 +64,4 @@ export const roomMessages: MessageHandlers = {
     state.endedGame = null;
     return "changed";
   },
-};
+} satisfies MessageHandlerGroup;

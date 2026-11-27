@@ -22,6 +22,7 @@ import { format } from "@/lib/i18n/config";
 import type { AccountClientMessage, AccountServerMessage } from "@/lib/protocol";
 import { hostTakeoverKey, identity, partyHost, takeoverKey } from "@/lib/room";
 import { forgetSession, getTicket, useSession } from "@/lib/session";
+import { ignoreUnknown } from "@/lib/exhaustive";
 
 /**
  * Keeps an account signed in on one device at a time. Mounted on every page;
@@ -113,6 +114,8 @@ function AccountSocket({ sub }: { sub: string }) {
             action: { label: dict.friends.see, onClick: () => router.push(`/${locale}/friends`) },
           });
           break;
+        default:
+          ignoreUnknown(msg);
       }
     },
   });
