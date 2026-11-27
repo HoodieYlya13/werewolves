@@ -1,5 +1,6 @@
 import type { Locale } from "@/lib/i18n/config";
 import type { Dictionary } from "@/lib/i18n/dictionaries/en";
+import { deepMerge } from "../deep-merge";
 import { mafia } from "./mafia";
 import { spaceship } from "./spaceship";
 import { vampires } from "./vampires";
@@ -56,7 +57,7 @@ export function themeDictionary(dict: Dictionary, themeId: string | undefined, l
     : null;
   const swap = (s: string) => (pattern ? s.replace(pattern, (m) => swaps[m]) : s);
 
-  const themed = merge(mapStrings(dict, swap), theme.overrides?.[locale]) as Dictionary;
+  const themed = deepMerge(mapStrings(dict, swap), theme.overrides?.[locale]) as Dictionary;
   cache.set(key, themed);
   return themed;
 }
@@ -68,13 +69,4 @@ function mapStrings(value: unknown, fn: (s: string) => string): unknown {
     return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, mapStrings(v, fn)]));
   }
   return value;
-}
-
-function merge(base: unknown, patch: unknown): unknown {
-  // Lists (narration lines) are replaced whole.
-  if (Array.isArray(patch)) return patch;
-  if (!patch || typeof patch !== "object" || !base || typeof base !== "object") return patch ?? base;
-  const out: Record<string, unknown> = { ...(base as Record<string, unknown>) };
-  for (const [k, v] of Object.entries(patch)) out[k] = merge(out[k], v);
-  return out;
 }
