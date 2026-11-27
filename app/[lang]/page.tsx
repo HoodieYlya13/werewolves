@@ -41,34 +41,39 @@ export default async function HomePage() {
       <JsonLd data={app} />
       {/* Starting a game, all at once between the top and the bottom bar. */}
       <div className="first-screen snap-start">
-        <div className="first-screen-content flex flex-col justify-center gap-4 sm:gap-8">
-          <div className="flex flex-col gap-3 text-center sm:gap-4">
-            <h1 className="font-display text-4xl font-bold tracking-wide sm:text-6xl">{dict.app.name}</h1>
-            {/* Where the first screen is tall enough; else it waits below it. */}
-            <p className="start-screen-description mx-auto max-w-xl text-balance text-muted-foreground">{dict.app.tagline}</p>
+        <div className="first-screen-content flex flex-col justify-center">
+          {/* Centered on its own: the install card hangs below it, so it never moves the rest as it shows up. */}
+          <div className="relative flex flex-col gap-4 sm:gap-8">
+            <div className="flex flex-col gap-3 text-center sm:gap-4">
+              <h1 className="font-display text-4xl font-bold tracking-wide sm:text-6xl">{dict.app.name}</h1>
+              {/* Where the first screen is tall enough; else it waits below it. */}
+              <p className="start-screen-description mx-auto max-w-xl text-balance text-muted-foreground">{dict.app.tagline}</p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <section className="card flex flex-col gap-3 p-5 sm:gap-4 sm:p-6">
+                <div className="flex items-center gap-3">
+                  <Crown aria-hidden className="size-6 shrink-0 text-moon" />
+                  <h2 className="text-xl font-semibold">{dict.home.hostTitle}</h2>
+                </div>
+                <p className="text-sm text-muted-foreground">{dict.home.hostDescription}</p>
+                <CreateRoomButton />
+              </section>
+
+              <section className="card flex flex-col gap-3 p-5 sm:gap-4 sm:p-6">
+                <div className="flex items-center gap-3">
+                  <Smartphone aria-hidden className="size-6 shrink-0 text-moon" />
+                  <h2 className="text-xl font-semibold">{dict.home.joinTitle}</h2>
+                </div>
+                <p className="text-sm text-muted-foreground">{dict.home.joinDescription}</p>
+                <JoinForm />
+              </section>
+            </div>
+
+            <div className="absolute inset-x-0 top-full pt-4 sm:pt-8">
+              <InstallApp />
+            </div>
           </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <section className="card flex flex-col gap-3 p-5 sm:gap-4 sm:p-6">
-              <div className="flex items-center gap-3">
-                <Crown aria-hidden className="size-6 shrink-0 text-moon" />
-                <h2 className="text-xl font-semibold">{dict.home.hostTitle}</h2>
-              </div>
-              <p className="text-sm text-muted-foreground">{dict.home.hostDescription}</p>
-              <CreateRoomButton />
-            </section>
-
-            <section className="card flex flex-col gap-3 p-5 sm:gap-4 sm:p-6">
-              <div className="flex items-center gap-3">
-                <Smartphone aria-hidden className="size-6 shrink-0 text-moon" />
-                <h2 className="text-xl font-semibold">{dict.home.joinTitle}</h2>
-              </div>
-              <p className="text-sm text-muted-foreground">{dict.home.joinDescription}</p>
-              <JoinForm />
-            </section>
-          </div>
-
-          <InstallApp />
         </div>
       </div>
 

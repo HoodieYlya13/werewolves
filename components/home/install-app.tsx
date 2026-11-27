@@ -63,7 +63,7 @@ export function InstallApp() {
   if (!prompt && !ios) return null;
 
   return (
-    <div className="install-app flex flex-col items-center gap-2 text-center">
+    <div className="flex flex-col items-center gap-2 text-center">
       <Button
         variant="outline"
         onClick={async () => {
@@ -76,8 +76,8 @@ export function InstallApp() {
         <Download aria-hidden />
         {t.button}
       </Button>
-      {/* On the home's first screen, a short screen keeps the button alone so the whole start of a game fits. */}
-      <p className="max-w-sm text-sm text-pretty text-muted-foreground [@container_first-screen_(height<36rem)]:hidden">{t.hint}</p>
+      {/* On the home's first screen, a short narrow one keeps the button alone, clear of the bottom bar. */}
+      <p className="max-w-sm text-sm text-pretty text-muted-foreground [@container_first-screen_(height<41rem)_and_(width<44rem)]:hidden">{t.hint}</p>
 
       <Dialog open={guide} onOpenChange={setGuide}>
         <DialogContent closeLabel={dict.host.close} className="max-w-[min(26rem,calc(100vw-2rem))] sm:max-w-[26rem]">

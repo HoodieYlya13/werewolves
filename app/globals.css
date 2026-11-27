@@ -298,15 +298,17 @@
 .start-screen-description {
   display: none;
 }
-@container first-screen (height >= 44rem) or ((width >= 44rem) and (height >= 30rem)) {
+@container first-screen (height >= 46rem) or ((width >= 44rem) and (height >= 30rem)) {
   .start-screen-description {
     display: block;
   }
 }
-/* Without the install card (installed already, or a browser that can't), it needs less. */
-@container first-screen (height >= 36rem) {
-  .first-screen-content:not(:has(.install-app)) .start-screen-description {
-    display: block;
+/* The installed app shows no install card below the cards: the description needs less. */
+@media (display-mode: standalone) {
+  @container first-screen (height >= 36rem) {
+    .start-screen-description {
+      display: block;
+    }
   }
 }
 
