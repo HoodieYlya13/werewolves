@@ -8,6 +8,7 @@ import { AccountPanel } from "@/components/bottom-bar/account-panel";
 import { BarIcon, BarSpinner, BarTile, NotificationBadge } from "@/components/bottom-bar/bar-row";
 import { MenuIcon } from "@/components/bottom-bar/menu-icon";
 import { MenuPanel } from "@/components/bottom-bar/menu-panel";
+import { barMotion, rowMotion } from "@/components/bottom-bar/bubble-motion";
 import { useBubble } from "@/components/bottom-bar/use-bubble";
 import { useI18n } from "@/components/i18n-provider";
 import { Face } from "@/components/room-context";
@@ -68,7 +69,7 @@ function Bar({ isInRoom }: { isInRoom: boolean }) {
       <MenuBackdrop isOpen={isOpen} onClose={close} />
       {/* The bar's full width: the bubble shrinks toward its right end, where the menu button stays. */}
       <div
-        className="@container pointer-events-none fixed bottom-(--bar-gap) left-1/2 z-40 flex w-[95%] max-w-2xl justify-end transition-transform duration-500 ease-in-out"
+        className="@container pointer-events-none fixed bottom-(--bar-gap) left-1/2 z-40 flex w-[95%] max-w-2xl justify-end transition-transform duration-500 ease-in-out [--slide:0ms] min-[44.25rem]:[--slide:200ms]"
         style={{ transform: `translate(-50%, ${isVisibleOnScroll || isOpen ? "0" : "calc(100% + 2rem)"})` }}
       >
         <div
@@ -76,7 +77,8 @@ function Bar({ isInRoom }: { isInRoom: boolean }) {
           data-bar-open={isOpen || undefined}
           onClick={closeOnLinkClick}
           onPointerDown={keepUnfolded}
-          className={`theme-dark pointer-events-auto flex max-h-[calc(100dvh-env(safe-area-inset-top)-2*var(--bar-gap))] flex-col overflow-hidden text-fg shadow-lg backdrop-blur-md transition-all duration-500 ease-in-out rounded-concentric sm:rounded-xl md:rounded-2xl ${isBubble ? "w-20 md:w-24" : "w-full"} ${isOpen ? "bg-bg/70" : "bg-(--bar-veil)"}`}
+          className={`theme-dark pointer-events-auto flex max-h-[calc(100dvh-env(safe-area-inset-top)-2*var(--bar-gap))] flex-col overflow-hidden text-fg shadow-lg backdrop-blur-md ${isBubble ? "w-14 rounded-[1.75rem]" : "w-full rounded-concentric sm:rounded-xl md:rounded-2xl"} ${isOpen ? "bg-bg/70" : "bg-(--bar-veil)"}`}
+          style={barMotion(isBubble)}
         >
           {/* Shrinks and scrolls when the screen is too short for the whole panel above the bar. */}
           <div
@@ -92,7 +94,10 @@ function Bar({ isInRoom }: { isInRoom: boolean }) {
           </div>
 
           {/* As wide as the whole bar even in the bubble, which clips it from the left. */}
-          <div className={`relative flex w-[100cqw] shrink-0 items-center justify-between self-end px-2 pb-2 transition-[padding] duration-500 ${isOpen ? "pt-4" : "pt-2"}`}>
+          <div
+            className={`relative flex w-[100cqw] shrink-0 items-center justify-between self-end ${isBubble ? "h-14 p-0" : isOpen ? "h-22 px-2 pt-4 pb-2 md:h-26" : "h-20 px-2 py-2 md:h-24"}`}
+            style={rowMotion({ isBubble, isOpen, isInRoom })}
+          >
             <span
               aria-hidden
               className={`absolute top-0 left-[2.5%] h-px w-[95%] origin-left bg-fg/20 transition-transform duration-250 ease-in-out ${isOpen ? "scale-x-100 delay-500" : "scale-x-0"}`}
@@ -109,7 +114,7 @@ function Bar({ isInRoom }: { isInRoom: boolean }) {
               onClick={isBubble ? unfold : () => toggle("menu")}
               aria-expanded={openPanel === "menu"}
               aria-label={isBubble ? withPendingLabel(dict.bar.showBar, pending, dict.bar.pending) : openPanel === "menu" ? dict.bar.closeMenu : dict.bar.openMenu}
-              className="relative grid size-16 shrink-0 place-items-center transition-[opacity,scale] duration-300 hover:opacity-70 active:scale-90 md:size-20"
+              className={`relative grid shrink-0 place-items-center transition-[opacity,scale,width,height] duration-200 hover:opacity-70 active:scale-90 ${isBubble ? "size-14" : "size-16 md:size-20"}`}
             >
               <MenuIcon shape={openPanel === "menu" ? "cross" : isBubble ? "dots" : "lines"} className="size-6 md:size-8" />
               {isBubble && <NotificationBadge count={pending} className="absolute top-0.5 right-0.5" />}

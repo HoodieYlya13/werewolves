@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 
 const FOLD_AFTER_MS = 4000;
+/** The panel's own closing time: the bar folds only once it has. */
+const PANEL_CLOSE_MS = 500;
 
 type BubbleOptions = {
   isInRoom: boolean;
@@ -22,9 +24,10 @@ export function useBubble({ isInRoom, isOpen, isVisible, barRef }: BubbleOptions
   const [shownOpen, setShownOpen] = useState(isOpen);
   const [shownVisible, setShownVisible] = useState(isVisible);
 
+  const [isPanelClosing, setIsPanelClosing] = useState(false);
   if (shownOpen !== isOpen) {
     setShownOpen(isOpen);
-    if (!isOpen) setIsUnfolded(false);
+    setIsPanelClosing(!isOpen);
   }
   if (shownVisible !== isVisible) {
     setShownVisible(isVisible);
@@ -34,6 +37,7 @@ export function useBubble({ isInRoom, isOpen, isVisible, barRef }: BubbleOptions
   const isWaitingToFold = isInRoom && isUnfolded && !isOpen;
   useFoldAfterIdle(isWaitingToFold, lastTouch, setIsUnfolded);
   useFoldOnTapElsewhere(isWaitingToFold, barRef, setIsUnfolded);
+  useFoldOncePanelClosed(isPanelClosing, setIsUnfolded, setIsPanelClosing);
 
   return {
     isBubble: isInRoom && !isOpen && !isUnfolded,
@@ -62,4 +66,16 @@ function useFoldOnTapElsewhere(isWaiting: boolean, barRef: React.RefObject<HTMLE
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [isWaiting, barRef, setIsUnfolded]);
+}
+
+/** Closing its panel folds the bar too, once the panel is gone: one way at a time. */
+function useFoldOncePanelClosed(isPanelClosing: boolean, setIsUnfolded: SetUnfolded, setIsPanelClosing: (isClosing: boolean) => void) {
+  useEffect(() => {
+    if (!isPanelClosing) return;
+    const timeout = setTimeout(() => {
+      setIsUnfolded(false);
+      setIsPanelClosing(false);
+    }, PANEL_CLOSE_MS);
+    return () => clearTimeout(timeout);
+  }, [isPanelClosing, setIsUnfolded, setIsPanelClosing]);
 }
