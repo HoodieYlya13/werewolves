@@ -1,7 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n-provider";
-import { RoleName } from "@/components/host/role-chip";
+import { RoleName } from "@/components/game/role-chip";
 import { format } from "@/lib/i18n/config";
 import { shownCard } from "@/lib/engine";
 import { announcedDeaths, announcesPowersLost, nobodyDiedLine } from "./steps";

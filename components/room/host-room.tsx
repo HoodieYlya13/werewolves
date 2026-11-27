@@ -3,8 +3,6 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { BadgeCheck, ChevronDown, ChevronUp, Copy, Crown, GripVertical, History, Layers, Lock, LockOpen, Pencil, Share2, Smartphone, UserPlus, Users, X } from "lucide-react";
-import { GiveLeadDialog, LeaderBar, LostLeaderCard } from "@/components/play/auto-game";
-import { InGame, UsernameChoice } from "@/components/play/player-room";
 import { AccountLinks } from "@/components/account-page-link";
 import { PhotoPicker } from "@/components/photo-picker";
 import { useNarrator, useWakeLock } from "@/hooks/use-narrator";
@@ -14,15 +12,7 @@ import { toast } from "sonner";
 import { GameScreen } from "@/components/host/game-screen";
 import { ThemedI18n } from "@/components/themed-i18n";
 import { BackHome } from "@/components/back-home";
-import {
-  AddFriendButton,
-  InviteFriendsButton,
-  ProfileDialog,
-  type ProfileTarget,
-  useFriendToasts,
-  useFriendsHere,
-  useFriendsInRoom,
-} from "@/components/friends/room-friends";
+import { AddFriendButton, InviteFriendsButton, ProfileDialog, type ProfileTarget, useFriendToasts, useFriendsHere, useFriendsInRoom } from "@/components/friends/room-friends";
 import { CloseRoomButton } from "@/components/host/close-room-button";
 import { useDragSort } from "@/components/host/drag-sort";
 import { PlayerEditor } from "@/components/host/player-editor";
@@ -42,6 +32,9 @@ import { generateRoomCode, identity } from "@/lib/room";
 import { getTicket, useSession } from "@/lib/session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LostLeaderCard, GiveLeadDialog, LeaderBar } from "@/components/game/lead";
+import { InGame } from "@/components/phone/in-game";
+import { UsernameChoice } from "@/components/phone/seat-cards";
 
 /** Errors the game master sees as toasts (the others end the session). */
 const HOST_TOASTS: ErrorCode[] = ["name-taken", "invalid-name", "game-in-progress", "invalid-setup", "invalid-action", "invalid-account", "account-in-use", "room-full"];

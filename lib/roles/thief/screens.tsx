@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Check, Smartphone } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { Reveal } from "@/components/host/reveal";
-import { RoleName } from "@/components/host/role-chip";
+import { RoleName } from "@/components/game/role-chip";
 import { useRoomContext } from "@/components/room-context";
 import { Button } from "@/components/ui/button";
 import { format } from "@/lib/i18n/config";

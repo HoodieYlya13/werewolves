@@ -3,7 +3,7 @@
 import { useContext, useState } from "react";
 import { useI18n } from "@/components/i18n-provider";
 import { Reveal } from "@/components/host/reveal";
-import { RoleName } from "@/components/host/role-chip";
+import { RoleName } from "@/components/game/role-chip";
 import { format } from "@/lib/i18n/config";
 import type { GameState } from "@/lib/engine";
 import { Say, Do, ContinueButton, PickPlayers, nameOf, Restarted, type StepProps, type StepScreens } from "@/components/host/step-parts";

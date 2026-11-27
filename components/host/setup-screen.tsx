@@ -5,7 +5,7 @@ import { ArrowLeft, ChevronDown, Dices, Eraser, Globe, Hand, History, Minus, Pen
 import { I18nProvider, useI18n } from "@/components/i18n-provider";
 import { JoinRequests } from "@/components/host/join-requests";
 import { useSiteTheme } from "@/components/site-title";
-import { RoleName } from "@/components/host/role-chip";
+import { RoleName } from "@/components/game/role-chip";
 import { format } from "@/lib/i18n/config";
 import {
   actorRoles,

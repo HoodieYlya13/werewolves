@@ -2,7 +2,7 @@
 
 import { Crown, Heart, Music, Star } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
-import { RoleName } from "@/components/host/role-chip";
+import { RoleName } from "@/components/game/role-chip";
 import { Avatar } from "@/components/room-context";
 import { wildChildOf, type GameState, type Player } from "@/lib/engine";
 import { format } from "@/lib/i18n/config";

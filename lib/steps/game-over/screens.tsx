@@ -3,7 +3,7 @@
 import { CircleUserRound, Trophy } from "lucide-react";
 import { AuthButton } from "@/components/account-button";
 import { useI18n } from "@/components/i18n-provider";
-import { RoleName } from "@/components/host/role-chip";
+import { RoleName } from "@/components/game/role-chip";
 import { useSession } from "@/lib/session";
 import { Say, type StepProps, type StepScreens } from "@/components/host/step-parts";
 

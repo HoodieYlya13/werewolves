@@ -1,24 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Clock, Crown, Eye, EyeOff, FlaskConical, Hand, HeartCrack, Layers, Megaphone, Moon, Pause, Play, SkipForward, Skull, ThumbsDown, ThumbsUp, Volume2, VolumeX } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Check, Clock, Crown, Eye, EyeOff, FlaskConical, Hand, Layers, Megaphone, Moon, SkipForward, Skull, ThumbsDown, ThumbsUp, Volume2, VolumeX } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { HoldProgressRing } from "@/components/hold-progress-ring";
 import { useHoldToReveal } from "@/hooks/use-hold-to-reveal";
-import { RoleName } from "@/components/host/role-chip";
-import { Timeline } from "@/components/host/game-screen";
-import { Avatar, formatDuration, useRoomContext } from "@/components/room-context";
+import { RoleName } from "@/components/game/role-chip";
+import { Timeline } from "@/components/game/timeline";
+import { Avatar, formatDuration, useRoomContext, type Send, useName } from "@/components/room-context";
 import { Button } from "@/components/ui/button";
 import { chooseVoice, hushVoice, setVoice, unlockVoice, useSpeaking, useVoiceLocked, useVoiceOn, useVoices, useVoiceSupport } from "@/hooks/use-narrator";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
@@ -27,13 +16,8 @@ import { format } from "@/lib/i18n/config";
 import type { ClientMessage, PlayerView } from "@/lib/protocol";
 import { unlockSound } from "@/lib/sound";
 import { unreachable } from "@/lib/exhaustive";
+import { PickList } from "@/components/game/pick-list";
 
-type Send = (message: ClientMessage) => void;
-
-const useName = () => {
-  const { players } = useRoomContext();
-  return (id: string) => players.find((p) => p.id === id)?.name ?? "?";
-};
 
 /** Eyes closed: nothing on the screen, unless it's this player's turn. */
 export function AutoNight({ view, send }: { view: PlayerView; send: Send }) {
@@ -47,7 +31,6 @@ export function AutoNight({ view, send }: { view: PlayerView; send: Send }) {
     </section>
   );
 }
-
 /** By day: a turn of this player's, someone else's secret choice, the debate. */
 export function AutoDay({ view, send }: { view: PlayerView; send: Send }) {
   const { dict } = useI18n();
@@ -81,7 +64,6 @@ export function AutoDay({ view, send }: { view: PlayerView; send: Send }) {
     </>
   );
 }
-
 /** Running for Mayor, with or without a game master: until one is elected. */
 export function MayorRace({ view, send }: { view: PlayerView; send: Send }) {
   const { dict } = useI18n();
@@ -104,7 +86,6 @@ export function MayorRace({ view, send }: { view: PlayerView; send: Send }) {
     </section>
   );
 }
-
 /** The cards in play: listed for everyone, or only the deck's kind when nobody may know. */
 export function DeckCard({ view }: { view: PlayerView }) {
   const { dict } = useI18n();
@@ -137,7 +118,6 @@ export function DeckCard({ view }: { view: PlayerView }) {
     </details>
   );
 }
-
 /** Dead without a game master, or a game master who handed it over: everyone's role and everything that happened. */
 export function Spectator({ view, former = false }: { view: PlayerView; former?: boolean }) {
   const { dict } = useI18n();
@@ -169,7 +149,6 @@ export function Spectator({ view, former = false }: { view: PlayerView; former?:
     </section>
   );
 }
-
 /** On the narrator device: what it's reading, its voice (off until turned on), and the narration's language. */
 export function NarratorCard({ view, send }: { view: PlayerView; send: Send }) {
   const { dict } = useI18n();
@@ -277,182 +256,7 @@ export function NarratorCard({ view, send }: { view: PlayerView; send: Send }) {
     </section>
   );
 }
-
 // --- leading ---
-
-/** The game is paused: by the leader, or because the leader's phone is gone. */
-export function PauseBanner({ view }: { view: PlayerView }) {
-  const { dict } = useI18n();
-  if (!view.pause) return null;
-  return (
-    <p role="status" className="flex items-center gap-2 rounded-xl border border-moon/40 bg-moon/10 px-4 py-3">
-      <Pause aria-hidden className="size-5 shrink-0 text-moon" />
-      {format(view.pause.reason === "manual" ? dict.lead.paused : dict.lead.leaderGone, { name: view.pause.leader, next: view.pause.next })}
-    </p>
-  );
-}
-
-/** On the new leader's screen: the one whose device went silent, until they're settled. */
-export function LostLeaderCard({ name, send }: { name: string; send: Send }) {
-  const { dict } = useI18n();
-  return (
-    <section className="card flex flex-col gap-3 p-4 ring-2 ring-moon/50">
-      <p className="font-semibold">{format(dict.lead.lostLeader, { name })}</p>
-      <p className="text-sm text-muted-foreground">{dict.lead.lostLeaderHint}</p>
-      <Button type="button" variant="outline" className="h-11 self-start" onClick={() => send({ type: "succession", dead: true })}>
-        <HeartCrack aria-hidden className="size-4" />
-        {format(dict.lead.lostLeaderDead, { name })}
-      </Button>
-    </section>
-  );
-}
-
-/** With a game master: their screen is gone and nobody dead can take over. */
-export function MasterGoneCard({ onLeave }: { onLeave: () => void }) {
-  const { dict } = useI18n();
-  return (
-    <section role="alert" className="card flex flex-col gap-3 p-4 ring-2 ring-primary/50">
-      <p className="font-semibold">{dict.lead.masterGone}</p>
-      <Button type="button" variant="outline" className="h-11 self-start" onClick={onLeave}>
-        {dict.lead.leaveGame}
-      </Button>
-    </section>
-  );
-}
-
-/** Picks who takes the room over: players whose phone is connected (and, if given, who `eligible` allows). */
-export function GiveLeadDialog({
-  open,
-  onClose,
-  hint,
-  eligible = () => true,
-  send,
-  exclude,
-}: {
-  open: boolean;
-  onClose: () => void;
-  hint: string;
-  eligible?: (id: string) => boolean;
-  send: Send;
-  exclude?: string | null;
-}) {
-  const { dict } = useI18n();
-  const { players } = useRoomContext();
-  const candidates = players.filter((p) => p.connected && !p.manual && !p.left && p.id !== exclude && eligible(p.id));
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent closeLabel={dict.host.close}>
-        <DialogHeader>
-          <DialogTitle>{dict.lead.title}</DialogTitle>
-          <DialogDescription>{hint}</DialogDescription>
-        </DialogHeader>
-        {candidates.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{dict.lead.nobody}</p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {candidates.map((p) => (
-              <li key={p.id}>
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-3 rounded-xl border-2 border-line bg-surface-2 px-3 py-2 text-left font-semibold hover:border-primary"
-                  onClick={() => {
-                    send({ type: "give-lead", playerId: p.id });
-                    onClose();
-                  }}
-                >
-                  <Avatar playerId={p.id} name={p.name} className="size-8" />
-                  <span className="min-w-0 flex-1 truncate">{format(dict.lead.give, { name: p.name })}</span>
-                  <Crown aria-hidden className="size-4 text-moon" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/** A living player declared out for good: picked, then confirmed. */
-export function SuddenDeathDialog({ open, onClose, living, send }: { open: boolean; onClose: () => void; living: string[]; send: Send }) {
-  const { dict } = useI18n();
-  const name = useName();
-  const [target, setTarget] = useState<string | null>(null);
-  return (
-    <>
-      <Dialog open={open && !target} onOpenChange={(o) => !o && onClose()}>
-        <DialogContent closeLabel={dict.host.close}>
-          <DialogHeader>
-            <DialogTitle>{dict.lead.suddenDeath}</DialogTitle>
-            <DialogDescription>{dict.lead.suddenDeathHint}</DialogDescription>
-          </DialogHeader>
-          <PickList targets={living} selected={[]} onToggle={setTarget} />
-        </DialogContent>
-      </Dialog>
-      <AlertDialog open={!!target} onOpenChange={(o) => !o && setTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{format(dict.lead.suddenDeathConfirm, { name: target ? name(target) : "" })}</AlertDialogTitle>
-            <AlertDialogDescription>{dict.lead.suddenDeathHint}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{dict.host.cancel}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (target) send({ type: "sudden-death", playerId: target });
-                setTarget(null);
-                onClose();
-              }}
-            >
-              {dict.lead.suddenDeath}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
-  );
-}
-
-/** The leading phone's tools, without a game master: pause by day, sudden death, then `children` (the quit menu) on the right. */
-export function LeaderBar({ view, paused, send, children }: { view: PlayerView; paused: boolean; send: Send; children?: React.ReactNode }) {
-  const { dict } = useI18n();
-  const [dying, setDying] = useState(false);
-  const game = view.game;
-  if (!game) return null;
-  const over = !!game.winner;
-  const night = game.phase.kind === "night" && !game.prologue;
-  const dead = new Set(game.dead.map((d) => d.playerId));
-  const living = view.players.filter((p) => !dead.has(p.id)).map((p) => p.id);
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      {over ? null : paused ? (
-        <Button type="button" className="h-10" onClick={() => send({ type: "pause", value: false })}>
-          <Play aria-hidden className="size-4" />
-          {dict.lead.resume}
-        </Button>
-      ) : (
-        !night &&
-        !view.pause && (
-          <Button type="button" variant="outline" className="h-10" onClick={() => send({ type: "pause", value: true })}>
-            <Pause aria-hidden className="size-4" />
-            {dict.lead.pause}
-          </Button>
-        )
-      )}
-      {!over && (
-        <Button type="button" variant="outline" className="h-10" onClick={() => setDying(true)}>
-          <HeartCrack aria-hidden className="size-4" />
-          {dict.lead.suddenDeath}
-        </Button>
-      )}
-      <div className="ml-auto flex items-center gap-2">{children}</div>
-      <SuddenDeathDialog open={dying} onClose={() => setDying(false)} living={living} send={send} />
-    </div>
-  );
-}
-
-// --- turns ---
-
 export function TurnPanel({ view, turn, send }: { view: PlayerView; turn: PhoneTurn; send: Send }) {
   const { dict } = useI18n();
   const name = useName();
@@ -536,7 +340,6 @@ export function TurnPanel({ view, turn, send }: { view: PlayerView; turn: PhoneT
     </section>
   );
 }
-
 /**
  * Face down until held, like the role card: whatever it hides (news, a result,
  * nothing at all) looks the same to anyone glancing at the phone.
@@ -564,7 +367,6 @@ function HoldToSee({ children }: { children: React.ReactNode }) {
     </button>
   );
 }
-
 /**
  * OK, with the time left inside it: done looking (at a card, a message, a
  * result…). Once everyone concerned is, the game moves on; at zero it moves on anyway.
@@ -599,7 +401,6 @@ export function LookButton({ view, send }: { view: PlayerView; send: Send }) {
     </Button>
   );
 }
-
 /** The time left before the turn is skipped; after the last call, "one more minute" once. */
 function TurnClock({ view, send }: { view: PlayerView; send: Send }) {
   const { dict } = useI18n();
@@ -632,7 +433,6 @@ function TurnClock({ view, send }: { view: PlayerView; send: Send }) {
     </div>
   );
 }
-
 /** A choice only counts once confirmed: one stray tap never plays a turn. */
 function PlayButton({ ready, onClick, label }: { ready: boolean; onClick: () => void; label?: string }) {
   const { dict } = useI18n();
@@ -643,7 +443,6 @@ function PlayButton({ ready, onClick, label }: { ready: boolean; onClick: () => 
     </Button>
   );
 }
-
 /** A plain option that's picked, then confirmed. */
 function OptionButton({ on, onClick, children, className = "" }: { on: boolean; onClick: () => void; children: React.ReactNode; className?: string }) {
   return (
@@ -657,7 +456,6 @@ function OptionButton({ on, onClick, children, className = "" }: { on: boolean; 
     </button>
   );
 }
-
 function CardsTurn({ turn, onConfirm }: { turn: Extract<PhoneTurn, { kind: "cards" }>; onConfirm: (pick: number | null) => void }) {
   const { dict } = useI18n();
   const t = dict.auto;
@@ -682,7 +480,6 @@ function CardsTurn({ turn, onConfirm }: { turn: Extract<PhoneTurn, { kind: "card
     </>
   );
 }
-
 function ChoiceTurn({ turn, onConfirm }: { turn: Extract<PhoneTurn, { kind: "choice" }>; onConfirm: (value: string | boolean) => void }) {
   const { dict } = useI18n();
   const name = useName();
@@ -713,38 +510,10 @@ function ChoiceTurn({ turn, onConfirm }: { turn: Extract<PhoneTurn, { kind: "cho
     </>
   );
 }
-
-/** Big buttons with faces, for picking players on a phone. */
-function PickList({ targets, selected, onToggle }: { targets: string[]; selected: string[]; onToggle: (id: string) => void }) {
-  const name = useName();
-  return (
-    <ul className="grid grid-cols-2 gap-2">
-      {targets.map((id) => {
-        const on = selected.includes(id);
-        return (
-          <li key={id}>
-            <button
-              type="button"
-              aria-pressed={on}
-              onClick={() => onToggle(id)}
-              className={`flex min-h-14 w-full items-center gap-2 rounded-xl border-2 px-2 py-2 text-left font-semibold ${on ? "border-primary bg-primary/10" : "border-line bg-surface-2"}`}
-            >
-              <Avatar playerId={id} name={name(id)} className="size-8" />
-              <span className="min-w-0 flex-1 wrap-anywhere">{name(id)}</span>
-              {on && <Check aria-hidden className="size-4 shrink-0 text-primary" />}
-            </button>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
 function toggle(list: string[], id: string, max: number) {
   if (list.includes(id)) return list.filter((x) => x !== id);
   return max === 1 ? [id] : list.length < max ? [...list, id] : list;
 }
-
 function PickTurn({ turn, onConfirm }: { turn: Extract<PhoneTurn, { kind: "pick" }>; onConfirm: (ids: string[]) => void }) {
   const { dict } = useI18n();
   const name = useName();
@@ -778,7 +547,6 @@ function PickTurn({ turn, onConfirm }: { turn: Extract<PhoneTurn, { kind: "pick"
     </>
   );
 }
-
 function WolvesTurn({ turn, me, send }: { turn: Extract<PhoneTurn, { kind: "wolves" }>; me: string; send: Send }) {
   const { dict } = useI18n();
   const name = useName();
@@ -831,7 +599,6 @@ function WolvesTurn({ turn, me, send }: { turn: Extract<PhoneTurn, { kind: "wolv
     </>
   );
 }
-
 function WitchTurn({ turn, onConfirm }: { turn: Extract<PhoneTurn, { kind: "witch" }>; onConfirm: (heal: boolean, poisonId: string | null) => void }) {
   const { dict } = useI18n();
   const name = useName();

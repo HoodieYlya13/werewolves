@@ -34,6 +34,15 @@ export function useRoomContext() {
   return value;
 }
 
+/** Sends a message to the room. */
+export type Send = (message: ClientMessage) => void;
+
+/** Looks up a player's name by id in the room. */
+export function useName() {
+  const { players } = useRoomContext();
+  return (id: string) => players.find((p) => p.id === id)?.name ?? "?";
+}
+
 const AVATAR_COLORS = ["bg-rose-500", "bg-amber-500", "bg-emerald-500", "bg-sky-500", "bg-violet-500", "bg-fuchsia-500", "bg-teal-500", "bg-orange-500"];
 
 function initials(name: string) {

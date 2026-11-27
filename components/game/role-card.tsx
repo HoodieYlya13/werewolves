@@ -4,7 +4,7 @@ import { Crown, Heart, Moon, Music, PawPrint, Skull } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { HoldProgressRing } from "@/components/hold-progress-ring";
 import { useHoldToReveal } from "@/hooks/use-hold-to-reveal";
-import { teamColor } from "@/components/host/role-chip";
+import { teamColor } from "@/components/game/role-chip";
 import { format } from "@/lib/i18n/config";
 import { roles, type PlayerInfo } from "@/lib/engine";
 

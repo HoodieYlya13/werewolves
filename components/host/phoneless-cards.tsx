@@ -4,7 +4,7 @@ import { useEffect, useEffectEvent, useState, useSyncExternalStore } from "react
 import { createPortal } from "react-dom";
 import { Check, Eye } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
-import { RoleCard } from "@/components/play/role-card";
+import { RoleCard } from "@/components/game/role-card";
 import { Avatar, useRoomContext } from "@/components/room-context";
 import { Button } from "@/components/ui/button";
 import { format } from "@/lib/i18n/config";
